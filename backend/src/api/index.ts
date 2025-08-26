@@ -1,6 +1,6 @@
 /// File is generated from https://studio.fabbuilder.com -
 
-const path = require('path');
+import path from 'path';
 import express from 'express';
 import cors from 'cors';
 import { authMiddleware } from '../middlewares/authMiddleware';
@@ -12,6 +12,23 @@ import { createRateLimiter } from './apiRateLimiter';
 import { languageMiddleware } from '../middlewares/languageMiddleware';
 import authSocial from './auth/authSocial';
 import setupSwaggerUI from './apiDocumentation';
+
+// Import API routes
+import auditLogRoutes from './auditLog';
+import authRoutes from './auth';
+import planRoutes from './plan';
+import tenantRoutes from './tenant';
+import fileRoutes from './file';
+import userRoutes from './user';
+import settingsRoutes from './settings';
+import moduleRoutes from './module';
+import requirementRoutes from './requirement';
+import testPlanRoutes from './testPlan';
+import testSuiteRoutes from './testSuite';
+import testCaseRoutes from './testCase';
+import taskRoutes from './task';
+import statusRoutes from './status';
+import tagRoutes from './tag';
 
 const app = express();
 
@@ -64,21 +81,22 @@ const routes = express.Router();
 // Enable Passport for Social Sign-in
 authSocial(app, routes);
 
-require('./auditLog').default(routes);
-require('./auth').default(routes);
-require('./plan').default(routes);
-require('./tenant').default(routes);
-require('./file').default(routes);
-require('./user').default(routes);
-require('./settings').default(routes);
-require('./module').default(routes);
-require('./requirement').default(routes);
-require('./testPlan').default(routes);
-require('./testSuite').default(routes);
-require('./testCase').default(routes);
-require('./task').default(routes);
-require('./status').default(routes);
-require('./tag').default(routes);
+// Register API routes
+auditLogRoutes(routes);
+authRoutes(routes);
+planRoutes(routes);
+tenantRoutes(routes);
+fileRoutes(routes);
+userRoutes(routes);
+settingsRoutes(routes);
+moduleRoutes(routes);
+requirementRoutes(routes);
+testPlanRoutes(routes);
+testSuiteRoutes(routes);
+testCaseRoutes(routes);
+taskRoutes(routes);
+statusRoutes(routes);
+tagRoutes(routes);
 
 // Loads the Tenant if the :tenantId param is passed
 routes.param('tenantId', tenantMiddleware);

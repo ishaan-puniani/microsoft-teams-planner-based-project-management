@@ -5,6 +5,7 @@ import ApiResponseHandler from '../../apiResponseHandler';
 import Error403 from '../../../errors/Error403';
 import { tenantSubdomain } from '../../../services/tenantSubdomain';
 import Error400 from '../../../errors/Error400';
+import stripe from 'stripe';
 
 export default async (req, res) => {
   try {
@@ -15,7 +16,7 @@ export default async (req, res) => {
       );
     }
 
-    const stripe = require('stripe')(
+    const stripeClient = stripe(
       getConfig().PLAN_STRIPE_SECRET_KEY,
     );
 
@@ -41,7 +42,7 @@ export default async (req, res) => {
       !planStripeCustomerId ||
       currentTenant.planUserId !== currentUser.id
     ) {
-      const stripeCustomer = await stripe.customers.create({
+      const stripeCustomer = await stripeClient.customers.create({
         email: currentUser.email,
         metadata: {
           tenantId: currentTenant.id,
@@ -58,7 +59,7 @@ export default async (req, res) => {
     );
 
     const session =
-      await stripe.billingPortal.sessions.create({
+      await stripeClient.billingPortal.sessions.create({
         customer: planStripeCustomerId,
         return_url: `${tenantSubdomain.frontendUrl(
           currentTenant,

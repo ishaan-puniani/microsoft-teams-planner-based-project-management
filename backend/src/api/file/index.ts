@@ -1,14 +1,18 @@
+import upload from './localhost/upload';
+import download from './localhost/download';
+import credentials from './credentials';
+
 export default (app) => {
   app.post(
     `/file/upload`,
-    require('./localhost/upload').default,
+    upload,
   );
   app.get(
     `/file/download`,
-    require('./localhost/download').default,
+    download,
   );
   app.get(
     `/tenant/:tenantId/file/credentials`,
-    require('./credentials').default,
+    credentials,
   );
 };

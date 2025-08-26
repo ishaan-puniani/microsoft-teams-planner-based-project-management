@@ -1,37 +1,46 @@
 /// File is generated from https://studio.fabbuilder.com - status
 
+import statusCreate from './statusCreate';
+import statusUpdate from './statusUpdate';
+import statusImport from './statusImport';
+import statusDestroy from './statusDestroy';
+import statusAutocomplete from './statusAutocomplete';
+import statusCount from './statusCount';
+import statusList from './statusList';
+import statusFind from './statusFind';
+
 export default (app) => {
   app.post(
     `/tenant/:tenantId/status`,
-    require('./statusCreate').default,
+    statusCreate,
   );
   app.put(
     `/tenant/:tenantId/status/:id`,
-    require('./statusUpdate').default,
+    statusUpdate,
   );
   app.post(
     `/tenant/:tenantId/status/import`,
-    require('./statusImport').default,
+    statusImport,
   );
   app.delete(
     `/tenant/:tenantId/status`,
-    require('./statusDestroy').default,
+    statusDestroy,
   );
   app.get(
     `/tenant/:tenantId/status/autocomplete`,
-    require('./statusAutocomplete').default,
+    statusAutocomplete,
   );
   app.get(
     `/tenant/:tenantId/status/count`,
-    require('./statusCount').default,
+    statusCount,
   );
   app.get(
     `/tenant/:tenantId/status`,
-    require('./statusList').default,
+    statusList,
   );
   app.get(
     `/tenant/:tenantId/status/:id`,
-    require('./statusFind').default,
+    statusFind,
   );
 };
 /// File is generated from https://studio.fabbuilder.com - status

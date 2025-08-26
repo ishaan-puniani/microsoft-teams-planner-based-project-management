@@ -1,37 +1,46 @@
 /// File is generated from https://studio.fabbuilder.com - requirement
 
+import requirementCreate from './requirementCreate';
+import requirementUpdate from './requirementUpdate';
+import requirementImport from './requirementImport';
+import requirementDestroy from './requirementDestroy';
+import requirementAutocomplete from './requirementAutocomplete';
+import requirementCount from './requirementCount';
+import requirementList from './requirementList';
+import requirementFind from './requirementFind';
+
 export default (app) => {
   app.post(
     `/tenant/:tenantId/requirement`,
-    require('./requirementCreate').default,
+    requirementCreate,
   );
   app.put(
     `/tenant/:tenantId/requirement/:id`,
-    require('./requirementUpdate').default,
+    requirementUpdate,
   );
   app.post(
     `/tenant/:tenantId/requirement/import`,
-    require('./requirementImport').default,
+    requirementImport,
   );
   app.delete(
     `/tenant/:tenantId/requirement`,
-    require('./requirementDestroy').default,
+    requirementDestroy,
   );
   app.get(
     `/tenant/:tenantId/requirement/autocomplete`,
-    require('./requirementAutocomplete').default,
+    requirementAutocomplete,
   );
   app.get(
     `/tenant/:tenantId/requirement/count`,
-    require('./requirementCount').default,
+    requirementCount,
   );
   app.get(
     `/tenant/:tenantId/requirement`,
-    require('./requirementList').default,
+    requirementList,
   );
   app.get(
     `/tenant/:tenantId/requirement/:id`,
-    require('./requirementFind').default,
+    requirementFind,
   );
 };
 /// File is generated from https://studio.fabbuilder.com - requirement

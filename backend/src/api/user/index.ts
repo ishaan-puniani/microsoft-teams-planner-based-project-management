@@ -1,30 +1,38 @@
+import userCreate from './userCreate';
+import userEdit from './userEdit';
+import userImport from './userImport';
+import userDestroy from './userDestroy';
+import userList from './userList';
+import userAutocomplete from './userAutocomplete';
+import userFind from './userFind';
+
 export default (app) => {
   app.post(
     `/tenant/:tenantId/user`,
-    require('./userCreate').default,
+    userCreate,
   );
   app.put(
     `/tenant/:tenantId/user`,
-    require('./userEdit').default,
+    userEdit,
   );
   app.post(
     `/tenant/:tenantId/user/import`,
-    require('./userImport').default,
+    userImport,
   );
   app.delete(
     `/tenant/:tenantId/user`,
-    require('./userDestroy').default,
+    userDestroy,
   );
   app.get(
     `/tenant/:tenantId/user`,
-    require('./userList').default,
+    userList,
   );
   app.get(
     `/tenant/:tenantId/user/autocomplete`,
-    require('./userAutocomplete').default,
+    userAutocomplete,
   );
   app.get(
     `/tenant/:tenantId/user/:id`,
-    require('./userFind').default,
+    userFind,
   );
 };

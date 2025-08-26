@@ -1,14 +1,18 @@
+import webhook from './stripe/webhook';
+import portal from './stripe/portal';
+import checkout from './stripe/checkout';
+
 export default (app) => {
   app.post(
     `/plan/stripe/webhook`,
-    require('./stripe/webhook').default,
+    webhook,
   );
   app.post(
     `/tenant/:tenantId/plan/stripe/portal`,
-    require('./stripe/portal').default,
+    portal,
   );
   app.post(
     `/tenant/:tenantId/plan/stripe/checkout`,
-    require('./stripe/checkout').default,
+    checkout,
   );
 };

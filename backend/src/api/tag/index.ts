@@ -1,37 +1,46 @@
 /// File is generated from https://studio.fabbuilder.com - tag
 
+import tagCreate from './tagCreate';
+import tagUpdate from './tagUpdate';
+import tagImport from './tagImport';
+import tagDestroy from './tagDestroy';
+import tagAutocomplete from './tagAutocomplete';
+import tagCount from './tagCount';
+import tagList from './tagList';
+import tagFind from './tagFind';
+
 export default (app) => {
   app.post(
     `/tenant/:tenantId/tag`,
-    require('./tagCreate').default,
+    tagCreate,
   );
   app.put(
     `/tenant/:tenantId/tag/:id`,
-    require('./tagUpdate').default,
+    tagUpdate,
   );
   app.post(
     `/tenant/:tenantId/tag/import`,
-    require('./tagImport').default,
+    tagImport,
   );
   app.delete(
     `/tenant/:tenantId/tag`,
-    require('./tagDestroy').default,
+    tagDestroy,
   );
   app.get(
     `/tenant/:tenantId/tag/autocomplete`,
-    require('./tagAutocomplete').default,
+    tagAutocomplete,
   );
   app.get(
     `/tenant/:tenantId/tag/count`,
-    require('./tagCount').default,
+    tagCount,
   );
   app.get(
     `/tenant/:tenantId/tag`,
-    require('./tagList').default,
+    tagList,
   );
   app.get(
     `/tenant/:tenantId/tag/:id`,
-    require('./tagFind').default,
+    tagFind,
   );
 };
 /// File is generated from https://studio.fabbuilder.com - tag

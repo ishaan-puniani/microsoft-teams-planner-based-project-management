@@ -1,37 +1,46 @@
 /// File is generated from https://studio.fabbuilder.com - module
 
+import moduleCreate from './moduleCreate';
+import moduleUpdate from './moduleUpdate';
+import moduleImport from './moduleImport';
+import moduleDestroy from './moduleDestroy';
+import moduleAutocomplete from './moduleAutocomplete';
+import moduleCount from './moduleCount';
+import moduleList from './moduleList';
+import moduleFind from './moduleFind';
+
 export default (app) => {
   app.post(
     `/tenant/:tenantId/module`,
-    require('./moduleCreate').default,
+    moduleCreate,
   );
   app.put(
     `/tenant/:tenantId/module/:id`,
-    require('./moduleUpdate').default,
+    moduleUpdate,
   );
   app.post(
     `/tenant/:tenantId/module/import`,
-    require('./moduleImport').default,
+    moduleImport,
   );
   app.delete(
     `/tenant/:tenantId/module`,
-    require('./moduleDestroy').default,
+    moduleDestroy,
   );
   app.get(
     `/tenant/:tenantId/module/autocomplete`,
-    require('./moduleAutocomplete').default,
+    moduleAutocomplete,
   );
   app.get(
     `/tenant/:tenantId/module/count`,
-    require('./moduleCount').default,
+    moduleCount,
   );
   app.get(
     `/tenant/:tenantId/module`,
-    require('./moduleList').default,
+    moduleList,
   );
   app.get(
     `/tenant/:tenantId/module/:id`,
-    require('./moduleFind').default,
+    moduleFind,
   );
 };
 /// File is generated from https://studio.fabbuilder.com - module

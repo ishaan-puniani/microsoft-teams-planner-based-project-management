@@ -1,9 +1,18 @@
 import { createRateLimiter } from '../apiRateLimiter';
+import authPasswordReset from './authPasswordReset';
+import authSendEmailAddressVerificationEmail from './authSendEmailAddressVerificationEmail';
+import authSendPasswordResetEmail from './authSendPasswordResetEmail';
+import authSignIn from './authSignIn';
+import authSignUp from './authSignUp';
+import authUpdateProfile from './authUpdateProfile';
+import authPasswordChange from './authPasswordChange';
+import authVerifyEmail from './authVerifyEmail';
+import authMe from './authMe';
 
 export default (app) => {
   app.put(
     `/auth/password-reset`,
-    require('./authPasswordReset').default,
+    authPasswordReset,
   );
 
   const emailRateLimiter = createRateLimiter({
@@ -15,14 +24,13 @@ export default (app) => {
   app.post(
     `/auth/send-email-address-verification-email`,
     emailRateLimiter,
-    require('./authSendEmailAddressVerificationEmail')
-      .default,
+    authSendEmailAddressVerificationEmail,
   );
 
   app.post(
     `/auth/send-password-reset-email`,
     emailRateLimiter,
-    require('./authSendPasswordResetEmail').default,
+    authSendPasswordResetEmail,
   );
 
   const signInRateLimiter = createRateLimiter({
@@ -34,7 +42,7 @@ export default (app) => {
   app.post(
     `/auth/sign-in`,
     signInRateLimiter,
-    require('./authSignIn').default,
+    authSignIn,
   );
 
   const signUpRateLimiter = createRateLimiter({
@@ -46,23 +54,23 @@ export default (app) => {
   app.post(
     `/auth/sign-up`,
     signUpRateLimiter,
-    require('./authSignUp').default,
+    authSignUp,
   );
 
   app.put(
     `/auth/profile`,
-    require('./authUpdateProfile').default,
+    authUpdateProfile,
   );
 
   app.put(
     `/auth/change-password`,
-    require('./authPasswordChange').default,
+    authPasswordChange,
   );
 
   app.put(
     `/auth/verify-email`,
-    require('./authVerifyEmail').default,
+    authVerifyEmail,
   );
 
-  app.get(`/auth/me`, require('./authMe').default);
+  app.get(`/auth/me`, authMe);
 };

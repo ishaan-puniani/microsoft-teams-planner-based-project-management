@@ -1,37 +1,46 @@
 /// File is generated from https://studio.fabbuilder.com - testPlan
 
+import testPlanCreate from './testPlanCreate';
+import testPlanUpdate from './testPlanUpdate';
+import testPlanImport from './testPlanImport';
+import testPlanDestroy from './testPlanDestroy';
+import testPlanAutocomplete from './testPlanAutocomplete';
+import testPlanCount from './testPlanCount';
+import testPlanList from './testPlanList';
+import testPlanFind from './testPlanFind';
+
 export default (app) => {
   app.post(
     `/tenant/:tenantId/test-plan`,
-    require('./testPlanCreate').default,
+    testPlanCreate,
   );
   app.put(
     `/tenant/:tenantId/test-plan/:id`,
-    require('./testPlanUpdate').default,
+    testPlanUpdate,
   );
   app.post(
     `/tenant/:tenantId/test-plan/import`,
-    require('./testPlanImport').default,
+    testPlanImport,
   );
   app.delete(
     `/tenant/:tenantId/test-plan`,
-    require('./testPlanDestroy').default,
+    testPlanDestroy,
   );
   app.get(
     `/tenant/:tenantId/test-plan/autocomplete`,
-    require('./testPlanAutocomplete').default,
+    testPlanAutocomplete,
   );
   app.get(
     `/tenant/:tenantId/test-plan/count`,
-    require('./testPlanCount').default,
+    testPlanCount,
   );
   app.get(
     `/tenant/:tenantId/test-plan`,
-    require('./testPlanList').default,
+    testPlanList,
   );
   app.get(
     `/tenant/:tenantId/test-plan/:id`,
-    require('./testPlanFind').default,
+    testPlanFind,
   );
 };
 /// File is generated from https://studio.fabbuilder.com - testPlan

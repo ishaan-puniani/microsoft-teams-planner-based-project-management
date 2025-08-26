@@ -1,6 +1,7 @@
-const express = require('express');
-const fs = require('fs');
-const path = require('path');
+import express from 'express';
+import fs from 'fs';
+import path from 'path';
+import swaggerUiDist from 'swagger-ui-dist';
 
 export default function setupSwaggerUI(app) {
   if (
@@ -21,8 +22,7 @@ export default function setupSwaggerUI(app) {
   };
   app.get('/documentation-config', serveSwaggerDef);
 
-  const swaggerUiAssetPath =
-    require('swagger-ui-dist').getAbsoluteFSPath();
+  const swaggerUiAssetPath = swaggerUiDist.getAbsoluteFSPath();
   const swaggerFiles = express.static(swaggerUiAssetPath);
 
   const urlRegex = /url: "[^"]*",/;

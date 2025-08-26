@@ -1,37 +1,46 @@
 /// File is generated from https://studio.fabbuilder.com - testCase
 
+import testCaseCreate from './testCaseCreate';
+import testCaseUpdate from './testCaseUpdate';
+import testCaseImport from './testCaseImport';
+import testCaseDestroy from './testCaseDestroy';
+import testCaseAutocomplete from './testCaseAutocomplete';
+import testCaseCount from './testCaseCount';
+import testCaseList from './testCaseList';
+import testCaseFind from './testCaseFind';
+
 export default (app) => {
   app.post(
     `/tenant/:tenantId/test-case`,
-    require('./testCaseCreate').default,
+    testCaseCreate,
   );
   app.put(
     `/tenant/:tenantId/test-case/:id`,
-    require('./testCaseUpdate').default,
+    testCaseUpdate,
   );
   app.post(
     `/tenant/:tenantId/test-case/import`,
-    require('./testCaseImport').default,
+    testCaseImport,
   );
   app.delete(
     `/tenant/:tenantId/test-case`,
-    require('./testCaseDestroy').default,
+    testCaseDestroy,
   );
   app.get(
     `/tenant/:tenantId/test-case/autocomplete`,
-    require('./testCaseAutocomplete').default,
+    testCaseAutocomplete,
   );
   app.get(
     `/tenant/:tenantId/test-case/count`,
-    require('./testCaseCount').default,
+    testCaseCount,
   );
   app.get(
     `/tenant/:tenantId/test-case`,
-    require('./testCaseList').default,
+    testCaseList,
   );
   app.get(
     `/tenant/:tenantId/test-case/:id`,
-    require('./testCaseFind').default,
+    testCaseFind,
   );
 };
 /// File is generated from https://studio.fabbuilder.com - testCase

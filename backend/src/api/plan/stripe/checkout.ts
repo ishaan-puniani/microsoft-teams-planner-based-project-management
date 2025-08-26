@@ -5,6 +5,7 @@ import ApiResponseHandler from '../../apiResponseHandler';
 import Error403 from '../../../errors/Error403';
 import Error400 from '../../../errors/Error400';
 import { tenantSubdomain } from '../../../services/tenantSubdomain';
+import stripe from 'stripe';
 
 export default async (req, res) => {
   try {
@@ -15,7 +16,7 @@ export default async (req, res) => {
       );
     }
 
-    const stripe = require('stripe')(
+    const stripeClient = stripe(
       getConfig().PLAN_STRIPE_SECRET_KEY,
     );
 
@@ -41,7 +42,7 @@ export default async (req, res) => {
       !planStripeCustomerId ||
       currentTenant.planUserId !== currentUser.id
     ) {
-      const stripeCustomer = await stripe.customers.create({
+      const stripeCustomer = await stripeClient.customers.create({
         email: currentUser.email,
         metadata: {
           tenantId: currentTenant.id,
@@ -57,7 +58,7 @@ export default async (req, res) => {
       currentUser.id,
     );
 
-    const session = await stripe.checkout.sessions.create({
+    const session = await stripeClient.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: [
         {

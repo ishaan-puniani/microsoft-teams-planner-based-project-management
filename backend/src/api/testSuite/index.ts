@@ -1,37 +1,46 @@
 /// File is generated from https://studio.fabbuilder.com - testSuite
 
+import testSuiteCreate from './testSuiteCreate';
+import testSuiteUpdate from './testSuiteUpdate';
+import testSuiteImport from './testSuiteImport';
+import testSuiteDestroy from './testSuiteDestroy';
+import testSuiteAutocomplete from './testSuiteAutocomplete';
+import testSuiteCount from './testSuiteCount';
+import testSuiteList from './testSuiteList';
+import testSuiteFind from './testSuiteFind';
+
 export default (app) => {
   app.post(
     `/tenant/:tenantId/test-suite`,
-    require('./testSuiteCreate').default,
+    testSuiteCreate,
   );
   app.put(
     `/tenant/:tenantId/test-suite/:id`,
-    require('./testSuiteUpdate').default,
+    testSuiteUpdate,
   );
   app.post(
     `/tenant/:tenantId/test-suite/import`,
-    require('./testSuiteImport').default,
+    testSuiteImport,
   );
   app.delete(
     `/tenant/:tenantId/test-suite`,
-    require('./testSuiteDestroy').default,
+    testSuiteDestroy,
   );
   app.get(
     `/tenant/:tenantId/test-suite/autocomplete`,
-    require('./testSuiteAutocomplete').default,
+    testSuiteAutocomplete,
   );
   app.get(
     `/tenant/:tenantId/test-suite/count`,
-    require('./testSuiteCount').default,
+    testSuiteCount,
   );
   app.get(
     `/tenant/:tenantId/test-suite`,
-    require('./testSuiteList').default,
+    testSuiteList,
   );
   app.get(
     `/tenant/:tenantId/test-suite/:id`,
-    require('./testSuiteFind').default,
+    testSuiteFind,
   );
 };
 /// File is generated from https://studio.fabbuilder.com - testSuite

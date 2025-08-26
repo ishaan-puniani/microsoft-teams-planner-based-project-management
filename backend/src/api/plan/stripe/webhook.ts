@@ -3,14 +3,15 @@ import TenantService from '../../../services/tenantService';
 import Plans from '../../../security/plans';
 import ApiResponseHandler from '../../apiResponseHandler';
 import lodash from 'lodash';
+import stripe from 'stripe';
 
 export default async (req, res) => {
   try {
-    const stripe = require('stripe')(
+    const stripeClient = stripe(
       getConfig().PLAN_STRIPE_SECRET_KEY,
     );
 
-    const event = stripe.webhooks.constructEvent(
+    const event = stripeClient.webhooks.constructEvent(
       req.rawBody,
       req.headers['stripe-signature'],
       getConfig().PLAN_STRIPE_WEBHOOK_SIGNING_SECRET,
@@ -18,7 +19,7 @@ export default async (req, res) => {
 
     if (event.type === 'checkout.session.completed') {
       let data = event.data.object;
-      data = await stripe.checkout.sessions.retrieve(
+      data = await stripeClient.checkout.sessions.retrieve(
         data.id,
         { expand: ['line_items'] },
       );
