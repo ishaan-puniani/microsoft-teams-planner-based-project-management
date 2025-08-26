@@ -1,0 +1,116 @@
+import PropTypes from 'prop-types';
+import { useEffect } from 'react';
+import { useFormContext } from 'react-hook-form';
+import FormErrors from 'src/view/shared/form/formErrors';
+
+export function InputFormItem(props) {
+  const {
+    label,
+    name,
+    hint,
+    type,
+    placeholder,
+    autoFocus,
+    autoComplete,
+    required,
+    externalErrorMessage,
+    disabled,
+    endAdornment,
+  } = props;
+
+  const {
+    setValue,
+    watch,
+    register,
+    formState: { touchedFields, isSubmitted, errors },
+  } = useFormContext();
+
+  const errorMessage = FormErrors.errorMessage(
+    name,
+    errors,
+    touchedFields,
+    isSubmitted,
+    externalErrorMessage,
+  );
+
+  useEffect(() => {
+    register(name);
+  }, [register, name]);
+
+  return (
+    <div className="form-group">
+      <div className={endAdornment ? 'input-group' : ''}>
+        {Boolean(label) && (
+          <label
+            className={`col-form-label ${
+              required ? 'required' : null
+            }`}
+            htmlFor={name}
+          >
+            {label}
+          </label>
+        )}
+        <input
+          id={name}
+          name={name}
+          type={type}
+          value={watch(name)}
+          onChange={(event) => {
+            setValue(name, event.target.value, {
+              shouldValidate: true,
+              shouldDirty: true,
+            });
+            props.onChange &&
+              props.onChange(event.target.value);
+          }}
+          onBlur={(event) => {
+            props.onBlur && props.onBlur(event);
+          }}
+          placeholder={placeholder || undefined}
+          autoFocus={autoFocus || undefined}
+          autoComplete={autoComplete || undefined}
+          disabled={disabled}
+          className={`form-control ${
+            errorMessage ? 'is-invalid' : ''
+          }`}
+        />
+        {endAdornment && (
+          <div className="input-group-append">
+            <span className="input-group-text">
+              {endAdornment}
+            </span>
+          </div>
+        )}
+      </div>
+      <div className="invalid-feedback">{errorMessage}</div>
+      {Boolean(hint) && (
+        <small className="form-text text-muted">
+          {hint}
+        </small>
+      )}
+    </div>
+  );
+}
+
+InputFormItem.defaultProps = {
+  type: 'text',
+  required: false,
+};
+
+InputFormItem.propTypes = {
+  name: PropTypes.string.isRequired,
+  required: PropTypes.bool,
+  type: PropTypes.string,
+  label: PropTypes.string,
+  hint: PropTypes.string,
+  autoFocus: PropTypes.bool,
+  disabled: PropTypes.bool,
+  prefix: PropTypes.string,
+  placeholder: PropTypes.string,
+  autoComplete: PropTypes.string,
+  externalErrorMessage: PropTypes.string,
+  endAdornment: PropTypes.any,
+  onChange: PropTypes.any,
+};
+
+export default InputFormItem;

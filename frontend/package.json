@@ -1,0 +1,89 @@
+{
+  "name": "app-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "@fortawesome/fontawesome-free": "6.4.2",
+    "@hookform/resolvers": "^3.3.0",
+    "@types/react": "18.2.21",
+    "@types/react-dom": "18.2.7",
+    "@types/react-redux": "7.1.26",
+    "ahdjs": "0.0.20",
+    "axios": "1.4.0",
+    "bootstrap": "5.3.1",
+    "chart.js": "4.4.0",
+    "connected-react-router": "6.9.3",
+    "enzyme": "3.11.0",
+    "enzyme-adapter-react-16": "1.15.7",
+    "file-saver": "2.0.5",
+    "filesize": "10.0.12",
+    "jquery": "^3.7.0",
+    "lodash": "4.17.21",
+    "md5": "2.3.0",
+    "moment": "^2.29.4",
+    "nprogress": "0.2.0",
+    "qs": "6.11.2",
+    "query-string": "8.1.0",
+    "rc-pagination": "3.6.1",
+    "react": "18.2.0",
+    "react-chartjs-2": "5.2.0",
+    "react-datepicker": "4.16.0",
+    "react-dom": "18.2.0",
+    "react-hook-form": "^7.45.4",
+    "react-redux": "8.1.2",
+    "react-router": "6.15.0",
+    "react-router-dom": "6.15.0",
+    "react-scripts": "5.0.1",
+    "react-select": "5.7.4",
+    "react-syntax-highlighter": "15.5.0",
+    "react-test-render": "1.1.2",
+    "react-tooltip": "^5.21.1",
+    "redux": "4.2.1",
+    "redux-devtools-extension": "2.13.9",
+    "redux-thunk": "2.4.2",
+    "reselect": "4.1.8",
+    "styled-components": "6.0.7",
+    "toastr": "2.1.4",
+    "typescript": "5.2.2",
+    "use-debounce": "9.0.4",
+    "xlsx": "0.18.5",
+    "yup": "^1.2.0"
+  },
+  "scripts": {
+    "build": "react-scripts build",
+    "test": "cross-env REACT_APP_ENVIRONMENT=testenv react-scripts test",
+    "eject": "react-scripts eject",
+    "start": "npm run start:localhost",
+    "start:localhost": "cross-env REACT_APP_ENVIRONMENT=localhost react-scripts start",
+    "build:staging": "cross-env REACT_APP_ENVIRONMENT=staging npm run build",
+    "start:staging": "cross-env REACT_APP_ENVIRONMENT=staging react-scripts start",
+    "build:production": "cross-env REACT_APP_ENVIRONMENT=production npm run build",
+    "start:production": "cross-env REACT_APP_ENVIRONMENT=production react-scripts start"
+  },
+  "eslintConfig": {
+    "extends": "react-app",
+    "rules": {
+      "import/no-named-as-default": "off",
+      "import/no-anonymous-default-export": "off"
+    }
+  },
+  "browserslist": [
+    ">0.2%",
+    "not dead",
+    "not ie <= 11",
+    "not op_mini all"
+  ],
+  "resolutions": {
+    "@types/react": "17.0.44"
+  },
+  "devDependencies": {
+    "@babel/plugin-proposal-private-property-in-object": "^7.21.11",
+    "@types/jest": "29.5.4",
+    "@types/jquery": "^3.5.17",
+    "cross-env": "7.0.3",
+    "less": "4.2.0",
+    "prettier": "^3.0.3",
+    "prettier-plugin-organize-imports": "^3.2.3"
+  }
+  
+}
