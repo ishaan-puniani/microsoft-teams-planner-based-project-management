@@ -21,6 +21,17 @@ export default (database) => {
         type: String,
       },
 
+      code: {
+        type: String,
+        required: true,
+        length: 4,
+      },
+
+      counter: {
+        type: Number,
+        default: 0,
+      },
+
       startDate: {
         type: Date,
       },

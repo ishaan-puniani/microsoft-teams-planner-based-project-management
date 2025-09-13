@@ -7,6 +7,7 @@ import Error404 from '../../errors/Error404';
 import { IRepositoryOptions } from './IRepositoryOptions';
 import lodash from 'lodash';
 import Module from '../models/module';
+import ProjectRepository from './projectRepository';
 
 class ModuleRepository {
   static async create(data, options: IRepositoryOptions) {
@@ -15,10 +16,13 @@ class ModuleRepository {
     const currentUser =
       MongooseRepository.getCurrentUser(options);
 
+    const code = await ProjectRepository.getNewCounter(data.project, options);
+
     const [record] = await Module(options.database).create(
       [
         {
           ...data,
+          code,
           tenant: currentTenant.id,
           createdBy: currentUser.id,
           updatedBy: currentUser.id,

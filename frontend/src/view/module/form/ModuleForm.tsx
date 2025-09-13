@@ -3,12 +3,17 @@ import { useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { i18n } from 'src/i18n';
 import yupFormSchemas from 'src/modules/shared/yup/yupFormSchemas';
+import ProjectAutocompleteFormItem from 'src/view/project/autocomplete/ProjectAutocompleteFormItem';
 import ButtonIcon from 'src/view/shared/ButtonIcon';
 import InputFormItem from 'src/view/shared/form/items/InputFormItem';
 import FormWrapper from 'src/view/shared/styles/FormWrapper';
 import * as yup from 'yup';
 
 const schema = yup.object().shape({
+  project: yupFormSchemas.relationToOne(
+    i18n('entities.project.fields.project'),
+    {},
+  ),
   title: yupFormSchemas.string(
     i18n('entities.title.fields.title'),
     {},
@@ -24,6 +29,7 @@ const ModuleForm = (props) => {
     const record = props.record || {};
 
     return {
+      project: record.project,
       title: record.title,
       details: record.details,
     };
@@ -50,6 +56,12 @@ const ModuleForm = (props) => {
       <FormProvider {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
           <div className="row">
+            <div className="col-lg-7 col-md-8 col-12">
+              <ProjectAutocompleteFormItem
+                name="project"
+                label={i18n('entities.module.fields.project')}
+              />
+            </div>
             <div className="col-lg-7 col-md-8 col-12">
               <InputFormItem
                 name="title"

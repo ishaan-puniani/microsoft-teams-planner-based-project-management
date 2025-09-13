@@ -9,6 +9,26 @@ import lodash from 'lodash';
 import Project from '../models/project';
 
 class ProjectRepository {
+  static async getNewCounter(
+    projectId,
+    options: IRepositoryOptions,
+  ) {
+    const currentTenant =
+      MongooseRepository.getCurrentTenant(options);
+    const project = await Project(options.database).findOne(
+      {
+        _id: projectId,
+        tenant: currentTenant.id,
+      },
+    );
+    if (!project) {
+      throw new Error404();
+    }
+    project.counter++;
+    await project.save();
+    return `${project.code}-${project.counter}`;
+  }
+
   static async create(data, options: IRepositoryOptions) {
     const currentTenant =
       MongooseRepository.getCurrentTenant(options);

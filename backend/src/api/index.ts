@@ -7,6 +7,7 @@ import { authMiddleware } from '../middlewares/authMiddleware';
 import { tenantMiddleware } from '../middlewares/tenantMiddleware';
 import { databaseMiddleware } from '../middlewares/databaseMiddleware';
 import bodyParser from 'body-parser';
+import qs from 'qs';
 import helmet from 'helmet';
 import { createRateLimiter } from './apiRateLimiter';
 import { languageMiddleware } from '../middlewares/languageMiddleware';
@@ -32,6 +33,8 @@ import statusRoutes from './status';
 import tagRoutes from './tag';
 
 const app = express();
+
+app.use('query string', qs.parse);
 
 // Enables CORS
 app.use(cors({ origin: true }));

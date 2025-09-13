@@ -19,6 +19,10 @@ const schema = yup.object().shape({
     i18n('entities.project.fields.description'),
     {},
   ),
+  code: yupFormSchemas.string(
+    i18n('entities.project.fields.code'),
+    {},
+  ),
   startDate: yupFormSchemas.date(
     i18n('entities.project.fields.startDate'),
     {},
@@ -44,6 +48,7 @@ const ProjectForm = (props) => {
     return {
       name: record.name,
       description: record.description,
+      code: record.code,
       startDate: record.startDate,
       endDate: record.endDate,
       status: record.status,
@@ -82,6 +87,12 @@ const ProjectForm = (props) => {
               <InputFormItem
                 name="description"
                 label={i18n('entities.project.fields.description')}
+              />
+            </div>
+            <div className="col-lg-7 col-md-8 col-12">
+              <InputFormItem
+                name="code"
+                label={i18n('entities.project.fields.code')}
               />
             </div>
             <div className="col-lg-7 col-md-8 col-12">

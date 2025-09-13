@@ -13,12 +13,22 @@ export default (database) => {
 
   const ModuleSchema = new Schema(
     {
+      code: {
+        type: String,
+        required: true,
+      },
+
       title: {
         type: String,
       },
 
       details: {
         type: String,
+      },
+
+      project: {
+        type: Schema.Types.ObjectId,
+        ref: 'project',
       },
 
       tenant: {
