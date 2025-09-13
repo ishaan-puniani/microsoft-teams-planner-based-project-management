@@ -31,6 +31,11 @@ export default class Storage {
         maxSizeInBytes: 10 * 1024 * 1024,
         publicRead: true,
       },
+      projectImages: {
+        id: 'projectImages',
+        folder: 'tenant/:tenantId/project/images',
+        maxSizeInBytes: 100 * 1024 * 1024,
+      },
 
       testCaseAttachment: {
         id: 'testCaseAttachment',

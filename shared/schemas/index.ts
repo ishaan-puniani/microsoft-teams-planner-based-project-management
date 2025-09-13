@@ -8,6 +8,7 @@ export * from './userSchema';
 export * from './tenantSchema';
 export * from './taskSchema';
 export * from './moduleSchema';
+export * from './projectSchema';
 export * from './requirementSchema';
 export * from './statusSchema';
 export * from './tagSchema';

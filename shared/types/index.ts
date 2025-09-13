@@ -8,6 +8,7 @@ export * from './user';
 export * from './tenant';
 export * from './task';
 export * from './module';
+export * from './project';
 export * from './requirement';
 export * from './status';
 export * from './tag';

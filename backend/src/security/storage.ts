@@ -33,6 +33,52 @@ export default class Storage {
         publicRead: true,
       },
 
+      requirementImages: {
+        id: 'requirementImages',
+        folder: 'tenant/:tenantId/requirement/images',
+        maxSizeInBytes: 100 * 1024 * 1024,
+      },
+      moduleImages: {
+        id: 'moduleImages',
+        folder: 'tenant/:tenantId/module/images',
+        maxSizeInBytes: 100 * 1024 * 1024,
+      },
+      projectImages: {
+        id: 'projectImages',
+        folder: 'tenant/:tenantId/project/images',
+        maxSizeInBytes: 100 * 1024 * 1024,
+      },
+      testPlanImages: {
+        id: 'testPlanImages',
+        folder: 'tenant/:tenantId/testPlan/images',
+        maxSizeInBytes: 100 * 1024 * 1024,
+      },
+      testSuiteImages: {
+        id: 'testSuiteImages',
+        folder: 'tenant/:tenantId/testSuite/images',
+        maxSizeInBytes: 100 * 1024 * 1024,
+      },
+      testCaseImages: {
+        id: 'testCaseImages',
+        folder: 'tenant/:tenantId/testCase/images',
+        maxSizeInBytes: 100 * 1024 * 1024,
+      },
+      taskImages: {
+        id: 'taskImages',
+        folder: 'tenant/:tenantId/task/images',
+        maxSizeInBytes: 100 * 1024 * 1024,
+      },
+      statusImages: {
+        id: 'statusImages',
+        folder: 'tenant/:tenantId/status/images',
+        maxSizeInBytes: 100 * 1024 * 1024,
+      },
+      tagImages: {
+        id: 'tagImages',
+        folder: 'tenant/:tenantId/tag/images',
+        maxSizeInBytes: 100 * 1024 * 1024,
+      },
+
       testCaseAttachment: {
         id: 'testCaseAttachment',
         folder: 'tenant/:tenantId/testCase/attachment',

@@ -11,7 +11,7 @@ import helmet from 'helmet';
 import { createRateLimiter } from './apiRateLimiter';
 import { languageMiddleware } from '../middlewares/languageMiddleware';
 import authSocial from './auth/authSocial';
-import setupSwaggerUI from './apiDocumentation';
+// import setupSwaggerUI from './apiDocumentation';
 
 // Import API routes
 import auditLogRoutes from './auditLog';
@@ -22,6 +22,7 @@ import fileRoutes from './file';
 import userRoutes from './user';
 import settingsRoutes from './settings';
 import moduleRoutes from './module';
+import projectRoutes from './project';
 import requirementRoutes from './requirement';
 import testPlanRoutes from './testPlan';
 import testSuiteRoutes from './testSuite';
@@ -46,7 +47,7 @@ app.use(languageMiddleware);
 app.use(authMiddleware);
 
 // Setup the Documentation
-setupSwaggerUI(app);
+// setupSwaggerUI(app);
 
 // Default rate limiter
 const defaultRateLimiter = createRateLimiter({
@@ -90,6 +91,7 @@ fileRoutes(routes);
 userRoutes(routes);
 settingsRoutes(routes);
 moduleRoutes(routes);
+projectRoutes(routes);
 requirementRoutes(routes);
 testPlanRoutes(routes);
 testSuiteRoutes(routes);
@@ -104,21 +106,6 @@ routes.param('tenantId', tenantMiddleware);
 // Add the routes to the /api endpoint
 app.use('/api', routes);
 
-app.use(
-  express.static(
-    path.resolve(__dirname, '../../../frontend/build'),
-  ),
-);
-
-app.get('*', (req, res) => {
-  res.sendFile(
-    path.resolve(
-      __dirname,
-      '../../../frontend/build',
-      'index.html',
-    ),
-  );
-});
 
 export default app;
 /// File is generated from https://studio.fabbuilder.com -

@@ -39,7 +39,7 @@ function loadLanguageDictionary(languageCode: string): any {
       languageCache[languageCode] = dictionary;
       return dictionary;
     }
-  } catch (error) {
+  } catch (error: any) {
     console.warn(
       `Failed to load language file for '${languageCode}':`,
       error.message,

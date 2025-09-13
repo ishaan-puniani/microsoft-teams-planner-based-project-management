@@ -47,6 +47,12 @@ export default [
     label: i18n('entities.module.menu'),
   },
   {
+    path: '/project',
+    permissionRequired: permissions.projectRead,
+    icon: 'fas fa-chevron-right',
+    label: i18n('entities.project.menu'),
+  },
+  {
     path: '/requirement',
     permissionRequired: permissions.requirementRead,
     icon: 'fas fa-chevron-right',

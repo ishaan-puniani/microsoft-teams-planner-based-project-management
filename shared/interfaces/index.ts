@@ -8,6 +8,7 @@ export * from './user/IUser';
 export * from './tenant/ITenant';
 export * from './task/ITask';
 export * from './module/IModule';
+export * from './project/IProject';
 export * from './requirement/IRequirement';
 export * from './status/IStatus';
 export * from './tag/ITag';

@@ -5,7 +5,7 @@ import ApiResponseHandler from '../../apiResponseHandler';
 import Error403 from '../../../errors/Error403';
 import { tenantSubdomain } from '../../../services/tenantSubdomain';
 import Error400 from '../../../errors/Error400';
-import stripe from 'stripe';
+import Stripe from 'stripe';
 
 export default async (req, res) => {
   try {
@@ -16,7 +16,7 @@ export default async (req, res) => {
       );
     }
 
-    const stripeClient = stripe(
+    const stripeClient = new Stripe(
       getConfig().PLAN_STRIPE_SECRET_KEY,
     );
 

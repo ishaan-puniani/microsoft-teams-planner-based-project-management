@@ -138,6 +138,41 @@ const privateRoutes = [
     exact: true,
   },
   {
+    path: '/project',
+    loader: () =>
+      import('src/view/project/list/ProjectListPage'),
+    permissionRequired: permissions.projectRead,
+    exact: true,
+  },
+  {
+    path: '/project/new',
+    loader: () =>
+      import('src/view/project/form/ProjectFormPage'),
+    permissionRequired: permissions.projectCreate,
+    exact: true,
+  },
+  {
+    path: '/project/importer',
+    loader: () =>
+      import('src/view/project/importer/ProjectImporterPage'),
+    permissionRequired: permissions.projectImport,
+    exact: true,
+  },
+  {
+    path: '/project/:id/edit',
+    loader: () =>
+      import('src/view/project/form/ProjectFormPage'),
+    permissionRequired: permissions.projectEdit,
+    exact: true,
+  },
+  {
+    path: '/project/:id',
+    loader: () =>
+      import('src/view/project/view/ProjectViewPage'),
+    permissionRequired: permissions.projectRead,
+    exact: true,
+  },
+  {
     path: '/requirement',
     loader: () =>
       import(

@@ -1,4 +1,4 @@
-import RateLimit from 'express-rate-limit';
+import rateLimit from 'express-rate-limit';
 // import MongoStore from 'rate-limit-mongo';
 // import { getConfig } from '../config';
 
@@ -11,13 +11,15 @@ export function createRateLimiter({
   windowMs: number;
   message: string;
 }) {
-  return new RateLimit({
+  return rateLimit({
     // store: new MongoStore({
     //   uri: getConfig().DATABASE_CONNECTION,
     // }),
-    max,
+    limit: max,
     windowMs,
-    message,
+    message: {
+      error: message,
+    },
     skip: (req) => {
       if (req.method === 'OPTIONS') {
         return true;
@@ -28,6 +30,13 @@ export function createRateLimiter({
       }
 
       return false;
+    },
+    standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+    legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+    handler: (req, res) => {
+      res.status(429).json({
+        error: message,
+      });
     },
   });
 }

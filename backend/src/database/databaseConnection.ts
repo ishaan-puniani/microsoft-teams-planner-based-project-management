@@ -16,9 +16,7 @@ export async function databaseInit() {
    */
   return mongoose
     .connect(getConfig().DATABASE_CONNECTION, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-      useCreateIndex: true,
+      
     })
     .then(() => {
       init(mongoose);

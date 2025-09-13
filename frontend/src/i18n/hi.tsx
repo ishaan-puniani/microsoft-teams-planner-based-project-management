@@ -83,6 +83,60 @@ const en = {
         hint: 'Files/Images columns must be the URLs of the files separated by space.',
       },
     },
+    project: {
+      name: 'project',
+      label: 'Projects',
+      menu: 'Projects',
+      exporterFileName: 'Projects_export',
+      list: {
+        menu: 'Projects',
+        title: 'Projects',
+      },
+      create: {
+        success: 'Project successfully saved',
+      },
+      update: {
+        success: 'Project successfully saved',
+      },
+      destroy: {
+        success: 'Project successfully deleted',
+      },
+      destroyAll: {
+        success: 'Project(s) successfully deleted',
+      },
+      edit: {
+        title: 'Edit Project',
+      },
+      fields: {
+        id: 'Id',
+        name: 'Name',
+        description: 'Description',
+        startDate: 'Start Date',
+        startDateRange: 'Start Date',
+        endDate: 'End Date',
+        endDateRange: 'End Date',
+        status: 'Status',
+        priority: 'Priority',
+        createdAt: 'Created at',
+        updatedAt: 'Updated at',
+        updatedAtRange: 'Updated at',
+        createdAtRange: 'Created at',
+      },
+      enumerators: {},
+      placeholders: {},
+      hints: {},
+      new: {
+        title: 'New Project',
+      },
+      view: {
+        title: 'View Project',
+      },
+      importer: {
+        title: 'Import Projects',
+        fileName: 'project_import_template',
+        hint: 'Files/Images columns must be the URLs of the files separated by space.',
+      },
+    },
     requirement: {
       name: 'requirement',
       label: 'Requirements',

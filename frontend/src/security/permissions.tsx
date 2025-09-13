@@ -179,6 +179,72 @@ class Permissions {
           plans.enterprise,
         ],
       },
+      projectImport: {
+        id: 'projectImport',
+        allowedRoles: [roles.admin],
+        allowedPlans: [
+          plans.free,
+          plans.growth,
+          plans.enterprise,
+        ],
+        allowedStorage: [
+          storage.settingsBackgroundImages,
+          storage.projectImages,
+        ],
+      },
+      projectCreate: {
+        id: 'projectCreate',
+        allowedRoles: [roles.admin],
+        allowedPlans: [
+          plans.free,
+          plans.growth,
+          plans.enterprise,
+        ],
+        allowedStorage: [
+          storage.settingsBackgroundImages,
+          storage.projectImages,
+        ],
+      },
+      projectEdit: {
+        id: 'projectEdit',
+        allowedRoles: [roles.admin],
+        allowedPlans: [
+          plans.free,
+          plans.growth,
+          plans.enterprise,
+        ],
+        allowedStorage: [
+          storage.settingsBackgroundImages,
+          storage.projectImages,
+        ],
+      },
+      projectDestroy: {
+        id: 'projectDestroy',
+        allowedRoles: [roles.admin],
+        allowedPlans: [
+          plans.free,
+          plans.growth,
+          plans.enterprise,
+        ],
+      },
+      projectRead: {
+        id: 'projectRead',
+        allowedRoles: [roles.admin, roles.custom],
+        allowedPlans: [
+          plans.free,
+          plans.growth,
+          plans.enterprise,
+        ],
+      },
+      projectAutocomplete: {
+        id: 'projectAutocomplete',
+        allowedRoles: [roles.admin, roles.custom],
+        allowedPlans: [
+          plans.free,
+          plans.growth,
+          plans.enterprise,
+        ],
+      },
 
       requirementImport: {
         id: 'requirementImport',

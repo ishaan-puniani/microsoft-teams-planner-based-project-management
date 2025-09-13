@@ -4,6 +4,7 @@ import auth from 'src/modules/auth/authReducers';
 import layout from 'src/modules/layout/layoutReducers';
 import module from 'src/modules/module/moduleReducers';
 import plan from 'src/modules/plan/planReducers';
+import project from 'src/modules/project/projectReducers';
 import requirement from 'src/modules/requirement/requirementReducers';
 import settings from 'src/modules/settings/settingsReducers';
 import status from 'src/modules/status/statusReducers';
@@ -25,6 +26,7 @@ export default () =>
     auditLog,
     settings,
     module,
+    project,
     requirement,
     testPlan,
     testSuite,

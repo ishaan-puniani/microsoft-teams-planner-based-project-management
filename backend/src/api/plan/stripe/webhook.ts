@@ -3,11 +3,11 @@ import TenantService from '../../../services/tenantService';
 import Plans from '../../../security/plans';
 import ApiResponseHandler from '../../apiResponseHandler';
 import lodash from 'lodash';
-import stripe from 'stripe';
+import Stripe from 'stripe';
 
 export default async (req, res) => {
   try {
-    const stripeClient = stripe(
+    const stripeClient = new Stripe(
       getConfig().PLAN_STRIPE_SECRET_KEY,
     );
 
