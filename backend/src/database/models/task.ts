@@ -22,6 +22,10 @@ export default (database) => {
         type: String,
       },
 
+      templateData: {
+        type: Schema.Types.Mixed,
+      },
+
       attachment: [FileSchema],
 
       leadBy: {

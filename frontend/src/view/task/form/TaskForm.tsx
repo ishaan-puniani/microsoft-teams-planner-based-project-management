@@ -1,153 +1,21 @@
 import { yupResolver } from '@hookform/resolvers/yup';
 import moment from 'moment';
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { i18n } from 'src/i18n';
-import yupFormSchemas from 'src/modules/shared/yup/yupFormSchemas';
-import TaskTemplateService from 'src/modules/taskTemplate/taskTemplateService';
 import Storage from 'src/security/storage';
 import ButtonIcon from 'src/view/shared/ButtonIcon';
 import DatePickerFormItem from 'src/view/shared/form/items/DatePickerFormItem';
 import FilesFormItem from 'src/view/shared/form/items/FilesFormItem';
 import InputFormItem from 'src/view/shared/form/items/InputFormItem';
-import InputNumberFormItem from 'src/view/shared/form/items/InputNumberFormItem';
-import SelectFormItem from 'src/view/shared/form/items/SelectFormItem';
-import SwitchFormItem from 'src/view/shared/form/items/SwitchFormItem';
-import TextAreaFormItem from 'src/view/shared/form/items/TextAreaFormItem';
 import FormWrapper from 'src/view/shared/styles/FormWrapper';
 import TaskTemplateAutocompleteFormItem from 'src/view/taskTemplate/autocomplete/TaskTemplateAutocompleteFormItem';
 import UserAutocompleteFormItem from 'src/view/user/autocomplete/UserAutocompleteFormItem';
-import * as yup from 'yup';
-
-// Define types locally since shared directory is not accessible
-interface TaskTemplate {
-  id: string;
-  name?: string;
-  description?: string;
-  type?: string;
-  fields?: TaskTemplateField[];
-  workflow?: any;
-  isActive?: boolean;
-  tenant: string;
-  createdBy?: string;
-  updatedBy?: string;
-  importHash?: string;
-  createdAt?: Date;
-  updatedAt?: Date;
-}
-
-interface TaskTemplateField {
-  name: string;
-  type:
-    | 'TEXT'
-    | 'NUMBER'
-    | 'DATE'
-    | 'SELECT'
-    | 'TEXTAREA'
-    | 'BOOLEAN';
-  required?: boolean;
-  options?: string[];
-  defaultValue?: any;
-}
-
-// Base schema for core task fields
-const baseTaskSchema = yup.object().shape({
-  title: yupFormSchemas.string(
-    i18n('entities.title.fields.title'),
-    {},
-  ),
-  description: yupFormSchemas.string(
-    i18n('entities.description.fields.description'),
-    {},
-  ),
-  attachment: yupFormSchemas.files(
-    i18n('entities.attachment.fields.attachment'),
-    {},
-  ),
-  leadBy: yupFormSchemas.relationToOne(
-    i18n('entities.leadBy.fields.leadBy'),
-    {},
-  ),
-  reviewedBy: yupFormSchemas.relationToOne(
-    i18n('entities.reviewedBy.fields.reviewedBy'),
-    {},
-  ),
-  estimatedStart: yupFormSchemas.datetime(
-    i18n('entities.estimatedStart.fields.estimatedStart'),
-    {},
-  ),
-  estimatedEnd: yupFormSchemas.datetime(
-    i18n('entities.estimatedEnd.fields.estimatedEnd'),
-    {},
-  ),
-  workStart: yupFormSchemas.datetime(
-    i18n('entities.workStart.fields.workStart'),
-    {},
-  ),
-  workEnd: yupFormSchemas.datetime(
-    i18n('entities.workEnd.fields.workEnd'),
-    {},
-  ),
-  template: yupFormSchemas.relationToOne(
-    i18n('entities.task.fields.template'),
-    {},
-  ),
-});
-
-// Function to create dynamic schema by extending base schema with template fields
-const createDynamicSchema = (templateFields: TaskTemplateField[]) => {
-  const dynamicFields: any = {};
-  
-  templateFields.forEach((field) => {
-    const fieldName = `templateField_${field.name}`;
-    const fieldLabel = field.name.charAt(0).toUpperCase() + field.name.slice(1);
-    
-    switch (field.type) {
-      case 'TEXT':
-      case 'TEXTAREA':
-        dynamicFields[fieldName] = field.required 
-          ? yup.string().required(`${fieldLabel} is required`)
-          : yup.string();
-        break;
-      case 'NUMBER':
-        dynamicFields[fieldName] = field.required 
-          ? yup.number().required(`${fieldLabel} is required`)
-          : yup.number();
-        break;
-      case 'DATE':
-        dynamicFields[fieldName] = field.required 
-          ? yup.date().required(`${fieldLabel} is required`)
-          : yup.date();
-        break;
-      case 'SELECT':
-        dynamicFields[fieldName] = field.required 
-          ? yup.string().required(`${fieldLabel} is required`)
-          : yup.string();
-        break;
-      case 'BOOLEAN':
-        dynamicFields[fieldName] = yup.boolean();
-        break;
-      default:
-        dynamicFields[fieldName] = field.required 
-          ? yup.string().required(`${fieldLabel} is required`)
-          : yup.string();
-    }
-  });
-  
-  return baseTaskSchema.shape(dynamicFields);
-};
+import DynamicTaskFormFields from './DynamicTaskFormFields';
+import { baseTaskSchema } from './DynamicTaskSchema';
+import { useDynamicTaskForm } from './useDynamicTaskForm';
 
 const TaskForm = (props) => {
-  const [selectedTemplate, setSelectedTemplate] =
-    useState<TaskTemplate | null>(null);
-  const [templateFields, setTemplateFields] = useState<
-    TaskTemplateField[]
-  >([]);
-  const [loadingTemplate, setLoadingTemplate] =
-    useState(false);
-  const [currentSchema, setCurrentSchema] = useState(baseTaskSchema);
-  const [schemaKey, setSchemaKey] = useState(0);
-
   const [initialValues] = useState(() => {
     const record = props.record || {};
 
@@ -170,213 +38,61 @@ const TaskForm = (props) => {
         ? moment(record.workEnd).toDate()
         : null,
       template: record.template,
+      templateData: record.templateData || {}, // Initialize templateData object
     };
   });
 
   const form = useForm({
-    resolver: yupResolver(currentSchema),
+    resolver: yupResolver(baseTaskSchema),
     mode: 'all',
     defaultValues: initialValues as any,
   });
 
-  // Function to fetch template data
-  const fetchTemplate = useCallback(
-    async (selTemplate:any) => {
-      if (!selTemplate) {
-        setSelectedTemplate(null);
-        setTemplateFields([]);
-        return;
-      }
-
-      try {
-        setLoadingTemplate(true);
-        const template = await TaskTemplateService.find(
-          selTemplate.id,
-        );
-        setSelectedTemplate(template);
-        setTemplateFields(template.fields || []);
-        
-        // Update schema with template fields
-        const newSchema = createDynamicSchema(template.fields || []);
-        setCurrentSchema(newSchema);
-        setSchemaKey(prev => prev + 1);
-
-        // Pre-populate form fields with template default values
-        if (template.fields) {
-          template.fields.forEach((field) => {
-            if (
-              field.defaultValue !== undefined &&
-              field.defaultValue !== null
-            ) {
-              form.setValue(
-                `templateField_${field.name}`,
-                field.defaultValue,
-              );
-            }
-          });
-        }
-      } catch (error) {
-        console.error('Error fetching template:', error);
-        setSelectedTemplate(null);
-        setTemplateFields([]);
-      } finally {
-        setLoadingTemplate(false);
-      }
-    },
-    [form],
-  );
-
   // Watch for template changes
   const watchedTemplate = form.watch('template');
 
-  useEffect(() => {
-    if (watchedTemplate) {
-      fetchTemplate(watchedTemplate);
-    } else {
-      setSelectedTemplate(null);
-      setTemplateFields([]);
-      setCurrentSchema(baseTaskSchema);
-      setSchemaKey(prev => prev + 1);
-    }
-  }, [watchedTemplate, fetchTemplate]);
-
-  // Force re-validation when schema changes
-  useEffect(() => {
-    // Trigger validation with current values when schema changes
-    form.trigger(); // This will re-validate all fields with the new schema
-  }, [currentSchema, form]);
-
-  // Clear form errors when template fields change
-  useEffect(() => {
-    form.clearErrors();
-  }, [templateFields, form]);
+  // Use dynamic form hook
+  const {
+    templateFields,
+    loadingTemplate,
+    currentSchema,
+    resetDynamicForm,
+  } = useDynamicTaskForm({ form, watchedTemplate });
 
   const onReset = () => {
     Object.keys(initialValues).forEach((key) => {
       form.setValue(key, initialValues[key]);
     });
-    setSelectedTemplate(null);
-    setTemplateFields([]);
-    setCurrentSchema(baseTaskSchema);
-    setSchemaKey(prev => prev + 1);
+    resetDynamicForm();
   };
 
-  const onSubmit = (values: any) => {
-    props.onSubmit(props?.record?.id, values);
-  };
-
-  // Function to render template fields
-  const renderTemplateField = (
-    field: TaskTemplateField,
-  ) => {
-    const fieldName = `templateField_${field.name}`;
-    const fieldLabel =
-      field.name.charAt(0).toUpperCase() +
-      field.name.slice(1);
-
-    switch (field.type) {
-        case 'TEXT':
-          return (
-            <div
-              key={field.name}
-              className="col-lg-7 col-md-8 col-12"
-            >
-              <InputFormItem
-                name={fieldName}
-                label={fieldLabel}
-                required={field.required}
-              />
-            </div>
-          );
-      case 'TEXTAREA':
-        return (
-          <div
-            key={field.name}
-            className="col-lg-7 col-md-8 col-12"
-          >
-            <TextAreaFormItem
-              name={fieldName}
-              label={fieldLabel}
-              required={field.required}
-            />
-          </div>
-        );
-      case 'NUMBER':
-        return (
-          <div
-            key={field.name}
-            className="col-lg-7 col-md-8 col-12"
-          >
-            <InputNumberFormItem
-              name={fieldName}
-              label={fieldLabel}
-              required={field.required}
-            />
-          </div>
-        );
-      case 'DATE':
-        return (
-          <div
-            key={field.name}
-            className="col-lg-7 col-md-8 col-12"
-          >
-            <DatePickerFormItem
-              name={fieldName}
-              label={fieldLabel}
-              required={field.required}
-            />
-          </div>
-        );
-      case 'SELECT':
-        return (
-          <div
-            key={field.name}
-            className="col-lg-7 col-md-8 col-12"
-          >
-            <SelectFormItem
-              name={fieldName}
-              label={fieldLabel}
-              options={
-                field.options?.map((option) => ({
-                  value: option,
-                  label: option,
-                })) || []
-              }
-              required={field.required}
-            />
-          </div>
-        );
-      case 'BOOLEAN':
-        return (
-          <div
-            key={field.name}
-            className="col-lg-7 col-md-8 col-12"
-          >
-            <SwitchFormItem
-              name={fieldName}
-              label={fieldLabel}
-            />
-          </div>
-        );
-      default:
-        return (
-          <div
-            key={field.name}
-            className="col-lg-7 col-md-8 col-12"
-          >
-            <InputFormItem
-              name={fieldName}
-              label={fieldLabel}
-              required={field.required}
-            />
-          </div>
-        );
+  const onSubmit = async (values: any) => {
+    // Validate template fields using current schema
+    if (templateFields.length > 0) {
+      try {
+        await currentSchema.validate(values, { abortEarly: false });
+      } catch (error: any) {
+        // Set template field validation errors
+        if (error.inner) {
+          error.inner.forEach((err: any) => {
+            if (err.path.startsWith('templateData.')) {
+              form.setError(err.path, {
+                type: 'validation',
+                message: err.message,
+              });
+            }
+          });
+        }
+        return; // Don't submit if there are template field validation errors
+      }
     }
+    
+    props.onSubmit(props?.record?.id, values);
   };
 
   return (
     <FormWrapper>
-      <FormProvider {...form} key={schemaKey}>
+      <FormProvider {...form} key={JSON.stringify(templateFields)}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
           <div className="row">
             <div className="col-lg-7 col-md-8 col-12">
@@ -407,21 +123,10 @@ const TaskForm = (props) => {
               </div>
             )}
 
-            {selectedTemplate &&
-              templateFields.length > 0 && (
-                <>
-                  <div className="col-12">
-                    <h6 className="text-muted mb-3">
-                      <i className="fas fa-layer-group"></i>{' '}
-                      {selectedTemplate.name} - Template
-                      Fields
-                    </h6>
-                  </div>
-                  {templateFields.map((field) =>
-                    renderTemplateField(field),
-                  )}
-                </>
-              )}
+            <DynamicTaskFormFields
+              templateFields={templateFields}
+              loadingTemplate={loadingTemplate}
+            />
 
             <div className="col-lg-7 col-md-8 col-12">
               <InputFormItem
@@ -495,8 +200,7 @@ const TaskForm = (props) => {
             <button
               className="btn btn-primary"
               disabled={props.saveLoading}
-              type="button"
-              onClick={form.handleSubmit(onSubmit)}
+              type="submit"
             >
               <ButtonIcon
                 loading={props.saveLoading}
