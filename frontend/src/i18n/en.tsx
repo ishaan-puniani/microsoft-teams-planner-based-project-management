@@ -471,7 +471,7 @@ const en = {
       },
       fields: {
         id: 'Id',
-        title: 'Title',
+        project: 'Project',
         template: 'Template',
         description: 'Description',
         attachment: 'Attachment',

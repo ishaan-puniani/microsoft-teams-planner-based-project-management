@@ -14,6 +14,7 @@ import TableWrapper from 'src/view/shared/styles/TableWrapper';
 import Pagination from 'src/view/shared/table/Pagination';
 import TableColumnHeader from 'src/view/shared/table/TableColumnHeader';
 
+import ProjectListItem from 'src/view/project/list/ProjectListItem';
 import FilesListView from 'src/view/shared/table/FileListView';
 import UserListItem from 'src/view/user/list/UserListItem';
 
@@ -114,22 +115,21 @@ const TaskListTable = (props) => {
                   </div>
                 )}
               </TableColumnHeader>
+
               <TableColumnHeader
                 onSort={doChangeSort}
                 hasRows={hasRows}
                 sorter={sorter}
-                name={'title'}
-                label={i18n('entities.task.fields.title')}
+                name={'project'}
+                label={i18n('entities.task.fields.project')}
               />
 
               <TableColumnHeader
                 onSort={doChangeSort}
                 hasRows={hasRows}
                 sorter={sorter}
-                name={'description'}
-                label={i18n(
-                  'entities.task.fields.description',
-                )}
+                name={'key'}
+                label={i18n('entities.task.fields.key')}
               />
 
               <TableColumnHeader
@@ -230,8 +230,16 @@ const TaskListTable = (props) => {
                       </label>
                     </div>
                   </th>
-                  <td>{row.title}</td>
-                  <td>{row.description}</td>
+                  <td>
+                    {row.project?.id ? (
+                      <ProjectListItem
+                        value={row.project}
+                      />
+                    ) : (
+                      row.project
+                    )}
+                  </td>
+                  <td>{row.key}</td>
                   <td>
                     <FilesListView value={row.attachment} />
                   </td>

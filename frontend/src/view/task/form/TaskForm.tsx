@@ -14,14 +14,14 @@ import UserAutocompleteFormItem from 'src/view/user/autocomplete/UserAutocomplet
 import DynamicTaskFormFields from './DynamicTaskFormFields';
 import { baseTaskSchema } from './DynamicTaskSchema';
 import { useDynamicTaskForm } from './useDynamicTaskForm';
+import ProjectAutocompleteFormItem from 'src/view/project/autocomplete/ProjectAutocompleteFormItem';
 
 const TaskForm = (props) => {
   const [initialValues] = useState(() => {
     const record = props.record || {};
 
     return {
-      title: record.title,
-      description: record.description,
+      project: record.project,
       attachment: record.attachment || [],
       leadBy: record.leadBy,
       reviewedBy: record.reviewedBy,
@@ -96,9 +96,11 @@ const TaskForm = (props) => {
         <form onSubmit={form.handleSubmit(onSubmit)}>
           <div className="row">
             <div className="col-lg-7 col-md-8 col-12">
-              <InputFormItem
-                name="title"
-                label={i18n('entities.task.fields.title')}
+             <ProjectAutocompleteFormItem
+                name="project"
+                label={i18n('entities.task.fields.project')}
+                showCreate={!props.modal}
+                required={true}
               />
             </div>
             <div className="col-lg-7 col-md-8 col-12">

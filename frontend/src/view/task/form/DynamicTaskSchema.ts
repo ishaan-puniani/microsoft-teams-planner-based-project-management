@@ -14,40 +14,40 @@ export interface TaskTemplateField {
 
 // Base schema for core task fields
 export const baseTaskSchema = yup.object().shape({
-  title: yupFormSchemas.string(
-    i18n('entities.title.fields.title'),
+  project: yupFormSchemas.relationToOne(
+    i18n('entities.task.fields.project'),
     {},
   ),
   description: yupFormSchemas.string(
-    i18n('entities.description.fields.description'),
+    i18n('entities.task.fields.description'),
     {},
   ),
   attachment: yupFormSchemas.files(
-    i18n('entities.attachment.fields.attachment'),
+    i18n('entities.task.fields.attachment'),
     {},
   ),
   leadBy: yupFormSchemas.relationToOne(
-    i18n('entities.leadBy.fields.leadBy'),
+    i18n('entities.task.fields.leadBy'),
     {},
   ),
   reviewedBy: yupFormSchemas.relationToOne(
-    i18n('entities.reviewedBy.fields.reviewedBy'),
+    i18n('entities.task.fields.reviewedBy'),
     {},
   ),
   estimatedStart: yupFormSchemas.datetime(
-    i18n('entities.estimatedStart.fields.estimatedStart'),
+    i18n('entities.task.fields.estimatedStart'),
     {},
   ),
   estimatedEnd: yupFormSchemas.datetime(
-    i18n('entities.estimatedEnd.fields.estimatedEnd'),
+    i18n('entities.task.fields.estimatedEnd'),
     {},
   ),
   workStart: yupFormSchemas.datetime(
-    i18n('entities.workStart.fields.workStart'),
+    i18n('entities.task.fields.workStart'),
     {},
   ),
   workEnd: yupFormSchemas.datetime(
-    i18n('entities.workEnd.fields.workEnd'),
+    i18n('entities.task.fields.workEnd'),
     {},
   ),
   template: yupFormSchemas.relationToOne(
