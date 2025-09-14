@@ -50,8 +50,8 @@ interface TaskTemplateField {
   defaultValue?: any;
 }
 
-// Base schema for task fields
-const baseSchema = yup.object().shape({
+// Base schema for core task fields
+const baseTaskSchema = yup.object().shape({
   title: yupFormSchemas.string(
     i18n('entities.title.fields.title'),
     {},
@@ -94,59 +94,47 @@ const baseSchema = yup.object().shape({
   ),
 });
 
-// Function to create dynamic schema with template fields
-const createSchema = (
-  templateFields: TaskTemplateField[],
-) => {
+// Function to create dynamic schema by extending base schema with template fields
+const createDynamicSchema = (templateFields: TaskTemplateField[]) => {
   const dynamicFields: any = {};
-
+  
   templateFields.forEach((field) => {
     const fieldName = `templateField_${field.name}`;
-    const fieldLabel =
-      field.name.charAt(0).toUpperCase() +
-      field.name.slice(1);
-
+    const fieldLabel = field.name.charAt(0).toUpperCase() + field.name.slice(1);
+    
     switch (field.type) {
       case 'TEXT':
       case 'TEXTAREA':
-        dynamicFields[fieldName] = field.required
-          ? yup
-              .string()
-              .required(`${fieldLabel} is required`)
+        dynamicFields[fieldName] = field.required 
+          ? yup.string().required(`${fieldLabel} is required`)
           : yup.string();
         break;
       case 'NUMBER':
-        dynamicFields[fieldName] = field.required
-          ? yup
-              .number()
-              .required(`${fieldLabel} is required`)
+        dynamicFields[fieldName] = field.required 
+          ? yup.number().required(`${fieldLabel} is required`)
           : yup.number();
         break;
       case 'DATE':
-        dynamicFields[fieldName] = field.required
+        dynamicFields[fieldName] = field.required 
           ? yup.date().required(`${fieldLabel} is required`)
           : yup.date();
         break;
       case 'SELECT':
-        dynamicFields[fieldName] = field.required
-          ? yup
-              .string()
-              .required(`${fieldLabel} is required`)
+        dynamicFields[fieldName] = field.required 
+          ? yup.string().required(`${fieldLabel} is required`)
           : yup.string();
         break;
       case 'BOOLEAN':
         dynamicFields[fieldName] = yup.boolean();
         break;
       default:
-        dynamicFields[fieldName] = field.required
-          ? yup
-              .string()
-              .required(`${fieldLabel} is required`)
+        dynamicFields[fieldName] = field.required 
+          ? yup.string().required(`${fieldLabel} is required`)
           : yup.string();
     }
   });
-
-  return baseSchema.shape(dynamicFields);
+  
+  return baseTaskSchema.shape(dynamicFields);
 };
 
 const TaskForm = (props) => {
@@ -157,6 +145,8 @@ const TaskForm = (props) => {
   >([]);
   const [loadingTemplate, setLoadingTemplate] =
     useState(false);
+  const [currentSchema, setCurrentSchema] = useState(baseTaskSchema);
+  const [schemaKey, setSchemaKey] = useState(0);
 
   const [initialValues] = useState(() => {
     const record = props.record || {};
@@ -184,9 +174,7 @@ const TaskForm = (props) => {
   });
 
   const form = useForm({
-    resolver: yupResolver(
-      createSchema(templateFields) as yup.AnyObjectSchema,
-    ),
+    resolver: yupResolver(currentSchema),
     mode: 'all',
     defaultValues: initialValues as any,
   });
@@ -194,7 +182,6 @@ const TaskForm = (props) => {
   // Function to fetch template data
   const fetchTemplate = useCallback(
     async (selTemplate:any) => {
-      debugger;
       if (!selTemplate) {
         setSelectedTemplate(null);
         setTemplateFields([]);
@@ -208,6 +195,11 @@ const TaskForm = (props) => {
         );
         setSelectedTemplate(template);
         setTemplateFields(template.fields || []);
+        
+        // Update schema with template fields
+        const newSchema = createDynamicSchema(template.fields || []);
+        setCurrentSchema(newSchema);
+        setSchemaKey(prev => prev + 1);
 
         // Pre-populate form fields with template default values
         if (template.fields) {
@@ -243,16 +235,20 @@ const TaskForm = (props) => {
     } else {
       setSelectedTemplate(null);
       setTemplateFields([]);
+      setCurrentSchema(baseTaskSchema);
+      setSchemaKey(prev => prev + 1);
     }
   }, [watchedTemplate, fetchTemplate]);
 
-  // Update form resolver when template fields change
+  // Force re-validation when schema changes
   useEffect(() => {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const newSchema = createSchema(templateFields);
+    // Trigger validation with current values when schema changes
+    form.trigger(); // This will re-validate all fields with the new schema
+  }, [currentSchema, form]);
+
+  // Clear form errors when template fields change
+  useEffect(() => {
     form.clearErrors();
-    // Note: React Hook Form doesn't support dynamic schema changes easily
-    // The validation will be handled on submit
   }, [templateFields, form]);
 
   const onReset = () => {
@@ -261,9 +257,11 @@ const TaskForm = (props) => {
     });
     setSelectedTemplate(null);
     setTemplateFields([]);
+    setCurrentSchema(baseTaskSchema);
+    setSchemaKey(prev => prev + 1);
   };
 
-  const onSubmit = (values) => {
+  const onSubmit = (values: any) => {
     props.onSubmit(props?.record?.id, values);
   };
 
@@ -277,19 +275,19 @@ const TaskForm = (props) => {
       field.name.slice(1);
 
     switch (field.type) {
-      case 'TEXT':
-        return (
-          <div
-            key={field.name}
-            className="col-lg-7 col-md-8 col-12"
-          >
-            <InputFormItem
-              name={fieldName}
-              label={fieldLabel}
-              required={field.required}
-            />
-          </div>
-        );
+        case 'TEXT':
+          return (
+            <div
+              key={field.name}
+              className="col-lg-7 col-md-8 col-12"
+            >
+              <InputFormItem
+                name={fieldName}
+                label={fieldLabel}
+                required={field.required}
+              />
+            </div>
+          );
       case 'TEXTAREA':
         return (
           <div
@@ -378,7 +376,7 @@ const TaskForm = (props) => {
 
   return (
     <FormWrapper>
-      <FormProvider {...form}>
+      <FormProvider {...form} key={schemaKey}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
           <div className="row">
             <div className="col-lg-7 col-md-8 col-12">
@@ -395,6 +393,7 @@ const TaskForm = (props) => {
                 )}
                 hint={i18n('entities.task.hints.template')}
                 showCreate={!props.modal}
+                required={true}
               />
             </div>
 

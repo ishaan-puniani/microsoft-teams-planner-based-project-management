@@ -50,7 +50,7 @@ const TaskTemplateAutocompleteFormItem = (props) => {
       }
 
       const value = original.id;
-      const label = original.name;
+      const label = original.label;
 
       return {
         key: value,

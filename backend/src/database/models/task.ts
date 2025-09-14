@@ -49,6 +49,11 @@ export default (database) => {
         type: Date,
       },
 
+      template: {
+        type: Schema.Types.ObjectId,
+        ref: 'taskTemplate',
+      },
+
       tenant: {
         type: Schema.Types.ObjectId,
         ref: 'tenant',
@@ -64,7 +69,7 @@ export default (database) => {
       },
       importHash: { type: String },
     },
-    { timestamps: true },
+    { timestamps: true, strictPopulate: false },
   );
 
   TaskSchema.index(
