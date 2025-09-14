@@ -53,6 +53,12 @@ export default [
     label: i18n('entities.project.menu'),
   },
   {
+    path: '/task-template',
+    permissionRequired: permissions.taskTemplateRead,
+    icon: 'fas fa-chevron-right',
+    label: i18n('entities.taskTemplate.menu'),
+  },
+  {
     path: '/requirement',
     permissionRequired: permissions.requirementRead,
     icon: 'fas fa-chevron-right',

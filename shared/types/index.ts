@@ -7,6 +7,7 @@ export * from './tenantUser';
 export * from './user';
 export * from './tenant';
 export * from './task';
+export * from './taskTemplate';
 export * from './module';
 export * from './project';
 export * from './requirement';

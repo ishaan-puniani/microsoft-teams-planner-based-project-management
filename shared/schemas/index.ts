@@ -7,6 +7,7 @@ export * from './tenantUserSchema';
 export * from './userSchema';
 export * from './tenantSchema';
 export * from './taskSchema';
+export * from './taskTemplateSchema';
 export * from './moduleSchema';
 export * from './projectSchema';
 export * from './requirementSchema';

@@ -137,6 +137,72 @@ const en = {
         hint: 'Files/Images columns must be the URLs of the files separated by space.',
       },
     },
+    taskTemplate: {
+      name: 'taskTemplate',
+      label: 'Task Templates',
+      menu: 'Task Templates',
+      exporterFileName: 'TaskTemplates_export',
+      list: {
+        menu: 'Task Templates',
+        title: 'Task Templates',
+      },
+      create: {
+        success: 'Task Template successfully saved',
+      },
+      update: {
+        success: 'Task Template successfully saved',
+      },
+      destroy: {
+        success: 'Task Template successfully deleted',
+      },
+      destroyAll: {
+        success: 'Task Template(s) successfully deleted',
+      },
+      edit: {
+        title: 'Edit Task Template',
+      },
+      fields: {
+        id: 'Id',
+        name: 'Name',
+        description: 'Description',
+        type: 'Type',
+        isActive: 'Active',
+        createdAt: 'Created at',
+        updatedAt: 'Updated at',
+        updatedAtRange: 'Updated at',
+        createdAtRange: 'Created at',
+      },
+      enumerators: {
+        type: {
+          EPIC: 'Epic',
+          USER_STORY: 'User Story',
+          TASK: 'Task',
+          BUG: 'Bug',
+          SUBTASK: 'Subtask',
+        },
+        fieldType: {
+          TEXT: 'Text',
+          NUMBER: 'Number',
+          DATE: 'Date',
+          SELECT: 'Select',
+          TEXTAREA: 'Textarea',
+          BOOLEAN: 'Boolean',
+        },
+      },
+      placeholders: {},
+      hints: {},
+      new: {
+        title: 'New Task Template',
+      },
+      view: {
+        title: 'View Task Template',
+      },
+      importer: {
+        title: 'Import Task Templates',
+        fileName: 'taskTemplate_import_template',
+        hint: 'Files/Images columns must be the URLs of the files separated by space.',
+      },
+    },
     requirement: {
       name: 'requirement',
       label: 'Requirements',

@@ -31,6 +31,7 @@ import testCaseRoutes from './testCase';
 import taskRoutes from './task';
 import statusRoutes from './status';
 import tagRoutes from './tag';
+import taskTemplateRoutes from './taskTemplate';
 
 const app = express();
 
@@ -102,6 +103,7 @@ testCaseRoutes(routes);
 taskRoutes(routes);
 statusRoutes(routes);
 tagRoutes(routes);
+taskTemplateRoutes(routes);
 
 // Loads the Tenant if the :tenantId param is passed
 routes.param('tenantId', tenantMiddleware);

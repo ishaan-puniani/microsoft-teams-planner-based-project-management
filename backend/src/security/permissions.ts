@@ -687,6 +687,60 @@ class Permissions {
           plans.enterprise,
         ],
       },
+      taskTemplateImport: {
+        id: 'taskTemplateImport',
+        allowedRoles: [roles.admin],
+        allowedPlans: [
+          plans.free,
+          plans.growth,
+          plans.enterprise,
+        ],
+      },
+      taskTemplateCreate: {
+        id: 'taskTemplateCreate',
+        allowedRoles: [roles.admin],
+        allowedPlans: [
+          plans.free,
+          plans.growth,
+          plans.enterprise,
+        ],
+      },
+      taskTemplateEdit: {
+        id: 'taskTemplateEdit',
+        allowedRoles: [roles.admin],
+        allowedPlans: [
+          plans.free,
+          plans.growth,
+          plans.enterprise,
+        ],
+      },
+      taskTemplateDestroy: {
+        id: 'taskTemplateDestroy',
+        allowedRoles: [roles.admin],
+        allowedPlans: [
+          plans.free,
+          plans.growth,
+          plans.enterprise,
+        ],
+      },
+      taskTemplateRead: {
+        id: 'taskTemplateRead',
+        allowedRoles: [roles.admin, roles.custom],
+        allowedPlans: [
+          plans.free,
+          plans.growth,
+          plans.enterprise,
+        ],
+      },
+      taskTemplateAutocomplete: {
+        id: 'taskTemplateAutocomplete',
+        allowedRoles: [roles.admin, roles.custom],
+        allowedPlans: [
+          plans.free,
+          plans.growth,
+          plans.enterprise,
+        ],
+      },
 
       settingsEdit: {
         id: 'settingsEdit',

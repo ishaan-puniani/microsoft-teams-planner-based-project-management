@@ -10,6 +10,7 @@ import settings from 'src/modules/settings/settingsReducers';
 import status from 'src/modules/status/statusReducers';
 import tag from 'src/modules/tag/tagReducers';
 import task from 'src/modules/task/taskReducers';
+import taskTemplate from 'src/modules/taskTemplate/taskTemplateReducers';
 import tenant from 'src/modules/tenant/tenantReducers';
 import testCase from 'src/modules/testCase/testCaseReducers';
 import testPlan from 'src/modules/testPlan/testPlanReducers';
@@ -32,6 +33,7 @@ export default () =>
     testSuite,
     testCase,
     task,
+    taskTemplate,
     status,
     tag,
   });

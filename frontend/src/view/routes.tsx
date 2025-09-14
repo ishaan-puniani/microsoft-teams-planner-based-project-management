@@ -173,6 +173,41 @@ const privateRoutes = [
     exact: true,
   },
   {
+    path: '/task-template',
+    loader: () =>
+      import('src/view/taskTemplate/list/TaskTemplateListPage'),
+    permissionRequired: permissions.taskTemplateRead,
+    exact: true,
+  },
+  {
+    path: '/task-template/new',
+    loader: () =>
+      import('src/view/taskTemplate/form/TaskTemplateFormPage'),
+    permissionRequired: permissions.taskTemplateCreate,
+    exact: true,
+  },
+  {
+    path: '/task-template/importer',
+    loader: () =>
+      import('src/view/taskTemplate/importer/TaskTemplateImporterPage'),
+    permissionRequired: permissions.taskTemplateImport,
+    exact: true,
+  },
+  {
+    path: '/task-template/:id/edit',
+    loader: () =>
+      import('src/view/taskTemplate/form/TaskTemplateFormPage'),
+    permissionRequired: permissions.taskTemplateEdit,
+    exact: true,
+  },
+  {
+    path: '/task-template/:id',
+    loader: () =>
+      import('src/view/taskTemplate/view/TaskTemplateViewPage'),
+    permissionRequired: permissions.taskTemplateRead,
+    exact: true,
+  },
+  {
     path: '/requirement',
     loader: () =>
       import(

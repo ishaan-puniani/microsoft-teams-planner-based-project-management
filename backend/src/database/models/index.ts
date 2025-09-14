@@ -6,11 +6,13 @@ const models = [
   require('./settings').default,
   require('./user').default,
   require('./module').default,
+  require('./project').default,
   require('./requirement').default,
   require('./testPlan').default,
   require('./testSuite').default,
   require('./testCase').default,
   require('./task').default,
+  require('./taskTemplate').default,
   require('./status').default,
   require('./tag').default,
 ];
