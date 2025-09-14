@@ -29,6 +29,10 @@ export default (database) => {
       },
 
       fields: [{
+        id: {
+          type: String,
+          required: true,
+        },
         name: {
           type: String,
           required: true,
@@ -48,6 +52,10 @@ export default (database) => {
 
       workflow: {
         states: [{
+          id: {
+            type: String,
+            required: true,
+          },
           name: {
             type: String,
             required: true,
