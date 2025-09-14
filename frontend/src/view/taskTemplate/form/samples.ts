@@ -1,0 +1,561 @@
+const epicTemplate = {
+  key: 'epic',
+  name: 'Epic',
+  entityType: 'WORK_ITEM',
+  fields: [
+    {
+      id: 'title',
+      name: 'Title',
+      type: 'text',
+      required: true,
+      showInList: true,
+    },
+    {
+      id: 'description',
+      name: 'Description',
+      type: 'textarea',
+      required: false,
+    },
+    {
+      id: 'storyPoints',
+      name: 'Story Points',
+      type: 'number',
+      required: false,
+    },
+    {
+      id: 'priority',
+      name: 'Priority',
+      type: 'select',
+      options: [
+        'Critical',
+        'High',
+        'Medium',
+        'Low',
+        'Backlog',
+      ],
+      defaultValue: 'Medium',
+    },
+  ],
+  workflow: {
+    states: [
+      { id: 'backlog', name: 'Backlog', isInitial: true },
+      { id: 'in_progress', name: 'In Progress' },
+      { id: 'review', name: 'In Review' },
+      { id: 'done', name: 'Done', isFinal: true },
+    ],
+    transitions: [
+      { fromState: 'backlog', toState: 'in_progress' },
+      { fromState: 'in_progress', toState: 'review' },
+      { fromState: 'review', toState: 'done' },
+    ],
+  },
+  numbering: {
+    prefix: 'EPIC',
+    separator: '-',
+    startNumber: 1,
+    padding: 3,
+  },
+};
+
+const userStoryTemplate = {
+  key: 'story',
+  name: 'User Story',
+  entityType: 'WORK_ITEM',
+  fields: [
+    {
+      id: 'title',
+      name: 'Title',
+      type: 'text',
+      required: true,
+      showInList: true,
+    },
+    {
+      id: 'description',
+      name: 'Description',
+      type: 'textarea',
+      required: false,
+    },
+    {
+      id: 'acceptanceCriteria',
+      name: 'Acceptance Criteria',
+      type: 'textarea',
+      required: false,
+    },
+    {
+      id: 'storyPoints',
+      name: 'Story Points',
+      type: 'number',
+      required: false,
+    },
+    {
+      id: 'priority',
+      name: 'Priority',
+      type: 'select',
+      options: [
+        'Critical',
+        'High',
+        'Medium',
+        'Low',
+        'Backlog',
+      ],
+      defaultValue: 'Medium',
+    },
+  ],
+  workflow: {
+    states: [
+      { id: 'backlog', name: 'Backlog', isInitial: true },
+      { id: 'in_progress', name: 'In Progress' },
+      { id: 'review', name: 'In Review' },
+      { id: 'testing', name: 'Testing' },
+      { id: 'done', name: 'Done', isFinal: true },
+    ],
+    transitions: [
+      { fromState: 'backlog', toState: 'in_progress' },
+      { fromState: 'in_progress', toState: 'review' },
+      { fromState: 'review', toState: 'testing' },
+      { fromState: 'testing', toState: 'done' },
+      { fromState: 'testing', toState: 'in_progress' },
+    ],
+  },
+  numbering: {
+    prefix: 'STORY',
+    separator: '-',
+    startNumber: 1,
+    padding: 3,
+  },
+};
+
+const taskTemplate = {
+  key: 'task',
+  name: 'Task',
+  entityType: 'WORK_ITEM',
+  fields: [
+    {
+      id: 'title',
+      name: 'Title',
+      type: 'text',
+      required: true,
+      showInList: true,
+    },
+    {
+      id: 'description',
+      name: 'Description',
+      type: 'textarea',
+      required: false,
+    },
+    {
+      id: 'estimatedHours',
+      name: 'Estimated Hours',
+      type: 'number',
+      required: false,
+    },
+    {
+      id: 'priority',
+      name: 'Priority',
+      type: 'select',
+      options: [
+        'Critical',
+        'High',
+        'Medium',
+        'Low',
+        'Backlog',
+      ],
+      defaultValue: 'Medium',
+    },
+  ],
+  workflow: {
+    states: [
+      { id: 'todo', name: 'To Do', isInitial: true },
+      { id: 'in_progress', name: 'In Progress' },
+      { id: 'done', name: 'Done', isFinal: true },
+    ],
+    transitions: [
+      { fromState: 'todo', toState: 'in_progress' },
+      { fromState: 'in_progress', toState: 'done' },
+      { fromState: 'in_progress', toState: 'todo' },
+    ],
+  },
+  numbering: {
+    prefix: 'TASK',
+    separator: '-',
+    startNumber: 1,
+    padding: 3,
+  },
+};
+
+const bugTemplate = {
+  key: 'bug',
+  name: 'Bug',
+  entityType: 'WORK_ITEM',
+  fields: [
+    {
+      id: 'title',
+      name: 'Title',
+      type: 'text',
+      required: true,
+      showInList: true,
+    },
+    {
+      id: 'description',
+      name: 'Description',
+      type: 'textarea',
+      required: false,
+    },
+    {
+      id: 'stepsToReproduce',
+      name: 'Steps to Reproduce',
+      type: 'textarea',
+      required: false,
+    },
+    {
+      id: 'severity',
+      name: 'Severity',
+      type: 'select',
+      options: [
+        'Critical',
+        'High',
+        'Medium',
+        'Low',
+      ],
+      defaultValue: 'Medium',
+    },
+    {
+      id: 'priority',
+      name: 'Priority',
+      type: 'select',
+      options: [
+        'Critical',
+        'High',
+        'Medium',
+        'Low',
+        'Backlog',
+      ],
+      defaultValue: 'Medium',
+    },
+  ],
+  workflow: {
+    states: [
+      { id: 'open', name: 'Open', isInitial: true },
+      { id: 'in_progress', name: 'In Progress' },
+      { id: 'testing', name: 'Testing' },
+      { id: 'resolved', name: 'Resolved', isFinal: true },
+      { id: 'closed', name: 'Closed', isFinal: true },
+    ],
+    transitions: [
+      { fromState: 'open', toState: 'in_progress' },
+      { fromState: 'in_progress', toState: 'testing' },
+      { fromState: 'testing', toState: 'resolved' },
+      { fromState: 'testing', toState: 'in_progress' },
+      { fromState: 'resolved', toState: 'closed' },
+      { fromState: 'resolved', toState: 'open' },
+    ],
+  },
+  numbering: {
+    prefix: 'BUG',
+    separator: '-',
+    startNumber: 1,
+    padding: 3,
+  },
+};
+
+const subtaskTemplate = {
+  key: 'subtask',
+  name: 'Subtask',
+  entityType: 'WORK_ITEM',
+  fields: [
+    {
+      id: 'title',
+      name: 'Title',
+      type: 'text',
+      required: true,
+      showInList: true,
+    },
+    {
+      id: 'description',
+      name: 'Description',
+      type: 'textarea',
+      required: false,
+    },
+    {
+      id: 'estimatedHours',
+      name: 'Estimated Hours',
+      type: 'number',
+      required: false,
+    },
+    {
+      id: 'priority',
+      name: 'Priority',
+      type: 'select',
+      options: [
+        'Critical',
+        'High',
+        'Medium',
+        'Low',
+        'Backlog',
+      ],
+      defaultValue: 'Medium',
+    },
+  ],
+  workflow: {
+    states: [
+      { id: 'todo', name: 'To Do', isInitial: true },
+      { id: 'in_progress', name: 'In Progress' },
+      { id: 'done', name: 'Done', isFinal: true },
+    ],
+    transitions: [
+      { fromState: 'todo', toState: 'in_progress' },
+      { fromState: 'in_progress', toState: 'done' },
+      { fromState: 'in_progress', toState: 'todo' },
+    ],
+  },
+  numbering: {
+    prefix: 'SUB',
+    separator: '-',
+    startNumber: 1,
+    padding: 3,
+  },
+};
+
+const testPlanTemplate = {
+  key: 'testplan',
+  name: 'Test Plan',
+  entityType: 'WORK_ITEM',
+  fields: [
+    {
+      id: 'title',
+      name: 'Title',
+      type: 'text',
+      required: true,
+      showInList: true,
+    },
+    {
+      id: 'description',
+      name: 'Description',
+      type: 'textarea',
+      required: false,
+    },
+    {
+      id: 'testObjective',
+      name: 'Test Objective',
+      type: 'textarea',
+      required: true,
+    },
+    {
+      id: 'testScope',
+      name: 'Test Scope',
+      type: 'textarea',
+      required: true,
+    },
+    {
+      id: 'testApproach',
+      name: 'Test Approach',
+      type: 'select',
+      options: [
+        'Manual Testing',
+        'Automated Testing',
+        'Hybrid Testing',
+        'Performance Testing',
+        'Security Testing',
+        'Usability Testing',
+      ],
+      defaultValue: 'Manual Testing',
+    },
+    {
+      id: 'testEnvironment',
+      name: 'Test Environment',
+      type: 'text',
+      required: false,
+    },
+    {
+      id: 'testData',
+      name: 'Test Data Requirements',
+      type: 'textarea',
+      required: false,
+    },
+    {
+      id: 'entryCriteria',
+      name: 'Entry Criteria',
+      type: 'textarea',
+      required: false,
+    },
+    {
+      id: 'exitCriteria',
+      name: 'Exit Criteria',
+      type: 'textarea',
+      required: false,
+    },
+    {
+      id: 'priority',
+      name: 'Priority',
+      type: 'select',
+      options: [
+        'Critical',
+        'High',
+        'Medium',
+        'Low',
+        'Backlog',
+      ],
+      defaultValue: 'Medium',
+    },
+  ],
+  workflow: {
+    states: [
+      { id: 'draft', name: 'Draft', isInitial: true },
+      { id: 'review', name: 'Under Review' },
+      { id: 'approved', name: 'Approved' },
+      { id: 'in_progress', name: 'In Progress' },
+      { id: 'completed', name: 'Completed', isFinal: true },
+      { id: 'cancelled', name: 'Cancelled', isFinal: true },
+    ],
+    transitions: [
+      { fromState: 'draft', toState: 'review' },
+      { fromState: 'review', toState: 'approved' },
+      { fromState: 'review', toState: 'draft' },
+      { fromState: 'approved', toState: 'in_progress' },
+      { fromState: 'in_progress', toState: 'completed' },
+      { fromState: 'in_progress', toState: 'cancelled' },
+      { fromState: 'approved', toState: 'cancelled' },
+    ],
+  },
+  numbering: {
+    prefix: 'TP',
+    separator: '-',
+    startNumber: 1,
+    padding: 3,
+  },
+};
+
+const testCaseTemplate = {
+  key: 'testcase',
+  name: 'Test Case',
+  entityType: 'WORK_ITEM',
+  fields: [
+    {
+      id: 'title',
+      name: 'Title',
+      type: 'text',
+      required: true,
+      showInList: true,
+    },
+    {
+      id: 'description',
+      name: 'Description',
+      type: 'textarea',
+      required: false,
+    },
+    {
+      id: 'testObjective',
+      name: 'Test Objective',
+      type: 'textarea',
+      required: true,
+    },
+    {
+      id: 'preconditions',
+      name: 'Preconditions',
+      type: 'textarea',
+      required: false,
+    },
+    {
+      id: 'testSteps',
+      name: 'Test Steps',
+      type: 'textarea',
+      required: true,
+    },
+    {
+      id: 'expectedResult',
+      name: 'Expected Result',
+      type: 'textarea',
+      required: true,
+    },
+    {
+      id: 'testType',
+      name: 'Test Type',
+      type: 'select',
+      options: [
+        'Functional',
+        'Integration',
+        'System',
+        'User Acceptance',
+        'Performance',
+        'Security',
+        'Usability',
+        'Regression',
+        'Smoke',
+        'Sanity',
+      ],
+      defaultValue: 'Functional',
+    },
+    {
+      id: 'priority',
+      name: 'Priority',
+      type: 'select',
+      options: [
+        'Critical',
+        'High',
+        'Medium',
+        'Low',
+      ],
+      defaultValue: 'Medium',
+    },
+    {
+      id: 'testData',
+      name: 'Test Data',
+      type: 'textarea',
+      required: false,
+    },
+    {
+      id: 'automationStatus',
+      name: 'Automation Status',
+      type: 'select',
+      options: [
+        'Not Automated',
+        'Automated',
+        'In Progress',
+        'Failed',
+      ],
+      defaultValue: 'Not Automated',
+    },
+  ],
+  workflow: {
+    states: [
+      { id: 'draft', name: 'Draft', isInitial: true },
+      { id: 'review', name: 'Under Review' },
+      { id: 'approved', name: 'Approved' },
+      { id: 'ready', name: 'Ready for Execution' },
+      { id: 'in_progress', name: 'In Progress' },
+      { id: 'passed', name: 'Passed', isFinal: true },
+      { id: 'failed', name: 'Failed', isFinal: true },
+      { id: 'blocked', name: 'Blocked', isFinal: true },
+      { id: 'skipped', name: 'Skipped', isFinal: true },
+    ],
+    transitions: [
+      { fromState: 'draft', toState: 'review' },
+      { fromState: 'review', toState: 'approved' },
+      { fromState: 'review', toState: 'draft' },
+      { fromState: 'approved', toState: 'ready' },
+      { fromState: 'ready', toState: 'in_progress' },
+      { fromState: 'in_progress', toState: 'passed' },
+      { fromState: 'in_progress', toState: 'failed' },
+      { fromState: 'in_progress', toState: 'blocked' },
+      { fromState: 'in_progress', toState: 'skipped' },
+      { fromState: 'blocked', toState: 'in_progress' },
+      { fromState: 'failed', toState: 'in_progress' },
+    ],
+  },
+  numbering: {
+    prefix: 'TC',
+    separator: '-',
+    startNumber: 1,
+    padding: 4,
+  },
+};
+
+export const SAMPLES = {
+  EPIC: epicTemplate,
+  USER_STORY: userStoryTemplate,
+  TASK: taskTemplate,
+  BUG: bugTemplate,
+  SUBTASK: subtaskTemplate,
+  TEST_PLAN: testPlanTemplate,
+  TEST_CASE: testCaseTemplate,
+};

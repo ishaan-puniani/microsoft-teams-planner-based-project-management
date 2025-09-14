@@ -25,7 +25,7 @@ export default (database) => {
       type: {
         type: String,
         required: true,
-        enum: ['EPIC', 'USER_STORY', 'TASK', 'BUG', 'SUBTASK'],
+        enum: ['EPIC', 'USER_STORY', 'TASK', 'BUG', 'SUBTASK', 'TEST_PLAN', 'TEST_CASE'],
       },
 
       fields: [{

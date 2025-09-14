@@ -48,6 +48,41 @@ export default (database) => {
         type: String,
       },
 
+      epicTemplate: {
+        type: Schema.Types.ObjectId,
+        ref: 'taskTemplate',
+      },
+
+      userStoryTemplate: {
+        type: Schema.Types.ObjectId,
+        ref: 'taskTemplate',
+      },
+
+      taskTemplate: {
+        type: Schema.Types.ObjectId,
+        ref: 'taskTemplate',
+      },
+
+      bugTemplate: {
+        type: Schema.Types.ObjectId,
+        ref: 'taskTemplate',
+      },
+
+      subtaskTemplate: {
+        type: Schema.Types.ObjectId,
+        ref: 'taskTemplate',
+      },
+
+      testPlanTemplate: {
+        type: Schema.Types.ObjectId,
+        ref: 'taskTemplate',
+      },
+
+      testCaseTemplate: {
+        type: Schema.Types.ObjectId,
+        ref: 'taskTemplate',
+      },
+
       tenant: {
         type: Schema.Types.ObjectId,
         ref: 'tenant',

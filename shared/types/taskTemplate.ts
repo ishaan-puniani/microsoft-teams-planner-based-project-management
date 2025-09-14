@@ -2,7 +2,7 @@ export interface TaskTemplate {
   id: string;
   name?: string;
   description?: string;
-  type?: 'EPIC' | 'USER_STORY' | 'TASK' | 'BUG' | 'SUBTASK';
+  type?: 'EPIC' | 'USER_STORY' | 'TASK' | 'BUG' | 'SUBTASK' | 'TEST_PLAN' | 'TEST_CASE';
   fields?: TaskTemplateField[];
   workflow?: TaskTemplateWorkflow;
   isActive?: boolean;
@@ -43,7 +43,7 @@ export interface TaskTemplateTransition {
 export interface TaskTemplateFormValues {
   name?: string;
   description?: string;
-  type?: 'EPIC' | 'USER_STORY' | 'TASK' | 'BUG' | 'SUBTASK';
+  type?: 'EPIC' | 'USER_STORY' | 'TASK' | 'BUG' | 'SUBTASK' | 'TEST_PLAN' | 'TEST_CASE';
   fields?: TaskTemplateField[];
   workflow?: TaskTemplateWorkflow;
   isActive?: boolean;

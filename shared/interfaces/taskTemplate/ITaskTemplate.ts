@@ -2,7 +2,7 @@ export interface ITaskTemplate {
   id?: string;
   name?: string;
   description?: string;
-  type?: 'EPIC' | 'USER_STORY' | 'TASK' | 'BUG' | 'SUBTASK';
+  type?: 'EPIC' | 'USER_STORY' | 'TASK' | 'BUG' | 'SUBTASK' | 'TEST_PLAN' | 'TEST_CASE';
   fields?: ITaskTemplateField[];
   workflow?: ITaskTemplateWorkflow;
   isActive?: boolean;
@@ -43,7 +43,7 @@ export interface ITaskTemplateTransition {
 export interface ITaskTemplateCreate {
   name?: string;
   description?: string;
-  type?: 'EPIC' | 'USER_STORY' | 'TASK' | 'BUG' | 'SUBTASK';
+  type?: 'EPIC' | 'USER_STORY' | 'TASK' | 'BUG' | 'SUBTASK' | 'TEST_PLAN' | 'TEST_CASE';
   fields?: ITaskTemplateField[];
   workflow?: ITaskTemplateWorkflow;
   isActive?: boolean;
@@ -53,7 +53,7 @@ export interface ITaskTemplateCreate {
 export interface ITaskTemplateUpdate {
   name?: string;
   description?: string;
-  type?: 'EPIC' | 'USER_STORY' | 'TASK' | 'BUG' | 'SUBTASK';
+  type?: 'EPIC' | 'USER_STORY' | 'TASK' | 'BUG' | 'SUBTASK' | 'TEST_PLAN' | 'TEST_CASE';
   fields?: ITaskTemplateField[];
   workflow?: ITaskTemplateWorkflow;
   isActive?: boolean;

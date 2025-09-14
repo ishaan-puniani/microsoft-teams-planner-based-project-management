@@ -11,6 +11,7 @@ export interface ITask {
   estimatedEnd?: Date;
   workStart?: Date;
   workEnd?: Date;
+  template?: string;
   tenant: string;
   createdBy?: string;
   updatedBy?: string;
@@ -29,6 +30,7 @@ export interface ITaskCreate {
   estimatedEnd?: Date;
   workStart?: Date;
   workEnd?: Date;
+  template?: string;
   tenant: string;
 }
 
@@ -42,6 +44,7 @@ export interface ITaskUpdate {
   estimatedEnd?: Date;
   workStart?: Date;
   workEnd?: Date;
+  template?: string;
   tenant?: string;
 }
 

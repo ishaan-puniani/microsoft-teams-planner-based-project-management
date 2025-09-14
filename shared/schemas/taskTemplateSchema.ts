@@ -3,7 +3,7 @@ import * as yup from 'yup';
 export const taskTemplateSchema = yup.object({
   name: yup.string().required(),
   description: yup.string().optional(),
-  type: yup.string().oneOf(['EPIC', 'USER_STORY', 'TASK', 'BUG', 'SUBTASK']).required(),
+  type: yup.string().oneOf(['EPIC', 'USER_STORY', 'TASK', 'BUG', 'SUBTASK', 'TEST_PLAN', 'TEST_CASE']).required(),
   fields: yup.array().of(yup.object({
     name: yup.string().required(),
     type: yup.string().oneOf(['TEXT', 'NUMBER', 'DATE', 'SELECT', 'TEXTAREA', 'BOOLEAN']).required(),

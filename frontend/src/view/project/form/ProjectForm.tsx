@@ -8,6 +8,7 @@ import InputFormItem from 'src/view/shared/form/items/InputFormItem';
 import DatePickerFormItem from 'src/view/shared/form/items/DatePickerFormItem';
 import SelectFormItem from 'src/view/shared/form/items/SelectFormItem';
 import FormWrapper from 'src/view/shared/styles/FormWrapper';
+import TaskTemplateAutocompleteFormItem from 'src/view/taskTemplate/autocomplete/TaskTemplateAutocompleteFormItem';
 import * as yup from 'yup';
 
 const schema = yup.object().shape({
@@ -53,6 +54,13 @@ const ProjectForm = (props) => {
       endDate: record.endDate,
       status: record.status,
       priority: record.priority,
+      epicTemplate: record.epicTemplate,
+      userStoryTemplate: record.userStoryTemplate,
+      taskTemplate: record.taskTemplate,
+      bugTemplate: record.bugTemplate,
+      subtaskTemplate: record.subtaskTemplate,
+      testPlanTemplate: record.testPlanTemplate,
+      testCaseTemplate: record.testCaseTemplate,
     };
   });
 
@@ -130,6 +138,68 @@ const ProjectForm = (props) => {
                   { value: 'high', label: 'High' },
                   { value: 'urgent', label: 'Urgent' },
                 ]}
+              />
+            </div>
+          </div>
+
+          <div className="row">
+            <div className="col-12">
+              <h5 className="mb-3">{i18n('entities.project.sections.templates')}</h5>
+            </div>
+            <div className="col-lg-6 col-md-8 col-12">
+              <TaskTemplateAutocompleteFormItem
+                name="epicTemplate"
+                label={i18n('entities.project.fields.epicTemplate')}
+                hint={i18n('entities.project.hints.epicTemplate')}
+                showCreate={!props.modal}
+              />
+            </div>
+            <div className="col-lg-6 col-md-8 col-12">
+              <TaskTemplateAutocompleteFormItem
+                name="userStoryTemplate"
+                label={i18n('entities.project.fields.userStoryTemplate')}
+                hint={i18n('entities.project.hints.userStoryTemplate')}
+                showCreate={!props.modal}
+              />
+            </div>
+            <div className="col-lg-6 col-md-8 col-12">
+              <TaskTemplateAutocompleteFormItem
+                name="taskTemplate"
+                label={i18n('entities.project.fields.taskTemplate')}
+                hint={i18n('entities.project.hints.taskTemplate')}
+                showCreate={!props.modal}
+              />
+            </div>
+            <div className="col-lg-6 col-md-8 col-12">
+              <TaskTemplateAutocompleteFormItem
+                name="bugTemplate"
+                label={i18n('entities.project.fields.bugTemplate')}
+                hint={i18n('entities.project.hints.bugTemplate')}
+                showCreate={!props.modal}
+              />
+            </div>
+            <div className="col-lg-6 col-md-8 col-12">
+              <TaskTemplateAutocompleteFormItem
+                name="subtaskTemplate"
+                label={i18n('entities.project.fields.subtaskTemplate')}
+                hint={i18n('entities.project.hints.subtaskTemplate')}
+                showCreate={!props.modal}
+              />
+            </div>
+            <div className="col-lg-6 col-md-8 col-12">
+              <TaskTemplateAutocompleteFormItem
+                name="testPlanTemplate"
+                label={i18n('entities.project.fields.testPlanTemplate')}
+                hint={i18n('entities.project.hints.testPlanTemplate')}
+                showCreate={!props.modal}
+              />
+            </div>
+            <div className="col-lg-6 col-md-8 col-12">
+              <TaskTemplateAutocompleteFormItem
+                name="testCaseTemplate"
+                label={i18n('entities.project.fields.testCaseTemplate')}
+                hint={i18n('entities.project.hints.testCaseTemplate')}
+                showCreate={!props.modal}
               />
             </div>
           </div>

@@ -6,6 +6,13 @@ export interface IProject {
   endDate?: Date;
   status?: string;
   priority?: string;
+  epicTemplate?: string;
+  userStoryTemplate?: string;
+  taskTemplate?: string;
+  bugTemplate?: string;
+  subtaskTemplate?: string;
+  testPlanTemplate?: string;
+  testCaseTemplate?: string;
   tenant: string;
   createdBy?: string;
   updatedBy?: string;
@@ -21,6 +28,13 @@ export interface IProjectCreate {
   endDate?: Date;
   status?: string;
   priority?: string;
+  epicTemplate?: string;
+  userStoryTemplate?: string;
+  taskTemplate?: string;
+  bugTemplate?: string;
+  subtaskTemplate?: string;
+  testPlanTemplate?: string;
+  testCaseTemplate?: string;
   tenant: string;
 }
 
@@ -31,6 +45,13 @@ export interface IProjectUpdate {
   endDate?: Date;
   status?: string;
   priority?: string;
+  epicTemplate?: string;
+  userStoryTemplate?: string;
+  taskTemplate?: string;
+  bugTemplate?: string;
+  subtaskTemplate?: string;
+  testPlanTemplate?: string;
+  testCaseTemplate?: string;
   tenant?: string;
 }
 
