@@ -26,6 +26,7 @@ export const useDynamicTaskForm = ({ form, watchedTemplate }: UseDynamicTaskForm
   // Function to fetch template data
   const fetchTemplate = useCallback(
     async (selTemplate: any) => {
+      console.log('Fetching template:', selTemplate);
       if (!selTemplate) {
         setSelectedTemplate(null);
         setTemplateFields([]);
@@ -36,6 +37,7 @@ export const useDynamicTaskForm = ({ form, watchedTemplate }: UseDynamicTaskForm
       try {
         setLoadingTemplate(true);
         const template = await TaskTemplateService.find(selTemplate.id);
+        console.log('Fetched template:', template);
         setSelectedTemplate(template);
         setTemplateFields(template.fields || []);
         
@@ -43,18 +45,24 @@ export const useDynamicTaskForm = ({ form, watchedTemplate }: UseDynamicTaskForm
         const newSchema = createDynamicSchema(template.fields || []);
         setCurrentSchema(newSchema);
 
-        // Pre-populate form fields with template default values
+        // Pre-populate form fields with existing templateData values or template default values
         if (template.fields && form) {
+          console.log('Current form values:', form.getValues());
           template.fields.forEach((field) => {
-            if (
-              field.defaultValue !== undefined &&
-              field.defaultValue !== null
-            ) {
-              form.setValue(
-                `templateData.${field.id}`,
-                field.defaultValue,
-              );
-            }
+            const fieldName = `templateData.${field.id}`;
+            const existingValue = form.getValues(fieldName);
+            
+            console.log(`Field ${fieldName}: existingValue=${existingValue}, defaultValue=${field.defaultValue}`);
+            
+            // Use existing value if available, otherwise use template default value
+            const valueToSet = existingValue !== undefined && existingValue !== null 
+              ? existingValue 
+              : (field.defaultValue !== undefined && field.defaultValue !== null 
+                  ? field.defaultValue 
+                  : '');
+            
+            console.log(`Setting ${fieldName} to:`, valueToSet);
+            form.setValue(fieldName, valueToSet);
           });
         }
       } catch (error) {
@@ -71,6 +79,7 @@ export const useDynamicTaskForm = ({ form, watchedTemplate }: UseDynamicTaskForm
 
   // Watch for template changes
   useEffect(() => {
+    console.log('Template change detected:', watchedTemplate);
     if (watchedTemplate) {
       fetchTemplate(watchedTemplate);
     } else {
