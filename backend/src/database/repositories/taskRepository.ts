@@ -10,6 +10,7 @@ import Task from '../models/task';
 
 import FileRepository from './fileRepository';
 import UserRepository from './userRepository';
+import ProjectRepository from './projectRepository';
 
 class TaskRepository {
   static async create(data, options: IRepositoryOptions) {
@@ -17,6 +18,8 @@ class TaskRepository {
       MongooseRepository.getCurrentTenant(options);
     const currentUser =
       MongooseRepository.getCurrentUser(options);
+    
+    data.key = await ProjectRepository.getNewCounter(data.project, options);
 
     const [record] = await Task(options.database).create(
       [
@@ -165,6 +168,8 @@ class TaskRepository {
             _id: id,
             tenant: currentTenant.id,
           })
+          .populate('project')
+          .populate('template')
           .populate('leadBy')
           .populate('reviewedBy'),
         options,

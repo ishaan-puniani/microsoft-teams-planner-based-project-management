@@ -14,11 +14,12 @@ export default (database) => {
 
   const TaskSchema = new Schema(
     {
-      title: {
-        type: String,
+      project: {
+        type: Schema.Types.ObjectId,
+        ref: 'project',
       },
 
-      description: {
+      key: {
         type: String,
       },
 
