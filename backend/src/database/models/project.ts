@@ -83,6 +83,10 @@ export default (database) => {
         ref: 'taskTemplate',
       },
 
+      msId:{
+        type: String,
+      },
+
       tenant: {
         type: Schema.Types.ObjectId,
         ref: 'tenant',

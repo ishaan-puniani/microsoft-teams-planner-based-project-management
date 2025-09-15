@@ -402,12 +402,20 @@ export default class MsTaskService {
             checklistItems.forEach((item, index) => {
                 // Use a unique key for each checklist item
                 const uniqueKey = `item_${Date.now()}_${index}`;
+                
+                // Truncate title if it exceeds 100 characters (Microsoft Planner limit)
+                let truncatedTitle = item.title;
+                if (item.title.length > 100) {
+                    truncatedTitle = item.title.substring(0, 97) + '...';
+                    console.log(`⚠️ Truncated checklist item title from ${item.title.length} to 100 characters: "${truncatedTitle}"`);
+                }
+                
                 newChecklistItems[uniqueKey] = {
                     "@odata.type": "microsoft.graph.plannerChecklistItem",
-                    title: item.title,
+                    title: truncatedTitle,
                     isChecked: item.isChecked
                 };
-                console.log(`Preparing checklist item: ${item.title} (checked: ${item.isChecked})`);
+                console.log(`Preparing checklist item: ${truncatedTitle} (checked: ${item.isChecked})`);
             });
 
             // Merge with existing checklist items

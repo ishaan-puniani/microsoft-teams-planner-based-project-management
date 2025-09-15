@@ -325,26 +325,29 @@ require('dotenv').config();
 
 async function createTaskWithDetailsInChecklist() {
     try {
-        const planId = "orzNvoilGUS6enGocQGEV-EADxr-";
+        const planId = "ltAHsib4MEiRUj7EOYq2yeEAH4V2";
         const bucketName = "Backlog";
         const assignToEmail = "ishaan@coderower.com";
-        const categoryName = "WaPaS"; // category4
-        const taskTitle = "Show Payment Analytics Dashboard";
-        const taskDescription = `Video Explaination: https://somup.com/cTQ6rK8s7q
-
-Available Lists:
-- Achievement: Details related to achieving a goal
-- Coupons: Information about discounts or offers
-- Rules: Guidelines or rules for completing tasks
-- Group: Related to working in a group
-- Commission Group: Pertains to commission-based tasks 
-- Partners: Tasks related to business partners
-- Services: Tasks related to offering services`;
+        const categoryName = "PagePilot"; // category4
+        const taskTitle = "Issues on try 1";
+        const taskDescription = `Video Explaination: https://recordings.fabbuilder.com/watch/cTQoqRnod8R`;
 
         const checkListItems = [
-            { title: "Dashboard Charts", isChecked: false },
-            { title: "payouts report", isChecked: false },
-            { title: "commissions report", isChecked: false },
+            { title: "Task 1: Update color and theme of onboarding screens and left menu", isChecked: false },
+            { title: "Task 2: Remove onboarding from here or make it proper", isChecked: false },
+            { title: "Task 3: This is incorrect - fix issue", isChecked: false },
+            { title: "Task 4: Add light or green dot indicator as per Figma", isChecked: false },
+            { title: "Task 5: This has to be from visitor stats", isChecked: false },
+            { title: "Task 6: This is incorrect", isChecked: false },
+            { title: "Fix filter inconsistency: All tours desktop live vs draft", isChecked: false },
+            { title: "Add provision to go back to all (remove hardcoded 52)", isChecked: false },
+            { title: "Task 7: Add checkbox/flag for tooltip/tour availability", isChecked: false },
+            { title: "Task 7: Highlight as red color", isChecked: false },
+            { title: "Task 8: Fix help icon - add tour/tooltip functionality", isChecked: false },
+            { title: "Task 8: Fix loading issue", isChecked: false },
+            { title: "Clarify difference between components", isChecked: false },
+            { title: "Task 9: Fix functionality issues", isChecked: false },
+            { title: "Task 10: Fix stuck/not working issue", isChecked: false },
         ];
 
         console.log("=== Creating Task with Details and Checklist ===");
