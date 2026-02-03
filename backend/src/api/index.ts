@@ -32,6 +32,7 @@ import taskRoutes from './task';
 import statusRoutes from './status';
 import tagRoutes from './tag';
 import taskTemplateRoutes from './taskTemplate';
+import msPlannerRoutes from './msPlanner';
 
 const app = express();
 
@@ -104,6 +105,7 @@ taskRoutes(routes);
 statusRoutes(routes);
 tagRoutes(routes);
 taskTemplateRoutes(routes);
+msPlannerRoutes(routes);
 
 // Loads the Tenant if the :tenantId param is passed
 routes.param('tenantId', tenantMiddleware);
