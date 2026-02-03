@@ -11,6 +11,7 @@ import FormWrapper from 'src/view/shared/styles/FormWrapper';
 import TaskTemplateAutocompleteFormItem from 'src/view/taskTemplate/autocomplete/TaskTemplateAutocompleteFormItem';
 import * as yup from 'yup';
 import MsPlanAutocompleteFormItem from 'src/view/msPlanner/autocomplete/MsPlanAutocomplete';
+import MsPGroupAutocompleteFormItem from 'src/view/msPlanner/autocomplete/MsPGroupAutocomplete';
 
 const schema = yup.object().shape({
   name: yupFormSchemas.string(
@@ -41,7 +42,11 @@ const schema = yup.object().shape({
     i18n('entities.project.fields.priority'),
     {},
   ),
-  msPlan: yupFormSchemas.string(
+  msGroup: yupFormSchemas.relationToOne(
+    i18n('entities.project.fields.msGroup'),
+    {},
+  ),
+  msPlan: yupFormSchemas.relationToOne(
     i18n('entities.project.fields.msPlan'),
     {},
   ),
@@ -82,6 +87,8 @@ const ProjectForm = (props) => {
       endDate: record.endDate,
       status: record.status,
       priority: record.priority,
+      msGroup: record.msGroup,
+      msPlan: record.msPlan,
       epicTemplate: record.epicTemplate,
       userStoryTemplate: record.userStoryTemplate,
       taskTemplate: record.taskTemplate,
@@ -114,10 +121,15 @@ const ProjectForm = (props) => {
         <form onSubmit={form.handleSubmit(onSubmit)}>
           <div className="row">
             <div className="col-lg-7 col-md-8 col-12">
+              <MsPGroupAutocompleteFormItem
+                name="msGroup"
+                label={i18n('entities.project.fields.groupId')}
+              />
+            </div>
+            <div className="col-lg-7 col-md-8 col-12">
               <MsPlanAutocompleteFormItem
                 name="msPlan"
                 label={i18n('entities.project.fields.msPlan')}
-                showGroupPicker
               />
             </div>
             <div className="col-lg-7 col-md-8 col-12">

@@ -1,12 +1,16 @@
+import { useCallback, useMemo } from 'react';
 import MsPlannerService from 'src/modules/msPlanner/msPlannerService';
 import AutocompleteInMemoryFormItem from 'src/view/shared/form/items/AutocompleteInMemoryFormItem';
 
 const MsPGroupAutocompleteFormItem = (props) => {
-  const fetchFn = (value, limit) => {
-    return MsPlannerService.listGroupsAutocomplete(value, limit);
-  };
+  const fetchFn = useCallback(
+    (value, limit) => {
+      return MsPlannerService.listGroupsAutocomplete(value, limit);
+    },
+    [],
+  );
 
-  const mapper = {
+  const mapper = useMemo(() => ({
     toAutocomplete(originalValue) {
       if (!originalValue) {
         return null;
@@ -35,7 +39,7 @@ const MsPGroupAutocompleteFormItem = (props) => {
         label: originalValue.label,
       };
     },
-  };
+  }), []);
 
   return (
     <>

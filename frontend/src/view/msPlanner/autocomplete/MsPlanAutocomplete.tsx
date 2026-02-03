@@ -1,98 +1,57 @@
-import { useCallback, useEffect, useState } from 'react';
-import { useFormContext } from 'react-hook-form';
+import { useCallback, useMemo } from 'react';
 import MsPlannerService from 'src/modules/msPlanner/msPlannerService';
+import AutocompleteInMemoryFormItem from 'src/view/shared/form/items/AutocompleteInMemoryFormItem';
 
 const MsPlanAutocompleteFormItem = (props) => {
-  const showGroupPicker = props.showGroupPicker || false;
-
-  const [groups, setGroups] = useState<any[]>([]);
-  const [groupId, setGroupId] = useState<string | null>(
-    null,
-  );
-  const [plans, setPlans] = useState<any[]>([]);
-  const [planId, setPlanId] = useState<string | null>(null);
-
-  const {
-    watch,
-    setValue,
-    register,
-    formState: { touchedFields, errors, isSubmitted },
-  } = useFormContext();
-  const originalValue = watch(props.name);
-
-  useEffect(() => {
-    register(props.name);
-  }, [register, props.name]);
-
-  const handleSelectOne = (value) => {
-    setValue(props.name, value, {
-      shouldValidate: true,
-      shouldDirty: true,
-    });
-    props.onChange && props.onChange(value);
-  };
-
-  useEffect(() => {
-    const fetchGroups = async () => {
-      const groups =
-        await MsPlannerService.listGroupsAutocomplete(
-          null,
-          100,
-        );
-      setGroups(groups);
-      setGroupId(groups[0].id);
-    };
-    fetchGroups();
-  }, []);
-
-  const fetchPlansFn = useCallback(
-    async (value, limit) => {
-      const plans =
-        await MsPlannerService.listPlansAutocomplete(
-          value,
-          limit,
-          groupId,
-        );
-      setPlans(plans);
-      setPlanId(plans[0].id);
-      return plans;
+  const fetchFn = useCallback(
+    (value, limit) => {
+      return MsPlannerService.listPlansAutocomplete(value, limit, props.groupId);
     },
-    [groupId],
+    [props.groupId],
   );
 
-  useEffect(() => {
-    if (groupId) {
-      fetchPlansFn(null, 100);
-    }
-  }, [fetchPlansFn, groupId]);
+  const mapper = useMemo(() => ({
+    toAutocomplete(originalValue) {
+      if (!originalValue) {
+        return null;
+      }
+
+      const value = originalValue.id;
+      let label = originalValue.label;
+
+      if (originalValue.name) {
+        label = originalValue.name;
+      }
+      return {
+        key: value,
+        value,
+        label,
+      };
+    },
+
+    toValue(originalValue) {
+      if (!originalValue) {
+        return null;
+      }
+
+      return {
+        id: originalValue.value,
+        label: originalValue.label,
+      };
+    },
+  }), []);
 
   return (
     <>
-      {showGroupPicker && (
-        <select
-          value={groupId || ''}
-          onChange={(e) => setGroupId(e.target.value)}
-        >
-          {groups.map((group) => (
-            <option key={group.id} value={group.id}>
-              {group.label}
-            </option>
-          ))}
-        </select>
-      )}
-      {groupId && (
-        <select
-          value={planId || ''}
-          onChange={(e) => handleSelectOne(e.target.value)}
-        >
-          {plans.map((plan) => (
-            <option key={plan.id} value={plan.id}>
-              {plan.label}
-            </option>
-          ))}
-        </select>
-      )}
+      <AutocompleteInMemoryFormItem
+        {...props}
+        fetchFn={fetchFn}
+        mapper={mapper}
+        onOpenModal={() => {}}
+        hasPermissionToCreate={false}
+      />
     </>
   );
 };
+
 export default MsPlanAutocompleteFormItem;
