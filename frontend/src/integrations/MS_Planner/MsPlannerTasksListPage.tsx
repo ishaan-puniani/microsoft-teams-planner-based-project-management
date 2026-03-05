@@ -9,6 +9,7 @@ import MsPlannerTaskListItem, {
   type PlannerTask,
 } from './components/MsPlannerTaskListItem';
 import CreateMsPlannerTaskWithDetail from './components/CreateMsPlannerTaskWithDetail';
+import QuickCreateMsPlannerTaskWithDetail from './components/QuickCreateMsPlannerTaskWithDetail';
 
 export interface PlanCategories {
   [key: string]: string;
@@ -23,6 +24,7 @@ const MsPlannerTasksListPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [createVisible, setCreateVisible] = useState(false);
+  const [quickCreateVisible, setQuickCreateVisible] = useState(false);
 
   useEffect(() => {
     if (!planId) return;
@@ -108,6 +110,13 @@ const MsPlannerTasksListPage = () => {
           >
             Add Task
           </button>
+          <button
+            type="button"
+            className="btn btn-sm btn-primary ml-2"
+            onClick={() => setQuickCreateVisible(true)}
+          >
+            Quick mode Add Tasks
+          </button>
         </PageTitle>
 
         <CreateMsPlannerTaskWithDetail
@@ -119,6 +128,22 @@ const MsPlannerTasksListPage = () => {
               setTasks((prev) => [task, ...prev]);
             }
             setCreateVisible(false);
+          }}
+          categories={categories}
+          users={users}
+        />
+
+        <QuickCreateMsPlannerTaskWithDetail
+          planId={planId ?? null}
+          visible={quickCreateVisible}
+          onClose={() => setQuickCreateVisible(false)}
+          onSuccess={(createdTasks) => {
+            if (Array.isArray(createdTasks) && createdTasks.length) {
+              setTasks((prev) => [...createdTasks, ...prev]);
+            } else if (createdTasks?.id) {
+              setTasks((prev) => [createdTasks, ...prev]);
+            }
+            setQuickCreateVisible(false);
           }}
           categories={categories}
           users={users}
