@@ -184,6 +184,29 @@ export default class MsTaskService {
         }
     }
 
+    static async getCategories(planId: string): Promise<any> {
+        const token = await this._getServiceToken();
+        const url = `https://graph.microsoft.com/v1.0/planner/plans/${planId}/details`;
+
+        try {
+            const response = await fetch(url, {
+                method: "GET",
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to fetch plan details for plan ${planId}: ${response.status} ${response.statusText}`);
+            }
+
+            const detailsResponse = await response.json();
+            return detailsResponse.categoryDescriptions || {};
+        } catch (error: any) {
+            throw new Error(`Failed to get categories for plan ${planId}: ${error.message}`);
+        }
+    }
+
     static async getUserByEmail(email: string): Promise<any> {
         const token = await this._getServiceToken();
         const url = `https://graph.microsoft.com/v1.0/users/${email}`;
