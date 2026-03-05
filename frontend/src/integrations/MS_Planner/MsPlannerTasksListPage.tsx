@@ -4,33 +4,25 @@ import ContentWrapper from 'src/view/layout/styles/ContentWrapper';
 import Breadcrumb from 'src/view/shared/Breadcrumb';
 import PageTitle from 'src/view/shared/styles/PageTitle';
 import Spinner from 'src/view/shared/Spinner';
-import TableWrapper from 'src/view/shared/styles/TableWrapper';
 import MsPlannerService from 'src/modules/msPlanner/msPlannerService';
+import MsPlannerTaskListItem, {
+  type PlannerTask,
+} from './components/MsPlannerTaskListItem';
+import CreateMsPlannerTaskWithDetail from './components/CreateMsPlannerTaskWithDetail';
 
-const formatDate = (value: string | undefined | null): string => {
-  if (!value) return '—';
-  try {
-    const d = new Date(value);
-    return isNaN(d.getTime()) ? value : d.toLocaleDateString();
-  } catch {
-    return String(value);
-  }
-};
-
-interface PlannerTask {
-  id: string;
-  title?: string;
-  dueDateTime?: string;
-  percentComplete?: number;
-  createdDateTime?: string;
+export interface PlanCategories {
+  [key: string]: string;
 }
 
 const MsPlannerTasksListPage = () => {
   const { planId } = useParams();
   const [tasks, setTasks] = useState<PlannerTask[]>([]);
   const [planTitle, setPlanTitle] = useState<string | null>(null);
+  const [categories, setCategories] = useState<PlanCategories>({});
+  const [users, setUsers] = useState<Array<{ id: string; displayName?: string | null; mail?: string | null; userPrincipalName?: string | null }>>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [createVisible, setCreateVisible] = useState(false);
 
   useEffect(() => {
     if (!planId) return;
@@ -38,12 +30,15 @@ const MsPlannerTasksListPage = () => {
       try {
         setLoading(true);
         setError(null);
-        const [tasksData, planData] = await Promise.all([
+        const [tasksData, planData, usersData] = await Promise.all([
           MsPlannerService.getTasks(planId),
           MsPlannerService.getPlan(planId).catch(() => null),
+          MsPlannerService.getUsers().catch(() => []),
         ]);
-        setTasks(Array.isArray(tasksData) ? tasksData : []);
+        setTasks(tasksData || []);
         setPlanTitle(planData?.title ?? planData?.name ?? null);
+        setCategories(planData?.categories || {});
+        setUsers(usersData || []);
       } catch (e: any) {
         setError(
           e?.response?.data?.message || e?.message || 'Failed to load tasks',
@@ -54,6 +49,13 @@ const MsPlannerTasksListPage = () => {
     };
     doFetch();
   }, [planId]);
+
+  const handleTaskUpdate = (updated: PlannerTask) => {
+    if (!updated.id) return;
+    setTasks((prev) =>
+      prev.map((t) => (t.id === updated.id ? { ...t, ...updated } : t)),
+    );
+  };
 
   if (loading) {
     return <Spinner />;
@@ -99,38 +101,47 @@ const MsPlannerTasksListPage = () => {
           >
             Back to plan
           </Link>
+          <button
+            type="button"
+            className="btn btn-sm btn-primary ml-2"
+            onClick={() => setCreateVisible(true)}
+          >
+            Add Task
+          </button>
         </PageTitle>
 
-        <TableWrapper>
-          <table className="table table-striped">
-            <thead>
-              <tr>
-                <th>Title</th>
-                <th>Due date</th>
-                <th>Percent complete</th>
-                <th>Created</th>
-              </tr>
-            </thead>
-            <tbody>
-              {tasks.length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="text-center text-muted">
-                    No tasks in this plan.
-                  </td>
-                </tr>
-              ) : (
-                tasks.map((task) => (
-                  <tr key={task.id}>
-                    <td>{task.title ?? '—'}</td>
-                    <td>{formatDate(task.dueDateTime)}</td>
-                    <td>{task.percentComplete ?? 0}%</td>
-                    <td>{formatDate(task.createdDateTime)}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </TableWrapper>
+        <CreateMsPlannerTaskWithDetail
+          planId={planId ?? null}
+          visible={createVisible}
+          onClose={() => setCreateVisible(false)}
+          onSuccess={(task) => {
+            if (task?.id) {
+              setTasks((prev) => [task, ...prev]);
+            }
+            setCreateVisible(false);
+          }}
+          categories={categories}
+          users={users}
+        />
+
+        {tasks.length === 0 ? (
+          <div className="text-center text-muted py-5">
+            No tasks in this plan.
+          </div>
+        ) : (
+          <div className="row row-cols-1 row-cols-md-2 row-cols-lg-3 row-cols-xl-4 g-3">
+            {tasks.map((task) => (
+              <div key={task.id} className="col">
+                <MsPlannerTaskListItem
+                  task={task}
+                  categories={categories}
+                  users={users}
+                  onTaskUpdate={handleTaskUpdate}
+                />
+              </div>
+            ))}
+          </div>
+        )}
       </ContentWrapper>
     </>
   );

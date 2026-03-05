@@ -119,6 +119,57 @@ export default class MsPlannerService {
     return response.data;
   }
 
+  static async getBuckets(planId) {
+    const tenantId = AuthCurrentTenant.get();
+    const response = await authAxios.get(
+      `/tenant/${tenantId}/ms-planner/plan/${planId}/buckets`,
+    );
+    return response.data;
+  }
+
+  static async createTask(planId, payload) {
+    const tenantId = AuthCurrentTenant.get();
+    const response = await authAxios.post(
+      `/tenant/${tenantId}/ms-planner/plan/${planId}/task`,
+      payload,
+    );
+    return response.data;
+  }
+
+  static async getTask(taskId) {
+    const tenantId = AuthCurrentTenant.get();
+    const response = await authAxios.get(
+      `/tenant/${tenantId}/ms-planner/task/${taskId}`,
+    );
+    return response.data;
+  }
+
+  static async getTaskDetails(taskId) {
+    const tenantId = AuthCurrentTenant.get();
+    const response = await authAxios.get(
+      `/tenant/${tenantId}/ms-planner/task/${taskId}/details`,
+    );
+    return response.data;
+  }
+
+  static async updateTask(taskId, payload) {
+    const tenantId = AuthCurrentTenant.get();
+    const response = await authAxios.patch(
+      `/tenant/${tenantId}/ms-planner/task/${taskId}`,
+      payload,
+    );
+    return response.data;
+  }
+
+  static async updateTaskDetails(taskId, payload) {
+    const tenantId = AuthCurrentTenant.get();
+    const response = await authAxios.patch(
+      `/tenant/${tenantId}/ms-planner/task/${taskId}/details`,
+      payload,
+    );
+    return response.data;
+  }
+
   static async listPlansAutocomplete(query, limit, groupId) {
     const params = {
       query,

@@ -108,6 +108,42 @@ export default class MsTaskService {
         }
     }
 
+    static async getTask(taskId: string): Promise<any> {
+        const token = await this._getServiceToken();
+        const url = `https://graph.microsoft.com/v1.0/planner/tasks/${taskId}`;
+        try {
+            const response = await fetch(url, {
+                method: "GET",
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (!response.ok) {
+                throw new Error(`Failed to fetch task ${taskId}: ${response.status} ${response.statusText}`);
+            }
+            return response.json();
+        } catch (error: any) {
+            throw new Error(`Failed to get task ${taskId}: ${error.message}`);
+        }
+    }
+
+    static async getTaskDetails(taskId: string): Promise<any> {
+        const token = await this._getServiceToken();
+        const url = `https://graph.microsoft.com/v1.0/planner/tasks/${taskId}/details`;
+        try {
+            const response = await fetch(url, {
+                method: "GET",
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (!response.ok && response.status !== 404) {
+                throw new Error(`Failed to fetch task details ${taskId}: ${response.status} ${response.statusText}`);
+            }
+            const details = response.ok ? await response.json() : {};
+            const etag = response.headers.get('ETag') || '';
+            return { ...details, _detailsEtag: etag };
+        } catch (error: any) {
+            throw new Error(`Failed to get task details ${taskId}: ${error.message}`);
+        }
+    }
+
     static async searchTaskByTextInTitle(planId: string, titleQuery: string): Promise<any> {
         const token = await this._getServiceToken();
         const url = `https://graph.microsoft.com/v1.0/planner/plans/${planId}/tasks`;
@@ -298,6 +334,52 @@ export default class MsTaskService {
         }
     }
 
+    static async updatePlannerTask(
+        taskId: string,
+        etag: string,
+        patch: {
+            appliedCategories?: Record<string, boolean>;
+            assignments?: Record<string, { '@odata.type': string; orderHint?: string } | null>;
+            title?: string;
+            priority?: number;
+            startDateTime?: string | null;
+            dueDateTime?: string | null;
+        }
+    ): Promise<any> {
+        const token = await this._getServiceToken();
+        const url = `https://graph.microsoft.com/v1.0/planner/tasks/${taskId}`;
+
+        try {
+            const body: any = {};
+            if (patch.appliedCategories !== undefined) body.appliedCategories = patch.appliedCategories;
+            if (patch.assignments !== undefined) body.assignments = patch.assignments;
+            if (patch.title !== undefined) body.title = patch.title;
+            if (patch.priority !== undefined) body.priority = patch.priority;
+            if (patch.startDateTime !== undefined) body.startDateTime = patch.startDateTime;
+            if (patch.dueDateTime !== undefined) body.dueDateTime = patch.dueDateTime;
+
+            const response = await fetch(url, {
+                method: 'PATCH',
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                    'If-Match': etag,
+                    'Prefer': 'return=representation',
+                },
+                body: JSON.stringify(body),
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Failed to update planner task: ${response.status} ${response.statusText} - ${errorText}`);
+            }
+
+            return response.json();
+        } catch (error: any) {
+            throw new Error(`Failed to update planner task ${taskId}: ${error.message}`);
+        }
+    }
+
     static async updateTaskDetails(taskId: string, description: string): Promise<any> {
         const token = await this._getServiceToken();
         const url = `https://graph.microsoft.com/v1.0/planner/tasks/${taskId}/details`;
@@ -386,6 +468,52 @@ export default class MsTaskService {
         } catch (error: any) {
             console.error("Error in updateTaskDetails:", error);
             throw new Error(`Failed to update task details for ${taskId}: ${error.message}`);
+        }
+    }
+
+    static async updateTaskDetailsWithEtag(
+        taskId: string,
+        detailsEtag: string,
+        patch: { description?: string; checklist?: Record<string, any>; references?: Record<string, any> }
+    ): Promise<any> {
+        const token = await this._getServiceToken();
+        const url = `https://graph.microsoft.com/v1.0/planner/tasks/${taskId}/details`;
+        try {
+            let etag = detailsEtag;
+            if (!etag) {
+                const getRes = await fetch(url, {
+                    method: 'GET',
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                if (getRes.ok) etag = getRes.headers.get('ETag') || '';
+            }
+
+            const body: any = { previewType: 'description' };
+            if (patch.description !== undefined) body.description = patch.description;
+            if (patch.checklist !== undefined) body.checklist = patch.checklist;
+            if (patch.references !== undefined) body.references = patch.references;
+
+            const headers: any = {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json',
+                'Prefer': 'return=representation',
+            };
+            if (etag) headers['If-Match'] = etag;
+
+            const method = etag ? 'PATCH' : 'PUT';
+            const response = await fetch(url, {
+                method,
+                headers,
+                body: JSON.stringify(body),
+            });
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Failed to update task details: ${response.status} ${response.statusText} - ${errorText}`);
+            }
+            const result = response.headers.get('content-type')?.includes('application/json') ? await response.json() : {};
+            return { ...result, _detailsEtag: response.headers.get('ETag') || etag };
+        } catch (error: any) {
+            throw new Error(`Failed to update task details ${taskId}: ${error.message}`);
         }
     }
 
