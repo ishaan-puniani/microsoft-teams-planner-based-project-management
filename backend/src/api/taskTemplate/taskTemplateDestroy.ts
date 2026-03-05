@@ -12,7 +12,7 @@ export default async (req, res, next) => {
     );
 
     const payload = await new TaskTemplateService(req).destroyAll(
-      req.body.ids,
+      req.query.ids,
     );
 
     await ApiResponseHandler.success(req, res, payload);

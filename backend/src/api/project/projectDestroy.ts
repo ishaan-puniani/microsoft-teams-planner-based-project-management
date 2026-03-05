@@ -12,7 +12,7 @@ export default async (req, res, next) => {
     );
 
     await new ProjectService(req).destroyAll(
-      req.body.ids,
+      req.query.ids,
     );
 
     const payload = true;
