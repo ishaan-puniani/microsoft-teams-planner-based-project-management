@@ -36,7 +36,10 @@ import msPlannerRoutes from './msPlanner';
 
 const app = express();
 
-app.use('query string', qs.parse);
+// Use qs so array params like ids[]=1&ids[]=2 become req.query.ids = ['1','2']
+app.set('query parser', (str) =>
+  qs.parse(str, { arrayLimit: 1000 }),
+);
 
 // Enables CORS
 app.use(cors({ origin: true }));
@@ -90,7 +93,6 @@ authSocial(app, routes);
 // Register API routes
 auditLogRoutes(routes);
 authRoutes(routes);
-planRoutes(routes);
 tenantRoutes(routes);
 fileRoutes(routes);
 userRoutes(routes);
@@ -106,6 +108,9 @@ statusRoutes(routes);
 tagRoutes(routes);
 taskTemplateRoutes(routes);
 msPlannerRoutes(routes);
+
+
+planRoutes(routes);
 
 // Loads the Tenant if the :tenantId param is passed
 routes.param('tenantId', tenantMiddleware);

@@ -84,13 +84,13 @@ export default (database) => {
       },
 
       msGroup: {
-        type: Schema.Types.ObjectId,
-        ref: 'msGroup',
+        type: String,
+        // ref: 'msGroup',
       },
 
       msPlan: {
-        type: Schema.Types.ObjectId,
-        ref: 'msPlan',
+        type: String,
+        // ref: 'msPlan',
       },
       
       tenant: {

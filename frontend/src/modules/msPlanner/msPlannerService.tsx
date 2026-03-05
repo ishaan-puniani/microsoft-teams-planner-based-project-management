@@ -95,6 +95,29 @@ export default class MsPlannerService {
 
   //   return response.data;
   // }
+  static async getUsers() {
+    const tenantId = AuthCurrentTenant.get();
+    const response = await authAxios.get(
+      `/tenant/${tenantId}/ms-planner/users`,
+    );
+    return response.data;
+  }
+
+  static async getPlan(planId) {
+    const tenantId = AuthCurrentTenant.get();
+    const response = await authAxios.get(
+      `/tenant/${tenantId}/ms-planner/plan/${planId}`,
+    );
+    return response.data;
+  }
+
+  static async getTasks(planId) {
+    const tenantId = AuthCurrentTenant.get();
+    const response = await authAxios.get(
+      `/tenant/${tenantId}/ms-planner/tasks/${planId}`,
+    );
+    return response.data;
+  }
 
   static async listPlansAutocomplete(query, limit, groupId) {
     const params = {

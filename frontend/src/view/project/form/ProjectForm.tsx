@@ -115,6 +115,8 @@ const ProjectForm = (props) => {
     props.onSubmit(props?.record?.id, values);
   };
 
+  const groupId = form.watch('msGroup')?.id;
+
   return (
     <FormWrapper>
       <FormProvider {...form}>
@@ -126,12 +128,15 @@ const ProjectForm = (props) => {
                 label={i18n('entities.project.fields.groupId')}
               />
             </div>
-            <div className="col-lg-7 col-md-8 col-12">
-              <MsPlanAutocompleteFormItem
-                name="msPlan"
-                label={i18n('entities.project.fields.msPlan')}
-              />
-            </div>
+            {groupId?.length > 2 &&
+              <div className="col-lg-7 col-md-8 col-12">
+                <MsPlanAutocompleteFormItem
+                  name="msPlan"
+                  label={i18n('entities.project.fields.msPlan')}
+                  groupId={groupId}
+                />
+              </div>
+            }
             <div className="col-lg-7 col-md-8 col-12">
               <InputFormItem
                 name="name"
