@@ -91,6 +91,10 @@ const QuickCreateMsPlannerTaskWithDetail = ({
   const [selectedCategoryKeys, setSelectedCategoryKeys] = useState<string[]>([]);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
 
+  const [transcript, setTranscript] = useState('');
+  const [loadingTranscript, setLoadingTranscript] = useState(false);
+  const [transcriptError, setTranscriptError] = useState<string | null>(null);
+
   const categoryOptions = useMemo(
     () =>
       Object.entries(categories)
@@ -159,6 +163,29 @@ const QuickCreateMsPlannerTaskWithDetail = ({
     );
   };
 
+  const handleGetTasksFromTranscript = async () => {
+    const text = transcript?.trim();
+    if (!text) {
+      setTranscriptError('Paste a transcript first.');
+      return;
+    }
+    setLoadingTranscript(true);
+    setTranscriptError(null);
+    try {
+      const data = await MsPlannerService.getTasksFromTranscript(text);
+      const tasksText = data?.tasksText ?? '';
+      setTextareaValue(tasksText);
+      setShowPreview(false);
+      if (tasksText) {
+        setPreviewTasks([]);
+      }
+    } catch (err: any) {
+      setTranscriptError(err?.response?.data?.message || err?.message || 'Failed to get tasks from transcript');
+    } finally {
+      setLoadingTranscript(false);
+    }
+  };
+
   useEffect(() => {
     if (!visible || !planId) return;
     if (!modalRef.current) return;
@@ -177,6 +204,8 @@ const QuickCreateMsPlannerTaskWithDetail = ({
       setTextareaValue('');
       setShowPreview(false);
       setPreviewTasks([]);
+      setTranscript('');
+      setTranscriptError(null);
       setPriority(5);
       setSelectedCategoryKeys([]);
       setSelectedUserIds([]);
@@ -319,7 +348,30 @@ const QuickCreateMsPlannerTaskWithDetail = ({
                     />
                   </div>
                 )}
-
+                <div className="form-group border rounded p-2 bg-light mb-3">
+                  <label className="small font-weight-bold mb-1">Get tasks from transcript (AI)</label>
+                  <textarea
+                    className="form-control form-control-sm mb-2"
+                    rows={4}
+                    value={transcript}
+                    onChange={(e) => {
+                      setTranscript(e.target.value);
+                      setTranscriptError(null);
+                    }}
+                    placeholder="Paste meeting notes, call transcript, or any text…"
+                  />
+                  {transcriptError && (
+                    <div className="alert alert-danger py-1 px-2 mb-2 small">{transcriptError}</div>
+                  )}
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-primary"
+                    onClick={handleGetTasksFromTranscript}
+                    disabled={loadingTranscript || !transcript?.trim()}
+                  >
+                    {loadingTranscript ? 'Getting tasks…' : 'Get Tasks from Transcript'}
+                  </button>
+                </div>
                 <div className="form-group">
                   <div className="d-flex justify-content-between align-items-center mb-1">
                     <label className="mb-0">

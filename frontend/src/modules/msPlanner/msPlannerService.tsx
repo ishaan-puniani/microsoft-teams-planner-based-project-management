@@ -170,6 +170,15 @@ export default class MsPlannerService {
     return response.data;
   }
 
+  static async getTasksFromTranscript(transcript) {
+    const tenantId = AuthCurrentTenant.get();
+    const response = await authAxios.post(
+      `/tenant/${tenantId}/ai-agent/tasks-from-transcript`,
+      { transcript },
+    );
+    return response.data;
+  }
+
   static async listPlansAutocomplete(query, limit, groupId) {
     const params = {
       query,

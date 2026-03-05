@@ -8,9 +8,12 @@
     "build": "tsc && npm run build:documentation",
     "db:create": "npm run build && node ./dist/database/migrations/create",
     "stripe:login": "stripe login",
-    "stripe:start": "stripe listen --forward-to localhost:8080/api/plan/stripe/webhook"
+    "stripe:start": "stripe listen --forward-to localhost:8080/api/plan/stripe/webhook",
+    "fetch-events": "ts-node --transpile-only eventFetcher.ts",
+    "list-groups": "ts-node --transpile-only listGroups.ts"
   },
   "dependencies": {
+    "axios": "1.7.7",
     "@google-cloud/storage": "7.17.0",
     "@sendgrid/mail": "8.1.5",
     "aws-sdk": "2.1692.0",
