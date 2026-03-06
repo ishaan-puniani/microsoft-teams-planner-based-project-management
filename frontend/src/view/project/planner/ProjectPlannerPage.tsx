@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useLocation } from 'react-router-dom';
 import { i18n } from 'src/i18n';
 import Errors from 'src/modules/shared/error/errors';
 import Message from 'src/view/shared/message';
@@ -114,6 +114,7 @@ function getTemplateFieldIds(template: TemplateWithFields) {
 
 const ProjectPlannerPage = () => {
   const { id: projectId } = useParams<{ id: string }>();
+  const location = useLocation();
   const [project, setProject] = useState<{ id: string; name?: string } | null>(null);
   const [loadingProject, setLoadingProject] = useState(true);
   const [templatesByType, setTemplatesByType] = useState<Record<string, TemplateWithFields[]>>({});
@@ -166,6 +167,15 @@ const ProjectPlannerPage = () => {
   useEffect(() => {
     loadTemplates();
   }, [loadTemplates]);
+
+  useEffect(() => {
+    const state = location.state as { bulkText?: string } | null;
+    if (state?.bulkText) {
+      setBulkText(state.bulkText);
+      setShowPreview(false);
+      window.history.replaceState({}, document.title, location.pathname);
+    }
+  }, [location.state, location.pathname]);
 
   const parsed = parseStructuredBulk(bulkText);
   const templatesByLevel: Record<string, TemplateWithFields | null> = {
@@ -252,6 +262,10 @@ const ProjectPlannerPage = () => {
         </PageTitle>
 
         <div className="mb-3">
+          <Link to={`/project-planner/${projectId}/agent`} className="btn btn-outline-primary btn-sm me-2">
+            <i className="fas fa-robot me-1" />
+            Generate with AI
+          </Link>
           <Link to={`/project/${projectId}`} className="btn btn-light btn-sm">
             <i className="fas fa-arrow-left me-1" />
             {i18n('common.view')} {i18n('entities.project.menu')}

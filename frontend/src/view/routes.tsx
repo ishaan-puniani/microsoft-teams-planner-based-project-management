@@ -173,6 +173,13 @@ const privateRoutes = [
     exact: true,
   },
   {
+    path: '/project-planner/:id/agent',
+    loader: () =>
+      import('src/view/project/planner/ProjectPlannerAgentPage'),
+    permissionRequired: permissions.projectRead,
+    exact: true,
+  },
+  {
     path: '/project-planner/:id',
     loader: () =>
       import('src/view/project/planner/ProjectPlannerPage'),
