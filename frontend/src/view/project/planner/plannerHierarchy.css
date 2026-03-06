@@ -1,0 +1,49 @@
+/* Light hierarchy backgrounds – subtle tint, good readability */
+
+/* Epic: accordion header */
+.planner-epic-header.collapsed,
+.planner-epic-header:not(.collapsed) {
+  background-color: #eef4fc !important;
+}
+
+/* Epic body */
+.planner-epic-body {
+  background-color: #f2f6fc !important;
+}
+
+/* User story */
+.planner-userstory-header {
+  background-color: #eef4ee !important;
+}
+.planner-userstory-body {
+  background-color: #f2f6f2 !important;
+}
+
+/* Task */
+.planner-task-header {
+  background-color: #eef2f4 !important;
+}
+.planner-task-body {
+  background-color: #f2f5f7 !important;
+}
+
+/* Todo list panel */
+.planner-todo-panel {
+  background-color: #f0f0f0 !important;
+}
+
+/* Todo list: remove bottom border from last item */
+.planner-todo-panel .list-group-item:last-child {
+  border-bottom: none !important;
+}
+
+/* Align checkbox with todo text label */
+.planner-todo-panel .planner-todo-check {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.planner-todo-panel .planner-todo-check .form-check-input {
+  margin-top: 0;
+  vertical-align: middle;
+}

@@ -9,18 +9,60 @@ import Breadcrumb from 'src/view/shared/Breadcrumb';
 import PageTitle from 'src/view/shared/styles/PageTitle';
 import Spinner from 'src/view/shared/Spinner';
 import ButtonIcon from 'src/view/shared/ButtonIcon';
+import { parseStructuredBulk } from './structuredBulkParser';
+import type { ParsedItem } from './structuredBulkParser';
+import EpicPanelOfProjectPlanner from './components/EpicPanelOfProjectPlanner';
+import './plannerHierarchy.css';
+
+function serializeUserStory(item: ParsedItem): string {
+  const lines: string[] = [`- ${item.title}`];
+  if (item.description) lines.push(item.description);
+  if (item.acceptanceCriteria.length > 0) {
+    lines.push('AC:');
+    item.acceptanceCriteria.forEach((c) => lines.push(`- ${c}`));
+  }
+  return lines.join('\n');
+}
+
+function buildFullStructuredText(
+  epicsText: string,
+  epicUserStories: Record<number, string>,
+  userStoryTasks: Record<string, string>,
+): string {
+  const epicNames = epicsText
+    .split(/\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+  const sections: string[] = [];
+  for (let i = 0; i < epicNames.length; i++) {
+    sections.push(epicNames[i]);
+    const text = epicUserStories[i] || '';
+    const parsed = parseStructuredBulk(text);
+    const userStories = parsed.filter((x) => x.level === 1);
+    for (let j = 0; j < userStories.length; j++) {
+      const key = `${i}-${j}`;
+      const userStoryBlock = serializeUserStory(userStories[j]);
+      const tasksBlock = userStoryTasks[key];
+      sections.push(tasksBlock ? `${userStoryBlock}\n\n${tasksBlock}` : userStoryBlock);
+    }
+    sections.push('');
+  }
+  return sections.join('\n\n').trim();
+}
 
 const ProjectPlannerAgentPage = () => {
   const { id: projectId } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [project, setProject] = useState<{ id: string; name?: string } | null>(null);
   const [loadingProject, setLoadingProject] = useState(true);
-  const [wizardStep, setWizardStep] = useState<1 | 2 | 3>(1);
+  const [step, setStep] = useState<1 | 2>(1);
   const [projectBrief, setProjectBrief] = useState('');
-  const [wizardContent, setWizardContent] = useState('');
-  const [wizardFeedback, setWizardFeedback] = useState('');
-  const [chatLoading, setChatLoading] = useState(false);
-  const [chatError, setChatError] = useState<string | null>(null);
+  const [epicsText, setEpicsText] = useState('');
+  const [showEpicsPreview, setShowEpicsPreview] = useState(false);
+  const [epicUserStories, setEpicUserStories] = useState<Record<number, string>>({});
+  const [userStoryTasks, setUserStoryTasks] = useState<Record<string, string>>({});
+  const [epicsLoading, setEpicsLoading] = useState(false);
+  const [epicsError, setEpicsError] = useState<string | null>(null);
 
   const loadProject = useCallback(async () => {
     if (!projectId) return;
@@ -40,46 +82,28 @@ const ProjectPlannerAgentPage = () => {
     loadProject();
   }, [loadProject]);
 
-  const handleWizardGenerate = async () => {
-    setChatError(null);
-    setChatLoading(true);
+  const handleGenerateEpics = async () => {
+    setEpicsError(null);
+    setEpicsLoading(true);
     try {
-      const step =
-        wizardStep === 1 ? 'epics' : wizardStep === 2 ? 'user_stories' : 'tasks';
-      const data = await AiAgentService.refinePlannerStep(step, projectBrief, {
-        currentStructuredText: wizardStep === 1 ? '' : wizardContent,
-        userFeedback: wizardFeedback || undefined,
-      });
-      setWizardContent(data.structuredText || '');
-      setWizardFeedback('');
+      const data = await AiAgentService.plannerSuggestEpics(projectBrief);
+      setEpicsText(data.epicsText || '');
     } catch (e: any) {
       Errors.handle(e);
-      setChatError(e?.message || 'Request failed');
+      setEpicsError(e?.message || 'Request failed');
     } finally {
-      setChatLoading(false);
+      setEpicsLoading(false);
     }
   };
 
-  const handleWizardContinue = () => {
-    if (wizardStep < 3) setWizardStep((s) => (s + 1) as 1 | 2 | 3);
+  const handleContinueToEpics = () => {
+    if (epicsText.trim()) setStep(2);
   };
 
-  const handleWizardBack = () => {
-    if (wizardStep > 1) setWizardStep((s) => (s - 1) as 1 | 2 | 3);
-  };
-
-  const handleApplyToEditor = () => {
-    if (!projectId || !wizardContent) return;
-    navigate(`/project-planner/${projectId}`, {
-      state: { bulkText: wizardContent },
-    });
-  };
-
-  const handleWizardStartOver = () => {
-    setWizardStep(1);
-    setWizardContent('');
-    setWizardFeedback('');
-  };
+  const epicNames = epicsText
+    .split(/\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
 
   if (loadingProject || !projectId) {
     return (
@@ -110,9 +134,7 @@ const ProjectPlannerAgentPage = () => {
       />
 
       <ContentWrapper>
-        <PageTitle>
-          AI Assistant — {project.name || projectId}
-        </PageTitle>
+        <PageTitle>AI Assistant — {project.name || projectId}</PageTitle>
 
         <div className="mb-3">
           <Link
@@ -135,173 +157,104 @@ const ProjectPlannerAgentPage = () => {
             </h5>
           </div>
           <div className="card-body">
-            <div className="d-flex align-items-center gap-2 mb-3">
-              <span className={`badge ${wizardStep >= 1 ? 'bg-primary' : 'bg-secondary'}`}>
-                1. Epics
-              </span>
-              <span className="text-muted">→</span>
-              <span className={`badge ${wizardStep >= 2 ? 'bg-primary' : 'bg-secondary'}`}>
-                2. User Stories + AC
-              </span>
-              <span className="text-muted">→</span>
-              <span className={`badge ${wizardStep >= 3 ? 'bg-primary' : 'bg-secondary'}`}>
-                3. Tasks + TODO
-              </span>
-            </div>
-
-            {wizardStep === 1 && (
+            {step === 1 && (
               <>
-                <label className="form-label small">Project description</label>
+                <label className="form-label small">Tell me about your project</label>
                 <textarea
                   className="form-control mb-2"
-                  rows={3}
+                  rows={4}
                   value={projectBrief}
                   onChange={(e) => setProjectBrief(e.target.value)}
                   placeholder="e.g. E-commerce app with login, product catalog, cart and checkout."
-                  disabled={chatLoading}
+                  disabled={epicsLoading}
                 />
+                <div className="mb-2">
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    disabled={epicsLoading || !projectBrief.trim()}
+                    onClick={handleGenerateEpics}
+                  >
+                    <ButtonIcon loading={epicsLoading} iconClass="fas fa-magic" />
+                    Generate Epics
+                  </button>
+                </div>
+                {epicsError && (
+                  <div className="alert alert-danger py-2 small mb-2">{epicsError}</div>
+                )}
+                {epicsText && (
+                  <>
+                    <label className="form-label small">
+                      Epics (editable, one per line)
+                    </label>
+                    <div className="mb-2">
+                      <button
+                        type="button"
+                        className="btn btn-outline-secondary btn-sm me-2"
+                        onClick={() => setShowEpicsPreview(!showEpicsPreview)}
+                      >
+                        {showEpicsPreview ? 'Show textarea' : 'Preview as list'}
+                      </button>
+                    </div>
+                    {showEpicsPreview ? (
+                      <ul className="list-group list-group-flush mb-2">
+                        {epicNames.map((name, idx) => (
+                          <li key={idx} className="list-group-item py-2">
+                            {name}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <textarea
+                        className="form-control font-monospace small mb-2"
+                        rows={8}
+                        value={epicsText}
+                        onChange={(e) => setEpicsText(e.target.value)}
+                        disabled={epicsLoading}
+                      />
+                    )}
+                    <div className="d-flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        className="btn btn-success btn-sm"
+                        disabled={epicsLoading}
+                        onClick={handleContinueToEpics}
+                      >
+                        Continue to User Stories →
+                      </button>
+                    </div>
+                  </>
+                )}
               </>
             )}
 
-            {(wizardStep === 2 || wizardStep === 3) && (
-              <p className="text-muted small mb-2">
-                Brief: {projectBrief.slice(0, 80)}{projectBrief.length > 80 ? '…' : ''}
-              </p>
+            {step === 2 && (
+              <>
+                <p className="text-muted small mb-2">
+                  Brief: {projectBrief.slice(0, 80)}
+                  {projectBrief.length > 80 ? '…' : ''}
+                </p>
+                <p className="form-label small mb-2">
+                  Expand each <strong>Epic</strong> to generate user stories. Expand each <strong>User Story</strong> to generate tasks. Each <strong>Task</strong> shows its todos.
+                </p>
+                <div className="accordion mb-3 planner-hierarchy" id="epics-accordion">
+                  {epicNames.map((epicName, epicIndex) => (
+                    <EpicPanelOfProjectPlanner
+                      key={epicIndex}
+                      epicIndex={epicIndex}
+                      epicName={epicName}
+                      projectBrief={projectBrief}
+                      userStoriesText={epicUserStories[epicIndex] ?? ''}
+                      onUserStoriesTextChange={(text) =>
+                        setEpicUserStories((prev) => ({ ...prev, [epicIndex]: text }))
+                      }
+                      userStoryTasks={userStoryTasks}
+                      onUserStoryTasksChange={setUserStoryTasks}
+                    />
+                  ))}
+                </div>
+              </>
             )}
-
-            <label className="form-label small">
-              {wizardStep === 1
-                ? 'Epics (editable after generate)'
-                : wizardStep === 2
-                  ? 'Epics + User Stories with AC'
-                  : 'Full backlog (Epics + Stories + Tasks + TODO)'}
-            </label>
-            <textarea
-              className="form-control font-monospace small mb-2"
-              rows={wizardStep === 1 ? 8 : 14}
-              value={wizardContent}
-              onChange={(e) => setWizardContent(e.target.value)}
-              placeholder={
-                wizardStep === 1
-                  ? 'Click "Generate Epics" to get a list of epics.'
-                  : wizardStep === 2
-                    ? 'Click "Generate User Stories" to add stories and AC per epic.'
-                    : 'Click "Generate Tasks" to add tasks and TODO lists.'
-              }
-              disabled={chatLoading}
-            />
-
-            {(wizardContent || wizardStep > 1) && (
-              <div className="mb-2">
-                <label className="form-label small text-muted">
-                  Optional: Refine (e.g. "remove X", "add Y")
-                </label>
-                <input
-                  type="text"
-                  className="form-control form-control-sm"
-                  value={wizardFeedback}
-                  onChange={(e) => setWizardFeedback(e.target.value)}
-                  placeholder="e.g. Remove Payment epic. Add Analytics epic."
-                  disabled={chatLoading}
-                />
-              </div>
-            )}
-
-            {chatError && (
-              <div className="alert alert-danger py-2 small mb-2">{chatError}</div>
-            )}
-
-            <div className="d-flex flex-wrap align-items-center gap-2">
-              {wizardStep === 1 && (
-                <button
-                  type="button"
-                  className="btn btn-primary btn-sm"
-                  disabled={chatLoading || !projectBrief.trim()}
-                  onClick={handleWizardGenerate}
-                >
-                  <ButtonIcon loading={chatLoading} iconClass="fas fa-magic" />
-                  Generate Epics
-                </button>
-              )}
-              {wizardStep === 2 && (
-                <>
-                  <button
-                    type="button"
-                    className="btn btn-outline-secondary btn-sm"
-                    onClick={handleWizardBack}
-                  >
-                    Back
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-primary btn-sm"
-                    disabled={chatLoading || !wizardContent.trim()}
-                    onClick={handleWizardGenerate}
-                  >
-                    <ButtonIcon loading={chatLoading} iconClass="fas fa-magic" />
-                    Generate User Stories
-                  </button>
-                </>
-              )}
-              {wizardStep === 3 && (
-                <>
-                  <button
-                    type="button"
-                    className="btn btn-outline-secondary btn-sm"
-                    onClick={handleWizardBack}
-                  >
-                    Back
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-primary btn-sm"
-                    disabled={chatLoading || !wizardContent.trim()}
-                    onClick={handleWizardGenerate}
-                  >
-                    <ButtonIcon loading={chatLoading} iconClass="fas fa-magic" />
-                    Generate Tasks
-                  </button>
-                </>
-              )}
-
-              {wizardStep === 1 && wizardContent && (
-                <button
-                  type="button"
-                  className="btn btn-success btn-sm"
-                  disabled={chatLoading}
-                  onClick={handleWizardContinue}
-                >
-                  Continue to User Stories →
-                </button>
-              )}
-              {wizardStep === 2 && wizardContent && (
-                <button
-                  type="button"
-                  className="btn btn-success btn-sm"
-                  disabled={chatLoading}
-                  onClick={handleWizardContinue}
-                >
-                  Continue to Tasks →
-                </button>
-              )}
-              {wizardStep === 3 && wizardContent && (
-                <button
-                  type="button"
-                  className="btn btn-success btn-sm"
-                  onClick={handleApplyToEditor}
-                >
-                  <i className="fas fa-check me-1" />
-                  Apply to editor
-                </button>
-              )}
-              <button
-                type="button"
-                className="btn btn-outline-secondary btn-sm"
-                onClick={handleWizardStartOver}
-              >
-                Start over
-              </button>
-            </div>
           </div>
         </div>
       </ContentWrapper>

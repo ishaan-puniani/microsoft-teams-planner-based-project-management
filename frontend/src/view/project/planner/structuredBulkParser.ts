@@ -35,6 +35,8 @@ export function parseStructuredBulk(text: string): ParsedItem[] {
   let current: ParsedItem | null = null;
   let currentContent: string[] = [];
   let lastWasHeader = false;
+  let afterAC = false; // inside "AC:" section of current level-1 item
+  let afterTodo = false; // inside "TODO:" section of current level-2 item
 
   function flush() {
     if (!current) return;
@@ -89,13 +91,29 @@ export function parseStructuredBulk(text: string): ParsedItem[] {
     const trimmed = line.trim();
     if (!trimmed) {
       if (current) currentContent.push('');
+      afterAC = false;
+      afterTodo = false;
       continue;
     }
 
     const { level, isHeader, title } = getLevelAndTitle(trimmed);
 
+    // In a user story, lines after "AC:" that look like "- item" are acceptance criteria, not new user stories
+    if (level === 1 && current?.level === 1 && afterAC && trimmed.match(/^-\s+.+/) && !trimmed.startsWith('--')) {
+      currentContent.push(line);
+      continue;
+    }
+
+    // In a task, lines after "TODO:" that look like "- item" are todo checklist, not new user stories
+    if (level === 1 && current?.level === 2 && afterTodo && trimmed.match(/^-\s+.+/) && !trimmed.startsWith('--')) {
+      currentContent.push(line);
+      continue;
+    }
+
     if (level === 1 || level === 2 || level === 3) {
       if (current) flush();
+      afterAC = false;
+      afterTodo = false;
       current = {
         level,
         title,
@@ -105,6 +123,20 @@ export function parseStructuredBulk(text: string): ParsedItem[] {
       };
       currentContent = [];
       lastWasHeader = true;
+      continue;
+    }
+
+    // Track when we enter AC section in a level-1 (user story) block
+    if (current?.level === 1 && (trimmed.toLowerCase().startsWith('ac:') || trimmed.toLowerCase().startsWith('acceptance criteria:'))) {
+      afterAC = true;
+      currentContent.push(line);
+      continue;
+    }
+
+    // Track when we enter TODO section in a level-2 (task) block
+    if (current?.level === 2 && (trimmed.toLowerCase().startsWith('todo:') || trimmed.toLowerCase() === 'todo')) {
+      afterTodo = true;
+      currentContent.push(line);
       continue;
     }
 
@@ -128,6 +160,50 @@ export function parseStructuredBulk(text: string): ParsedItem[] {
 
   if (current) flush();
   return items;
+}
+
+/**
+ * Serialize only level-2 (task) items to text. Used for the tasks-only textarea.
+ */
+export function serializeTasksOnly(items: ParsedItem[]): string {
+  const lines: string[] = [];
+  for (const item of items) {
+    if (item.level === 2) {
+      lines.push(`-- ${item.title}`);
+      if (item.description) lines.push(item.description);
+      if (item.todoChecklist.length > 0) {
+        lines.push('TODO:');
+        item.todoChecklist.forEach((t) => lines.push(`- ${t}`));
+      }
+    }
+  }
+  return lines.join('\n');
+}
+
+/**
+ * Serialize parsed items (user story + tasks block) back to structured text.
+ * Used to update one task's TODO list when we work with tasks-only content.
+ */
+export function serializeTasksBlock(items: ParsedItem[]): string {
+  const lines: string[] = [];
+  for (const item of items) {
+    if (item.level === 1) {
+      lines.push(`- ${item.title}`);
+      if (item.description) lines.push(item.description);
+      if (item.acceptanceCriteria.length > 0) {
+        lines.push('AC:');
+        item.acceptanceCriteria.forEach((c) => lines.push(`- ${c}`));
+      }
+    } else if (item.level === 2) {
+      lines.push(`-- ${item.title}`);
+      if (item.description) lines.push(item.description);
+      if (item.todoChecklist.length > 0) {
+        lines.push('TODO:');
+        item.todoChecklist.forEach((t) => lines.push(`- ${t}`));
+      }
+    }
+  }
+  return lines.join('\n');
 }
 
 export const LEVEL_LABELS: Record<Level, string> = {
