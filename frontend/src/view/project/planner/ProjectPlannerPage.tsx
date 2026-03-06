@@ -1,0 +1,387 @@
+import { useCallback, useEffect, useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
+import { i18n } from 'src/i18n';
+import Errors from 'src/modules/shared/error/errors';
+import Message from 'src/view/shared/message';
+import ProjectService from 'src/modules/project/projectService';
+import TaskService from 'src/modules/task/taskService';
+import TaskTemplateService from 'src/modules/taskTemplate/taskTemplateService';
+import ContentWrapper from 'src/view/layout/styles/ContentWrapper';
+import Breadcrumb from 'src/view/shared/Breadcrumb';
+import PageTitle from 'src/view/shared/styles/PageTitle';
+import Spinner from 'src/view/shared/Spinner';
+import ButtonIcon from 'src/view/shared/ButtonIcon';
+import {
+  parseStructuredBulk,
+  LEVEL_LABELS,
+  LEVEL_TYPES,
+  type Level,
+} from './structuredBulkParser';
+import type { ParsedItem } from './structuredBulkParser';
+
+const DEFAULT_TEMPLATE_TEXT = `Epic Title
+Short description for the epic.
+
+- User Story Title
+As a user I want to log in.
+AC:
+- Valid email and password
+- Show error on invalid credentials
+
+-- Task Title
+Implement login form and API.
+TODO:
+- Add email field
+- Add password field
+- Submit handler
+
+--- Subtask Title
+Write unit tests for login.`;
+
+type TemplateWithFields = {
+  id: string;
+  name?: string;
+  fields?: Array<{ id?: string; _id?: string; name?: string; type?: string }>;
+};
+
+function fieldId(f: { id?: string; _id?: string }): string | null {
+  return f.id || (f as any)._id || null;
+}
+
+function PreviewItemForm({ item }: { item: ParsedItem }) {
+  const indent = item.level * 12;
+  return (
+    <div className="mb-3" style={{ marginLeft: indent }}>
+      <span className="badge bg-secondary mb-1">{LEVEL_LABELS[item.level]}</span>
+      <input
+        type="text"
+        className="form-control form-control-sm mb-1"
+        value={item.title}
+        readOnly
+      />
+      {item.description && (
+        <textarea
+          className="form-control form-control-sm mb-1 font-monospace small"
+          rows={3}
+          value={item.description}
+          readOnly
+        />
+      )}
+      {item.acceptanceCriteria.length > 0 && (
+        <>
+          <label className="form-label small mb-0 mt-1">Acceptance Criteria</label>
+          <textarea
+            className="form-control form-control-sm small"
+            rows={item.acceptanceCriteria.length + 1}
+            value={item.acceptanceCriteria.join('\n')}
+            readOnly
+          />
+        </>
+      )}
+      {item.todoChecklist.length > 0 && (
+        <>
+          <label className="form-label small mb-0 mt-1">TODO</label>
+          <textarea
+            className="form-control form-control-sm small"
+            rows={item.todoChecklist.length + 1}
+            value={item.todoChecklist.join('\n')}
+            readOnly
+          />
+        </>
+      )}
+    </div>
+  );
+}
+
+function getTemplateFieldIds(template: TemplateWithFields) {
+  const fields = template?.fields || [];
+  const byName = (name: string) =>
+    fields.find((f) => String(f.name || '').toLowerCase() === name.toLowerCase());
+  const byType = (type: string) => fields.find((f) => f.type === type);
+
+  const title = byName('title') || byType('TEXT');
+  const description = byName('description') || fields.find((f) => f.type === 'TEXTAREA');
+  const acceptanceCriteria = byName('acceptance criteria');
+  const checklist = fields.find((f) => f.type === 'CHECKLIST');
+
+  return {
+    title: title ? fieldId(title) : null,
+    description: description ? fieldId(description) : null,
+    acceptanceCriteria: acceptanceCriteria ? fieldId(acceptanceCriteria) : null,
+    checklist: checklist ? fieldId(checklist) : null,
+  };
+}
+
+const ProjectPlannerPage = () => {
+  const { id: projectId } = useParams<{ id: string }>();
+  const [project, setProject] = useState<{ id: string; name?: string } | null>(null);
+  const [loadingProject, setLoadingProject] = useState(true);
+  const [templatesByType, setTemplatesByType] = useState<Record<string, TemplateWithFields[]>>({});
+  const [loadingTemplates, setLoadingTemplates] = useState(false);
+  const [bulkText, setBulkText] = useState(DEFAULT_TEMPLATE_TEXT);
+  const [creating, setCreating] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewMode, setPreviewMode] = useState<'list' | 'form'>('list');
+
+  const loadProject = useCallback(async () => {
+    if (!projectId) return;
+    try {
+      setLoadingProject(true);
+      const data = await ProjectService.find(projectId);
+      setProject(data);
+    } catch (e) {
+      Errors.handle(e);
+      setProject(null);
+    } finally {
+      setLoadingProject(false);
+    }
+  }, [projectId]);
+
+  const loadTemplates = useCallback(async () => {
+    try {
+      setLoadingTemplates(true);
+      const [epic, userStory, task, subtask] = await Promise.all([
+        TaskTemplateService.list({ type: 'EPIC' }, undefined, 100, 0),
+        TaskTemplateService.list({ type: 'USER_STORY' }, undefined, 100, 0),
+        TaskTemplateService.list({ type: 'TASK' }, undefined, 100, 0),
+        TaskTemplateService.list({ type: 'SUBTASK' }, undefined, 100, 0),
+      ]);
+      setTemplatesByType({
+        EPIC: epic?.rows || [],
+        USER_STORY: userStory?.rows || [],
+        TASK: task?.rows || [],
+        SUBTASK: subtask?.rows || [],
+      });
+    } catch (e) {
+      Errors.handle(e);
+    } finally {
+      setLoadingTemplates(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadProject();
+  }, [loadProject]);
+
+  useEffect(() => {
+    loadTemplates();
+  }, [loadTemplates]);
+
+  const parsed = parseStructuredBulk(bulkText);
+  const templatesByLevel: Record<string, TemplateWithFields | null> = {
+    EPIC: (templatesByType.EPIC || [])[0] || null,
+    USER_STORY: (templatesByType.USER_STORY || [])[0] || null,
+    TASK: (templatesByType.TASK || [])[0] || null,
+    SUBTASK: (templatesByType.SUBTASK || [])[0] || null,
+  };
+
+  const handleBulkCreate = async () => {
+    if (!projectId) return;
+    const missing = LEVEL_TYPES.filter((t) => !templatesByLevel[t] && parsed.some((p) => LEVEL_TYPES[p.level] === t));
+    if (missing.length > 0) {
+      Message.error(`No template found for: ${missing.join(', ')}. Create task templates for these types first.`);
+      return;
+    }
+    if (parsed.length === 0) {
+      Message.error('Enter structured content (Epic, -User Story, --Task, ---Subtask).');
+      return;
+    }
+    try {
+      setCreating(true);
+      let created = 0;
+      for (const item of parsed) {
+        const typeKey = LEVEL_TYPES[item.level];
+        const template = templatesByLevel[typeKey];
+        if (!template) continue;
+        const ids = getTemplateFieldIds(template);
+        const templateData: Record<string, unknown> = {};
+        if (ids.title) templateData[ids.title] = item.title;
+        if (ids.description && item.description) templateData[ids.description] = item.description;
+        if (ids.acceptanceCriteria && item.acceptanceCriteria.length > 0) {
+          templateData[ids.acceptanceCriteria] = item.acceptanceCriteria.join('\n');
+        }
+        if (ids.checklist && item.todoChecklist.length > 0) {
+          templateData[ids.checklist] = item.todoChecklist.map((label) => ({ label, done: false }));
+        }
+        await TaskService.create({
+          project: projectId,
+          template: template.id,
+          templateData,
+        });
+        created += 1;
+      }
+      Message.success(`Created ${created} requirement(s).`);
+      setBulkText(DEFAULT_TEMPLATE_TEXT);
+    } catch (e) {
+      Errors.handle(e);
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  if (loadingProject || !projectId) {
+    return (
+      <ContentWrapper>
+        <Spinner />
+      </ContentWrapper>
+    );
+  }
+
+  if (!project) {
+    return (
+      <ContentWrapper>
+        <p>{i18n('common.noDataToExport')}</p>
+      </ContentWrapper>
+    );
+  }
+
+  return (
+    <>
+      <Breadcrumb
+        items={[
+          [i18n('dashboard.menu'), '/'],
+          [i18n('entities.project.menu'), '/project'],
+          [project.name || projectId, `/project/${projectId}`],
+          [i18n('common.planner')],
+        ]}
+      />
+
+      <ContentWrapper>
+        <PageTitle>
+          {i18n('common.planner')} — {project.name || projectId}
+        </PageTitle>
+
+        <div className="mb-3">
+          <Link to={`/project/${projectId}`} className="btn btn-light btn-sm">
+            <i className="fas fa-arrow-left me-1" />
+            {i18n('common.view')} {i18n('entities.project.menu')}
+          </Link>
+        </div>
+
+        <div className="card">
+          <div className="card-header">
+            <h5 className="mb-0">
+              <i className="fas fa-list-check me-2" />
+              Structured bulk requirements
+            </h5>
+          </div>
+          <div className="card-body">
+            <p className="text-muted mb-3">
+              Use a hierarchy: <strong>Epic</strong> (no dash), <strong>- User Story</strong> (one dash), <strong>-- Task</strong> (two dashes), <strong>--- Subtask</strong> (three dashes). Put description below each title. For User Stories, add <code>AC:</code> then <code>- item</code> lines for <strong>Acceptance Criteria</strong>. For Tasks, add <code>TODO:</code> then <code>- item</code> lines for the <strong>checklist</strong>.
+            </p>
+
+            <div className="mb-3">
+              <div className="d-flex justify-content-between align-items-center mb-2">
+                <label className="form-label mb-0">
+                  {showPreview ? 'Preview' : 'Structured text'}
+                  {showPreview && ` (${parsed.length} item(s))`}
+                </label>
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary btn-sm"
+                  onClick={() => setShowPreview((v) => !v)}
+                >
+                  {showPreview ? (
+                    <>
+                      <i className="fas fa-edit me-1" />
+                      Edit text
+                    </>
+                  ) : (
+                    <>
+                      <i className="fas fa-eye me-1" />
+                      Show preview
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {!showPreview && (
+                <textarea
+                  className="form-control font-monospace"
+                  rows={22}
+                  value={bulkText}
+                  onChange={(e) => setBulkText(e.target.value)}
+                />
+              )}
+
+              {showPreview && (
+                <>
+                  <div className="btn-group btn-group-sm mb-2">
+                    <button
+                      type="button"
+                      className={`btn ${previewMode === 'list' ? 'btn-primary' : 'btn-outline-secondary'}`}
+                      onClick={() => setPreviewMode('list')}
+                    >
+                      List
+                    </button>
+                    <button
+                      type="button"
+                      className={`btn ${previewMode === 'form' ? 'btn-primary' : 'btn-outline-secondary'}`}
+                      onClick={() => setPreviewMode('form')}
+                    >
+                      Form
+                    </button>
+                  </div>
+
+                  {parsed.length > 0 && previewMode === 'list' && (
+                    <ul className="list-group list-group-flush border rounded">
+                      {parsed.map((item, idx) => (
+                        <li key={idx} className="list-group-item d-flex flex-column gap-1">
+                          <span className="badge bg-secondary align-self-start">
+                            {LEVEL_LABELS[item.level as Level]}
+                          </span>
+                          <strong>{item.title}</strong>
+                          {item.description && (
+                            <span className="text-muted small">{item.description.split('\n')[0]}</span>
+                          )}
+                          {item.acceptanceCriteria.length > 0 && (
+                            <span className="small">AC: {item.acceptanceCriteria.length} item(s)</span>
+                          )}
+                          {item.todoChecklist.length > 0 && (
+                            <span className="small">Checklist: {item.todoChecklist.length} item(s)</span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  {parsed.length > 0 && previewMode === 'form' && (
+                    <div className="border rounded p-3 bg-light">
+                      {parsed.map((item, idx) => (
+                        <PreviewItemForm key={idx} item={item} />
+                      ))}
+                    </div>
+                  )}
+
+                  {parsed.length === 0 && (
+                    <div className="border rounded p-3 bg-light text-muted small">
+                      No items parsed. Click &quot;Edit text&quot; to add structured content.
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            {!loadingTemplates && parsed.length > 0 && (
+              <div className="mb-2 small text-muted">
+                Templates: EPIC → {templatesByLevel.EPIC?.name ?? '—'}, User Story → {templatesByLevel.USER_STORY?.name ?? '—'}, Task → {templatesByLevel.TASK?.name ?? '—'}, Subtask → {templatesByLevel.SUBTASK?.name ?? '—'}
+              </div>
+            )}
+
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={creating || parsed.length === 0}
+              onClick={handleBulkCreate}
+            >
+              <ButtonIcon loading={creating} iconClass="fas fa-plus" />
+              {creating ? 'Creating…' : `Create ${parsed.length} requirement(s)`}
+            </button>
+          </div>
+        </div>
+      </ContentWrapper>
+    </>
+  );
+};
+
+export default ProjectPlannerPage;

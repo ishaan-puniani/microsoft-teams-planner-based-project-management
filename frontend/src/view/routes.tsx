@@ -173,6 +173,13 @@ const privateRoutes = [
     exact: true,
   },
   {
+    path: '/project-planner/:id',
+    loader: () =>
+      import('src/view/project/planner/ProjectPlannerPage'),
+    permissionRequired: permissions.projectRead,
+    exact: true,
+  },
+  {
     path: '/task-template',
     loader: () =>
       import('src/view/taskTemplate/list/TaskTemplateListPage'),

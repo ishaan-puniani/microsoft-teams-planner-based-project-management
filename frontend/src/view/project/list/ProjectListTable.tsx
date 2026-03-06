@@ -211,9 +211,15 @@ const ProjectListTable = (props) => {
                   <td>{row.priority}</td>
 
                   <td className="td-actions">
+                    <Link
+                      className="btn btn-link"
+                      to={`/project-planner/${row.id}`}
+                    >
+                      {i18n('common.planner')}
+                    </Link>
                     {row.msPlan && <>
-                    <Link to={`/msplanner/plan/${row.msPlan}`}>MS Plan Details</Link>
-                    <Link to={`/msplanner/tasks/${row.msPlan}`}>MS Planed Tasks</Link>
+                      <Link to={`/msplanner/plan/${row.msPlan}`}>MS Plan Details</Link>
+                      <Link to={`/msplanner/tasks/${row.msPlan}`}>MS Planed Tasks</Link>
                     </>}
                     <Link
                       className="btn btn-link"

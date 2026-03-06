@@ -24,6 +24,7 @@ const en = {
     select: 'Select',
     continue: 'Continue',
     filters: 'Filters',
+    planner: 'Planner',
   },
 
   app: {
