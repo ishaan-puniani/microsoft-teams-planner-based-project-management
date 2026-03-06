@@ -15,7 +15,9 @@ class TaskTemplateRepository {
     const currentUser =
       MongooseRepository.getCurrentUser(options);
 
-    const [record] = await TaskTemplate(options.database).create(
+    const [record] = await TaskTemplate(
+      options.database,
+    ).create(
       [
         {
           ...data,
@@ -229,9 +231,20 @@ class TaskTemplateRepository {
         });
       }
 
-      if (filter.isActive !== undefined) {
+      if (
+        filter.isActive === true ||
+        filter.isActive === 'true'
+      ) {
         criteriaAnd.push({
-          isActive: filter.isActive,
+          isActive: true,
+        });
+      }
+      if (
+        filter.isActive === false ||
+        filter.isActive === 'false'
+      ) {
+        criteriaAnd.push({
+          isActive: false,
         });
       }
 
@@ -352,7 +365,8 @@ class TaskTemplateRepository {
   ) {
     await AuditLogRepository.log(
       {
-        entityName: TaskTemplate(options.database).modelName,
+        entityName: TaskTemplate(options.database)
+          .modelName,
         entityId: id,
         action,
         values: data,

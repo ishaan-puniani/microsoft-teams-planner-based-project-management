@@ -6,7 +6,7 @@ import * as yup from 'yup';
 export interface TaskTemplateField {
   id: string;
   name: string;
-  type: 'TEXT' | 'TEXTAREA' | 'NUMBER' | 'DATE' | 'SELECT' | 'BOOLEAN';
+  type: 'TEXT' | 'TEXTAREA' | 'NUMBER' | 'DATE' | 'SELECT' | 'BOOLEAN' | 'CHECKLIST';
   required?: boolean;
   options?: string[];
   defaultValue?: any;
@@ -89,6 +89,15 @@ export const createDynamicSchema = (templateFields: TaskTemplateField[]) => {
       case 'BOOLEAN':
         templateDataFields[field.id] = yup.boolean();
         break;
+      case 'CHECKLIST':
+        templateDataFields[field.id] = yup.array().of(
+          yup.object().shape({
+            label: yup.string().required(),
+            done: yup.boolean().required(),
+          })
+        );
+        break;
+
       default:
         templateDataFields[field.id] = field.required 
           ? yup.string().required(`${fieldLabel} is required`)

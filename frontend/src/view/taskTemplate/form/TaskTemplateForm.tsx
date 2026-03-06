@@ -12,6 +12,10 @@ import FormWrapper from 'src/view/shared/styles/FormWrapper';
 import * as yup from 'yup';
 import { SAMPLES } from './samples';
 
+function generateFieldId() {
+  return 'f_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9);
+}
+
 const schema = yup.object().shape({
   name: yupFormSchemas.string(
     i18n('entities.taskTemplate.fields.name'),
@@ -27,6 +31,7 @@ const schema = yup.object().shape({
   ),
   fields: yup.array().of(
     yup.object().shape({
+      id: yup.string().required(),
       name: yup.string().required(),
       type: yup.string().required(),
       required: yup.boolean().default(false),
@@ -59,12 +64,16 @@ const schema = yup.object().shape({
 const TaskTemplateForm = (props) => {
   const [initialValues] = useState(() => {
     const record = props.record || {};
+    const fields = (record.fields || []).map((f, i) => ({
+      ...f,
+      id: f.id || f._id || generateFieldId(),
+    }));
 
     return {
       name: record.name || '',
       description: record.description || '',
       type: record.type || '',
-      fields: record.fields || [],
+      fields,
       workflow: record.workflow || { states: [], transitions: [] },
       isActive: record.isActive !== undefined ? record.isActive : true,
     };
@@ -101,7 +110,8 @@ const TaskTemplateForm = (props) => {
       form.setValue('workflow.transitions', []);
       
       // Convert sample fields to form format
-      const sampleFields = sample.fields.map(field => ({
+      const sampleFields = sample.fields.map((field, i) => ({
+        id: generateFieldId(),
         name: field.name,
         type: field.type === 'text' ? 'TEXT' : 
               field.type === 'textarea' ? 'TEXTAREA' :
@@ -141,14 +151,14 @@ const TaskTemplateForm = (props) => {
     }
   }, [form]);
 
-  // Watch for type changes to populate sample data
+  // Watch for type changes to populate sample data (only when creating – when editing, keep loaded fields/workflow)
   const watchedType = form.watch('type');
-  
+
   useEffect(() => {
-    if (watchedType && SAMPLES[watchedType]) {
+    if (watchedType && SAMPLES[watchedType] && !props.isEditing) {
       onTypeChange(watchedType);
     }
-  }, [watchedType, onTypeChange]);
+  }, [watchedType, onTypeChange, props.isEditing]);
 
   const onSubmit = (values) => {
     props.onSubmit(props.record?.id, values);
@@ -254,6 +264,7 @@ const TaskTemplateForm = (props) => {
                             { value: 'SELECT', label: i18n('entities.taskTemplate.enumerators.fieldType.SELECT') },
                             { value: 'TEXTAREA', label: i18n('entities.taskTemplate.enumerators.fieldType.TEXTAREA') },
                             { value: 'BOOLEAN', label: i18n('entities.taskTemplate.enumerators.fieldType.BOOLEAN') },
+                            { value: 'CHECKLIST', label: i18n('entities.taskTemplate.enumerators.fieldType.CHECKLIST') },
                           ]}
                           required
                         />
@@ -280,6 +291,52 @@ const TaskTemplateForm = (props) => {
                         </button>
                       </div>
                     </div>
+                    {/* Select options - show only when type is SELECT (CHECKLIST items are created on the task form) */}
+                    {form.watch(`fields.${index}.type`) === 'SELECT' && (
+                      <div className="row mt-2 pt-2 border-top">
+                        <div className="col-12">
+                          <label className="form-label">
+                            {i18n('entities.taskTemplate.fields.options')}
+                          </label>
+                          {(form.watch(`fields.${index}.options`) || []).map((_, optIdx) => (
+                            <div key={optIdx} className="input-group input-group-sm mb-1">
+                              <input
+                                type="text"
+                                className="form-control"
+                                value={(form.watch(`fields.${index}.options`) || [])[optIdx] ?? ''}
+                                onChange={(e) => {
+                                  const opts = [...(form.getValues(`fields.${index}.options`) || [])];
+                                  opts[optIdx] = e.target.value;
+                                  form.setValue(`fields.${index}.options`, opts);
+                                }}
+                                placeholder="Option"
+                              />
+                              <button
+                                type="button"
+                                className="btn btn-outline-danger"
+                                onClick={() => {
+                                  const opts = (form.getValues(`fields.${index}.options`) || []).filter((_, i) => i !== optIdx);
+                                  form.setValue(`fields.${index}.options`, opts);
+                                }}
+                              >
+                                <i className="fas fa-times" />
+                              </button>
+                            </div>
+                          ))}
+                          <button
+                            type="button"
+                            className="btn btn-outline-secondary btn-sm"
+                            onClick={() => {
+                              const opts = [...(form.getValues(`fields.${index}.options`) || []), ''];
+                              form.setValue(`fields.${index}.options`, opts);
+                            }}
+                          >
+                            <i className="fas fa-plus me-1" />
+                            {i18n('entities.taskTemplate.actions.addOption')}
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -287,7 +344,7 @@ const TaskTemplateForm = (props) => {
               <button
                 type="button"
                 className="btn btn-outline-primary"
-                onClick={() => appendField({ name: '', type: 'TEXT', required: false, options: [], defaultValue: '' })}
+                onClick={() => appendField({ id: generateFieldId(), name: '', type: 'TEXT', required: false, options: [], defaultValue: '' })}
               >
                 <i className="fas fa-plus"></i> {i18n('entities.taskTemplate.actions.addField')}
               </button>

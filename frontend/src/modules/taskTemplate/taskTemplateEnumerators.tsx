@@ -13,5 +13,6 @@ export const taskTemplateEnumerators = {
     { id: 'SELECT', label: 'entities.taskTemplate.enumerators.fieldType.SELECT' },
     { id: 'TEXTAREA', label: 'entities.taskTemplate.enumerators.fieldType.TEXTAREA' },
     { id: 'BOOLEAN', label: 'entities.taskTemplate.enumerators.fieldType.BOOLEAN' },
+    { id: 'CHECKLIST', label: 'entities.taskTemplate.enumerators.fieldType.CHECKLIST' },
   ],
 };

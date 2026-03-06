@@ -196,6 +196,8 @@ const en = {
         transitionName: 'Transition Name',
         fromState: 'From State',
         toState: 'To State',
+        options: 'Options',
+        checklistItems: 'Checklist Items',
         createdAt: 'Created at',
         updatedAt: 'Updated at',
         updatedAtRange: 'Updated at',
@@ -218,6 +220,7 @@ const en = {
           SELECT: 'Select',
           TEXTAREA: 'Textarea',
           BOOLEAN: 'Boolean',
+          CHECKLIST: 'Checklist',
         },
       },
       sections: {
@@ -229,6 +232,8 @@ const en = {
         addField: 'Add Field',
         addState: 'Add State',
         addTransition: 'Add Transition',
+        addOption: 'Add Option',
+        addChecklistItem: 'Add Item',
       },
       placeholders: {},
       hints: {

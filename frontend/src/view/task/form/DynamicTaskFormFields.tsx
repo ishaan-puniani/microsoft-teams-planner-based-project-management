@@ -11,10 +11,15 @@ import TextAreaFormItem from 'src/view/shared/form/items/TextAreaFormItem';
 export interface TaskTemplateField {
   id: string;
   name: string;
-  type: 'TEXT' | 'TEXTAREA' | 'NUMBER' | 'DATE' | 'SELECT' | 'BOOLEAN';
+  type: 'TEXT' | 'TEXTAREA' | 'NUMBER' | 'DATE' | 'SELECT' | 'BOOLEAN' | 'CHECKLIST';
   required?: boolean;
   options?: string[];
   defaultValue?: any;
+}
+
+export interface ChecklistItem {
+  label: string;
+  done: boolean;
 }
 
 interface DynamicTaskFormFieldsProps {
@@ -38,7 +43,9 @@ const DynamicTaskFormFields: React.FC<DynamicTaskFormFieldsProps> = ({
         <Controller
           name={fieldName}
           control={control}
-          defaultValue={field.defaultValue || ''}
+          defaultValue={
+            field.type === 'CHECKLIST' ? [] : field.defaultValue ?? ''
+          }
           render={({ field: controllerField, fieldState: { error } }) => {
             const commonProps = {
               ...controllerField,
@@ -68,6 +75,78 @@ const DynamicTaskFormFields: React.FC<DynamicTaskFormFieldsProps> = ({
                 );
               case 'BOOLEAN':
                 return <SwitchFormItem {...commonProps} />;
+              case 'CHECKLIST': {
+                const items: ChecklistItem[] = Array.isArray(controllerField.value)
+                  ? controllerField.value
+                  : [];
+                return (
+                  <div className="form-group">
+                    {fieldLabel && (
+                      <label className="form-label">
+                        {fieldLabel}
+                        {field.required && <span className="text-danger ms-1">*</span>}
+                      </label>
+                    )}
+                    <p className="text-muted small mb-2">
+                      Add checklist items for this task. You can mark each as done when complete.
+                    </p>
+                    <div className="border rounded p-2 bg-light">
+                      {items.map((item, idx) => (
+                        <div key={idx} className="d-flex align-items-center gap-2 mb-2">
+                          <input
+                            type="checkbox"
+                            className="form-check-input flex-shrink-0"
+                            id={`${fieldName}-${idx}-done`}
+                            checked={!!item.done}
+                            onChange={(e) => {
+                              const next = items.map((i, iidx) =>
+                                iidx === idx ? { ...i, done: e.target.checked } : i
+                              );
+                              controllerField.onChange(next);
+                            }}
+                          />
+                          <input
+                            type="text"
+                            className="form-control form-control-sm"
+                            value={item.label}
+                            onChange={(e) => {
+                              const next = items.map((i, iidx) =>
+                                iidx === idx ? { ...i, label: e.target.value } : i
+                              );
+                              controllerField.onChange(next);
+                            }}
+                            placeholder="Item label"
+                          />
+                          <button
+                            type="button"
+                            className="btn btn-outline-danger btn-sm flex-shrink-0"
+                            onClick={() => {
+                              const next = items.filter((_, i) => i !== idx);
+                              controllerField.onChange(next);
+                            }}
+                            title="Remove item"
+                          >
+                            <i className="fas fa-times" />
+                          </button>
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        className="btn btn-outline-secondary btn-sm"
+                        onClick={() => {
+                          controllerField.onChange([...items, { label: '', done: false }]);
+                        }}
+                      >
+                        <i className="fas fa-plus me-1" />
+                        Add item
+                      </button>
+                    </div>
+                    {error?.message && (
+                      <div className="invalid-feedback d-block">{error.message}</div>
+                    )}
+                  </div>
+                );
+              }
               default:
                 return <InputFormItem {...commonProps} />;
             }

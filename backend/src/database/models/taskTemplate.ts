@@ -40,7 +40,7 @@ export default (database) => {
         type: {
           type: String,
           required: true,
-          enum: ['TEXT', 'NUMBER', 'DATE', 'SELECT', 'TEXTAREA', 'BOOLEAN'],
+          enum: ['TEXT', 'NUMBER', 'DATE', 'SELECT', 'TEXTAREA', 'BOOLEAN', 'CHECKLIST'],
         },
         required: {
           type: Boolean,

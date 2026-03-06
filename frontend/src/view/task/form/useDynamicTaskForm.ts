@@ -39,27 +39,34 @@ export const useDynamicTaskForm = ({ form, watchedTemplate }: UseDynamicTaskForm
         const template = await TaskTemplateService.find(selTemplate.id);
         console.log('Fetched template:', template);
         setSelectedTemplate(template);
-        setTemplateFields(template.fields || []);
-        
+        // Ensure every field has an id so templateData keys are never "undefined"
+        const rawFields = template.fields || [];
+        const normalizedFields: TaskTemplateField[] = rawFields.map((f: TaskTemplateField, i: number) => ({
+          ...f,
+          id: f.id || (f.name ? String(f.name).replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '') || `field_${i}` : `field_${i}`),
+        }));
+        setTemplateFields(normalizedFields);
+
         // Update schema with template fields
-        const newSchema = createDynamicSchema(template.fields || []);
+        const newSchema = createDynamicSchema(normalizedFields);
         setCurrentSchema(newSchema);
 
         // Pre-populate form fields with existing templateData values or template default values
-        if (template.fields && form) {
+        if (normalizedFields.length > 0 && form) {
           console.log('Current form values:', form.getValues());
-          template.fields.forEach((field) => {
+          normalizedFields.forEach((field) => {
             const fieldName = `templateData.${field.id}`;
             const existingValue = form.getValues(fieldName);
             
             console.log(`Field ${fieldName}: existingValue=${existingValue}, defaultValue=${field.defaultValue}`);
             
             // Use existing value if available, otherwise use template default value
-            const valueToSet = existingValue !== undefined && existingValue !== null 
-              ? existingValue 
-              : (field.defaultValue !== undefined && field.defaultValue !== null 
-                  ? field.defaultValue 
-                  : '');
+            const defaultForType = field.type === 'CHECKLIST' ? [] : '';
+            const valueToSet = existingValue !== undefined && existingValue !== null
+              ? existingValue
+              : (field.defaultValue !== undefined && field.defaultValue !== null
+                  ? field.defaultValue
+                  : defaultForType);
             
             console.log(`Setting ${fieldName} to:`, valueToSet);
             form.setValue(fieldName, valueToSet);
