@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Link, useParams, useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
 import { i18n } from 'src/i18n';
 import Errors from 'src/modules/shared/error/errors';
 import ProjectService from 'src/modules/project/projectService';
@@ -9,10 +9,18 @@ import Breadcrumb from 'src/view/shared/Breadcrumb';
 import PageTitle from 'src/view/shared/styles/PageTitle';
 import Spinner from 'src/view/shared/Spinner';
 import ButtonIcon from 'src/view/shared/ButtonIcon';
-import { parseStructuredBulk } from './structuredBulkParser';
+import { parseStructuredBulk, serializeTasksOnly } from './structuredBulkParser';
 import type { ParsedItem } from './structuredBulkParser';
 import EpicPanelOfProjectPlanner from './components/EpicPanelOfProjectPlanner';
+import {
+  loadPlannerContent,
+  savePlannerContent,
+  loadPlannerBrief,
+  savePlannerBrief,
+} from './plannerStorage';
 import './plannerHierarchy.css';
+
+const SAVE_DEBOUNCE_MS = 500;
 
 function serializeUserStory(item: ParsedItem): string {
   const lines: string[] = [`- ${item.title}`];
@@ -50,9 +58,49 @@ function buildFullStructuredText(
   return sections.join('\n\n').trim();
 }
 
+function parseFullTextToAgentState(fullText: string): {
+  epicsText: string;
+  epicUserStories: Record<number, string>;
+  userStoryTasks: Record<string, string>;
+} {
+  const items = parseStructuredBulk(fullText);
+  const epicIdxs = items.map((x, i) => (x.level === 0 ? i : -1)).filter((i) => i >= 0);
+  if (epicIdxs.length === 0) {
+    return { epicsText: '', epicUserStories: {}, userStoryTasks: {} };
+  }
+  const epicNames = epicIdxs.map((i) => items[i].title);
+  const epicsText = epicNames.join('\n');
+  const epicUserStories: Record<number, string> = {};
+  const userStoryTasks: Record<string, string> = {};
+  for (let ei = 0; ei < epicIdxs.length; ei++) {
+    const start = epicIdxs[ei];
+    const end = epicIdxs[ei + 1] ?? items.length;
+    const epicItems = items.slice(start, end);
+    const epicTitle = epicItems[0].level === 0 ? epicItems[0].title : '';
+    const rest = epicItems.slice(1);
+    const blocks: ParsedItem[][] = [];
+    let current: ParsedItem[] = [];
+    for (const item of rest) {
+      if (item.level === 1) {
+        if (current.length) blocks.push(current);
+        current = [item];
+      } else if (item.level === 2) {
+        current.push(item);
+      }
+    }
+    if (current.length) blocks.push(current);
+    const epicBlockLines: string[] = [epicTitle];
+    blocks.forEach((block, j) => {
+      epicBlockLines.push(serializeUserStory(block[0]));
+      userStoryTasks[`${ei}-${j}`] = serializeTasksOnly(block.slice(1));
+    });
+    epicUserStories[ei] = epicBlockLines.join('\n\n');
+  }
+  return { epicsText, epicUserStories, userStoryTasks };
+}
+
 const ProjectPlannerAgentPage = () => {
   const { id: projectId } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const [project, setProject] = useState<{ id: string; name?: string } | null>(null);
   const [loadingProject, setLoadingProject] = useState(true);
   const [step, setStep] = useState<1 | 2>(1);
@@ -63,6 +111,8 @@ const ProjectPlannerAgentPage = () => {
   const [userStoryTasks, setUserStoryTasks] = useState<Record<string, string>>({});
   const [epicsLoading, setEpicsLoading] = useState(false);
   const [epicsError, setEpicsError] = useState<string | null>(null);
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const loadedForProjectRef = useRef<string | null>(null);
 
   const loadProject = useCallback(async () => {
     if (!projectId) return;
@@ -81,6 +131,39 @@ const ProjectPlannerAgentPage = () => {
   useEffect(() => {
     loadProject();
   }, [loadProject]);
+
+  useEffect(() => {
+    if (!projectId) return;
+    if (loadedForProjectRef.current === projectId) return;
+    loadedForProjectRef.current = projectId;
+    const brief = loadPlannerBrief(projectId);
+    if (brief != null) setProjectBrief(brief);
+    const content = loadPlannerContent(projectId);
+    if (content && content.trim()) {
+      try {
+        const state = parseFullTextToAgentState(content);
+        setEpicsText(state.epicsText);
+        setEpicUserStories(state.epicUserStories);
+        setUserStoryTasks(state.userStoryTasks);
+      } catch {
+        // keep default state if parse fails
+      }
+    }
+  }, [projectId]);
+
+  useEffect(() => {
+    if (!projectId) return;
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = setTimeout(() => {
+      saveTimeoutRef.current = null;
+      const formatted = buildFullStructuredText(epicsText, epicUserStories, userStoryTasks);
+      if (formatted.trim()) savePlannerContent(projectId, formatted);
+      savePlannerBrief(projectId, projectBrief);
+    }, SAVE_DEBOUNCE_MS);
+    return () => {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    };
+  }, [projectId, projectBrief, epicsText, epicUserStories, userStoryTasks]);
 
   const handleGenerateEpics = async () => {
     setEpicsError(null);
@@ -249,7 +332,9 @@ const ProjectPlannerAgentPage = () => {
                         setEpicUserStories((prev) => ({ ...prev, [epicIndex]: text }))
                       }
                       userStoryTasks={userStoryTasks}
-                      onUserStoryTasksChange={setUserStoryTasks}
+                      onUserStoryTasksChange={(patch) =>
+                        setUserStoryTasks((prev) => ({ ...prev, ...patch }))
+                      }
                     />
                   ))}
                 </div>

@@ -123,10 +123,7 @@ const EpicPanelOfProjectPlanner = ({
                   epicName={epicName}
                   tasksText={userStoryTasks[`${epicIndex}-${usIdx}`] ?? ''}
                   onTasksTextChange={(text) =>
-                    onUserStoryTasksChange({
-                      ...userStoryTasks,
-                      [`${epicIndex}-${usIdx}`]: text,
-                    })
+                    onUserStoryTasksChange({ [`${epicIndex}-${usIdx}`]: text })
                   }
                   serializeUserStoryText={() => serializeUserStory(us)}
                 />

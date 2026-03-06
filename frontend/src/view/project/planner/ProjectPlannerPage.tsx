@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useParams, useLocation } from 'react-router-dom';
 import { i18n } from 'src/i18n';
 import Errors from 'src/modules/shared/error/errors';
@@ -18,6 +18,9 @@ import {
   type Level,
 } from './structuredBulkParser';
 import type { ParsedItem } from './structuredBulkParser';
+import { loadPlannerContent, savePlannerContent } from './plannerStorage';
+
+const PLANNER_SAVE_DEBOUNCE_MS = 500;
 
 const DEFAULT_TEMPLATE_TEXT = `Epic Title
 Short description for the epic.
@@ -123,6 +126,7 @@ const ProjectPlannerPage = () => {
   const [creating, setCreating] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [previewMode, setPreviewMode] = useState<'list' | 'form'>('list');
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadProject = useCallback(async () => {
     if (!projectId) return;
@@ -169,13 +173,29 @@ const ProjectPlannerPage = () => {
   }, [loadTemplates]);
 
   useEffect(() => {
+    if (!projectId) return;
     const state = location.state as { bulkText?: string } | null;
     if (state?.bulkText) {
       setBulkText(state.bulkText);
       setShowPreview(false);
       window.history.replaceState({}, document.title, location.pathname);
+      return;
     }
-  }, [location.state, location.pathname]);
+    const saved = loadPlannerContent(projectId);
+    if (saved != null && saved.trim()) setBulkText(saved);
+  }, [projectId, location.state, location.pathname]);
+
+  useEffect(() => {
+    if (!projectId) return;
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = setTimeout(() => {
+      saveTimeoutRef.current = null;
+      savePlannerContent(projectId, bulkText);
+    }, PLANNER_SAVE_DEBOUNCE_MS);
+    return () => {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    };
+  }, [projectId, bulkText]);
 
   const parsed = parseStructuredBulk(bulkText);
   const templatesByLevel: Record<string, TemplateWithFields | null> = {
@@ -222,6 +242,7 @@ const ProjectPlannerPage = () => {
       }
       Message.success(`Created ${created} requirement(s).`);
       setBulkText(DEFAULT_TEMPLATE_TEXT);
+      savePlannerContent(projectId, DEFAULT_TEMPLATE_TEXT);
     } catch (e) {
       Errors.handle(e);
     } finally {

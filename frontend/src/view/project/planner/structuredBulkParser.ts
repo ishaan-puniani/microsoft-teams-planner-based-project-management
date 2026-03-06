@@ -37,6 +37,7 @@ export function parseStructuredBulk(text: string): ParsedItem[] {
   let lastWasHeader = false;
   let afterAC = false; // inside "AC:" section of current level-1 item
   let afterTodo = false; // inside "TODO:" section of current level-2 item
+  let lastLineWasBlank = false; // so a following no-dash line can start a new epic (multi-epic document)
 
   function flush() {
     if (!current) return;
@@ -93,10 +94,13 @@ export function parseStructuredBulk(text: string): ParsedItem[] {
       if (current) currentContent.push('');
       afterAC = false;
       afterTodo = false;
+      lastLineWasBlank = true;
       continue;
     }
 
     const { level, isHeader, title } = getLevelAndTitle(trimmed);
+    const lineAfterBlank = lastLineWasBlank;
+    lastLineWasBlank = false;
 
     // In a user story, lines after "AC:" that look like "- item" are acceptance criteria, not new user stories
     if (level === 1 && current?.level === 1 && afterAC && trimmed.match(/^-\s+.+/) && !trimmed.startsWith('--')) {
@@ -141,8 +145,8 @@ export function parseStructuredBulk(text: string): ParsedItem[] {
     }
 
     if (level === 0) {
-      // Only the very first line starts an Epic; all other no-dash lines are description content
-      const startNewEpic = !current;
+      // First line, or a no-dash line after a blank line, starts a new Epic (supports multi-epic document)
+      const startNewEpic = !current || lineAfterBlank;
       if (startNewEpic) {
         if (current) flush();
         current = { level: 0, title: trimmed, description: '', acceptanceCriteria: [], todoChecklist: [] };
