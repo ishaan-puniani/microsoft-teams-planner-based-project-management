@@ -42,6 +42,18 @@ const EpicPanelOfProjectPlanner = ({
   const parsed = parseStructuredBulk(userStoriesText);
   const userStories = parsed.filter((x) => x.level === 1);
 
+  /** Strip epic title from first line if present; the epic name is already in the accordion header. */
+  const stripEpicTitleFromText = (text: string): string => {
+    const trimmed = text.trim();
+    if (!trimmed || !epicName.trim()) return text;
+    const firstLine = trimmed.split('\n')[0].trim();
+    if (firstLine === epicName.trim()) {
+      const rest = trimmed.slice(firstLine.length).trimStart();
+      return rest.startsWith('\n\n') ? rest.slice(2) : rest;
+    }
+    return text;
+  };
+
   const handleGenerateUserStories = async () => {
     setError(null);
     setLoading(true);
@@ -50,7 +62,7 @@ const EpicPanelOfProjectPlanner = ({
         epicName,
         { projectBrief },
       );
-      onUserStoriesTextChange(data.userStoriesText || '');
+      onUserStoriesTextChange(stripEpicTitleFromText(data.userStoriesText || ''));
     } catch (e: any) {
       Errors.handle(e);
       setError(e?.message || 'Request failed');
@@ -104,7 +116,7 @@ const EpicPanelOfProjectPlanner = ({
               rows={6}
               value={userStoriesText}
               onChange={(e) => onUserStoriesTextChange(e.target.value)}
-              placeholder="Epic title then '- User Story' lines with AC:. Generate or paste."
+              placeholder="- User Story lines with AC:. Generate or paste (epic title is in the header above)."
               disabled={loading}
             />
           </div>

@@ -18,28 +18,9 @@ import {
   type Level,
 } from './structuredBulkParser';
 import type { ParsedItem } from './structuredBulkParser';
-import { loadPlannerContent, savePlannerContent } from './plannerStorage';
+import { loadPlannerContent, savePlannerContent, PLANNER_SAMPLE_PLACEHOLDER } from './plannerStorage';
 
 const PLANNER_SAVE_DEBOUNCE_MS = 500;
-
-const DEFAULT_TEMPLATE_TEXT = `Epic Title
-Short description for the epic.
-
-- User Story Title
-As a user I want to log in.
-AC:
-- Valid email and password
-- Show error on invalid credentials
-
--- Task Title
-Implement login form and API.
-TODO:
-- Add email field
-- Add password field
-- Submit handler
-
---- Subtask Title
-Write unit tests for login.`;
 
 type TemplateWithFields = {
   id: string;
@@ -149,7 +130,7 @@ const ProjectPlannerPage = () => {
   const [loadingProject, setLoadingProject] = useState(true);
   const [templatesByType, setTemplatesByType] = useState<Record<string, TemplateWithFields[]>>({});
   const [loadingTemplates, setLoadingTemplates] = useState(false);
-  const [bulkText, setBulkText] = useState(DEFAULT_TEMPLATE_TEXT);
+  const [bulkText, setBulkText] = useState(PLANNER_SAMPLE_PLACEHOLDER);
   const [creating, setCreating] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [previewMode, setPreviewMode] = useState<'list' | 'form'>('list');
@@ -217,7 +198,10 @@ const ProjectPlannerPage = () => {
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     saveTimeoutRef.current = setTimeout(() => {
       saveTimeoutRef.current = null;
-      savePlannerContent(projectId, bulkText);
+      // Do not persist sample placeholder; it is only for display in this view.
+      if (bulkText.trim() !== PLANNER_SAMPLE_PLACEHOLDER.trim()) {
+        savePlannerContent(projectId, bulkText);
+      }
     }, PLANNER_SAVE_DEBOUNCE_MS);
     return () => {
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
@@ -255,8 +239,8 @@ const ProjectPlannerPage = () => {
         .filter(Boolean) as Array<ReturnType<typeof buildTaskPayload>>;
       const { count } = await TaskService.bulkCreate(projectId, tasks);
       Message.success(`Created ${count} requirement(s).`);
-      setBulkText(DEFAULT_TEMPLATE_TEXT);
-      savePlannerContent(projectId, DEFAULT_TEMPLATE_TEXT);
+      setBulkText(PLANNER_SAMPLE_PLACEHOLDER);
+      savePlannerContent(projectId, PLANNER_SAMPLE_PLACEHOLDER);
     } catch (e) {
       Errors.handle(e);
     } finally {

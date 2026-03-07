@@ -17,6 +17,7 @@ import {
   savePlannerContent,
   loadPlannerBrief,
   savePlannerBrief,
+  PLANNER_SAMPLE_PLACEHOLDER,
 } from './plannerStorage';
 import './plannerHierarchy.css';
 
@@ -89,7 +90,8 @@ function parseFullTextToAgentState(fullText: string): {
       }
     }
     if (current.length) blocks.push(current);
-    const epicBlockLines: string[] = [epicTitle];
+    // Do not include epic title in user-stories text; it is already shown in the epic accordion header.
+    const epicBlockLines: string[] = [];
     blocks.forEach((block, j) => {
       epicBlockLines.push(serializeUserStory(block[0]));
       userStoryTasks[`${ei}-${j}`] = serializeTasksOnly(block.slice(1));
@@ -139,9 +141,11 @@ const ProjectPlannerAgentPage = () => {
     const brief = loadPlannerBrief(projectId);
     if (brief != null) setProjectBrief(brief);
     const content = loadPlannerContent(projectId);
-    if (content && content.trim()) {
+    const trimmed = content?.trim() ?? '';
+    // Do not load sample placeholder into AI planner; it is only a placeholder elsewhere.
+    if (trimmed && trimmed !== PLANNER_SAMPLE_PLACEHOLDER.trim()) {
       try {
-        const state = parseFullTextToAgentState(content);
+        const state = parseFullTextToAgentState(content!);
         setEpicsText(state.epicsText);
         setEpicUserStories(state.epicUserStories);
         setUserStoryTasks(state.userStoryTasks);
