@@ -22,6 +22,15 @@ export default (database) => {
       key: {
         type: String,
       },
+      type: {
+        type: String,
+      },
+      title: {
+        type: String,
+      },
+      description: {
+        type: String,
+      },
 
       templateData: {
         type: Schema.Types.Mixed,
@@ -54,6 +63,9 @@ export default (database) => {
         type: Date,
       },
 
+      sprint: {
+        type: String
+      },
       template: {
         type: Schema.Types.ObjectId,
         ref: 'taskTemplate',

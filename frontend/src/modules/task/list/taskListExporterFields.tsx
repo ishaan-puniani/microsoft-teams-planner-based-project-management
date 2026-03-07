@@ -7,6 +7,10 @@ export default [
     label: i18n('entities.task.fields.id'),
   },
   {
+    name: 'type',
+    label: i18n('entities.task.fields.type'),
+  },
+  {
     name: 'title',
     label: i18n('entities.task.fields.title'),
   },

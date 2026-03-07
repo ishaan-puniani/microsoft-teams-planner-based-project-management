@@ -133,6 +133,30 @@ const TaskListTable = (props) => {
               />
 
               <TableColumnHeader
+                onSort={doChangeSort}
+                hasRows={hasRows}
+                sorter={sorter}
+                name={'type'}
+                label={i18n('entities.task.fields.type')}
+              />
+
+              <TableColumnHeader
+                onSort={doChangeSort}
+                hasRows={hasRows}
+                sorter={sorter}
+                name={'title'}
+                label={i18n('entities.task.fields.title')}
+              />
+
+              <TableColumnHeader
+                onSort={doChangeSort}
+                hasRows={hasRows}
+                sorter={sorter}
+                name={'description'}
+                label={i18n('entities.task.fields.description')}
+              />
+
+              <TableColumnHeader
                 label={i18n(
                   'entities.task.fields.attachment',
                 )}
@@ -240,6 +264,15 @@ const TaskListTable = (props) => {
                     )}
                   </td>
                   <td>{row.key}</td>
+                  <td>{row.type}</td>
+                  <td>{row.title}</td>
+                  <td>
+                    {row.description != null
+                      ? String(row.description).length > 50
+                        ? `${String(row.description).slice(0, 50)}…`
+                        : row.description
+                      : ''}
+                  </td>
                   <td>
                     <FilesListView value={row.attachment} />
                   </td>

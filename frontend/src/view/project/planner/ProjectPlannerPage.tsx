@@ -51,6 +51,52 @@ function fieldId(f: { id?: string; _id?: string }): string | null {
   return f.id || (f as any)._id || null;
 }
 
+function getTemplateFieldIds(template: TemplateWithFields) {
+  const fields = template?.fields || [];
+  const byName = (name: string) =>
+    fields.find((f) => String(f.name || '').toLowerCase() === name.toLowerCase());
+  const byType = (type: string) => fields.find((f) => f.type === type);
+
+  const title = byName('title') || byType('TEXT');
+  const description = byName('description') || fields.find((f) => f.type === 'TEXTAREA');
+  const acceptanceCriteria = byName('acceptance criteria');
+  const checklist = fields.find((f) => f.type === 'CHECKLIST');
+
+  return {
+    title: title ? fieldId(title) : null,
+    description: description ? fieldId(description) : null,
+    acceptanceCriteria: acceptanceCriteria ? fieldId(acceptanceCriteria) : null,
+    checklist: checklist ? fieldId(checklist) : null,
+  };
+}
+
+/** Build one task payload for bulk-create API (parsed item + template). */
+function buildTaskPayload(
+  projectId: string,
+  item: ParsedItem,
+  template: TemplateWithFields,
+  typeKey: string,
+): { project: string; template: string; type: string; title: string; description?: string; templateData: Record<string, unknown> } {
+  const ids = getTemplateFieldIds(template);
+  const templateData: Record<string, unknown> = {};
+  if (ids.title) templateData[ids.title] = item.title;
+  if (ids.description && item.description) templateData[ids.description] = item.description;
+  if (ids.acceptanceCriteria && item.acceptanceCriteria.length > 0) {
+    templateData[ids.acceptanceCriteria] = item.acceptanceCriteria.join('\n');
+  }
+  if (ids.checklist && item.todoChecklist.length > 0) {
+    templateData[ids.checklist] = item.todoChecklist.map((label) => ({ label, done: false }));
+  }
+  return {
+    project: projectId,
+    template: template.id,
+    type: typeKey,
+    title: item.title,
+    description: item.description || undefined,
+    templateData,
+  };
+}
+
 function PreviewItemForm({ item }: { item: ParsedItem }) {
   const indent = item.level * 12;
   return (
@@ -94,25 +140,6 @@ function PreviewItemForm({ item }: { item: ParsedItem }) {
       )}
     </div>
   );
-}
-
-function getTemplateFieldIds(template: TemplateWithFields) {
-  const fields = template?.fields || [];
-  const byName = (name: string) =>
-    fields.find((f) => String(f.name || '').toLowerCase() === name.toLowerCase());
-  const byType = (type: string) => fields.find((f) => f.type === type);
-
-  const title = byName('title') || byType('TEXT');
-  const description = byName('description') || fields.find((f) => f.type === 'TEXTAREA');
-  const acceptanceCriteria = byName('acceptance criteria');
-  const checklist = fields.find((f) => f.type === 'CHECKLIST');
-
-  return {
-    title: title ? fieldId(title) : null,
-    description: description ? fieldId(description) : null,
-    acceptanceCriteria: acceptanceCriteria ? fieldId(acceptanceCriteria) : null,
-    checklist: checklist ? fieldId(checklist) : null,
-  };
 }
 
 const ProjectPlannerPage = () => {
@@ -218,29 +245,16 @@ const ProjectPlannerPage = () => {
     }
     try {
       setCreating(true);
-      let created = 0;
-      for (const item of parsed) {
-        const typeKey = LEVEL_TYPES[item.level];
-        const template = templatesByLevel[typeKey];
-        if (!template) continue;
-        const ids = getTemplateFieldIds(template);
-        const templateData: Record<string, unknown> = {};
-        if (ids.title) templateData[ids.title] = item.title;
-        if (ids.description && item.description) templateData[ids.description] = item.description;
-        if (ids.acceptanceCriteria && item.acceptanceCriteria.length > 0) {
-          templateData[ids.acceptanceCriteria] = item.acceptanceCriteria.join('\n');
-        }
-        if (ids.checklist && item.todoChecklist.length > 0) {
-          templateData[ids.checklist] = item.todoChecklist.map((label) => ({ label, done: false }));
-        }
-        await TaskService.create({
-          project: projectId,
-          template: template.id,
-          templateData,
-        });
-        created += 1;
-      }
-      Message.success(`Created ${created} requirement(s).`);
+      const tasks = parsed
+        .map((item) => {
+          const typeKey = LEVEL_TYPES[item.level];
+          const template = templatesByLevel[typeKey];
+          if (!template) return null;
+          return buildTaskPayload(projectId, item, template, typeKey);
+        })
+        .filter(Boolean) as Array<ReturnType<typeof buildTaskPayload>>;
+      const { count } = await TaskService.bulkCreate(projectId, tasks);
+      Message.success(`Created ${count} requirement(s).`);
       setBulkText(DEFAULT_TEMPLATE_TEXT);
       savePlannerContent(projectId, DEFAULT_TEMPLATE_TEXT);
     } catch (e) {

@@ -18,6 +18,14 @@ export const baseTaskSchema = yup.object().shape({
     i18n('entities.task.fields.project'),
     {},
   ),
+  type: yupFormSchemas.string(
+    i18n('entities.task.fields.type'),
+    {},
+  ),
+  title: yupFormSchemas.string(
+    i18n('entities.task.fields.title'),
+    {},
+  ),
   description: yupFormSchemas.string(
     i18n('entities.task.fields.description'),
     {},

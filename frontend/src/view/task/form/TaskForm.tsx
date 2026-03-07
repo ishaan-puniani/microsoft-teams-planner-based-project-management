@@ -22,6 +22,9 @@ const TaskForm = (props) => {
 
     return {
       project: record.project,
+      type: record.type ?? '',
+      title: record.title ?? '',
+      description: record.description ?? '',
       attachment: record.attachment || [],
       leadBy: record.leadBy,
       reviewedBy: record.reviewedBy,
@@ -101,6 +104,18 @@ const TaskForm = (props) => {
                 label={i18n('entities.task.fields.project')}
                 showCreate={!props.modal}
                 required={true}
+              />
+            </div>
+            <div className="col-lg-7 col-md-8 col-12">
+              <InputFormItem
+                name="type"
+                label={i18n('entities.task.fields.type')}
+              />
+            </div>
+            <div className="col-lg-7 col-md-8 col-12">
+              <InputFormItem
+                name="title"
+                label={i18n('entities.task.fields.title')}
               />
             </div>
             <div className="col-lg-7 col-md-8 col-12">

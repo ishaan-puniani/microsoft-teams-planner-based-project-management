@@ -1,6 +1,7 @@
 /// File is generated from https://studio.fabbuilder.com - task
 
 import taskCreate from './taskCreate';
+import taskBulkCreate from './taskBulkCreate';
 import taskUpdate from './taskUpdate';
 import taskImport from './taskImport';
 import taskDestroy from './taskDestroy';
@@ -13,6 +14,10 @@ export default (app) => {
   app.post(
     `/tenant/:tenantId/task`,
     taskCreate,
+  );
+  app.post(
+    `/tenant/:tenantId/task/bulk-create`,
+    taskBulkCreate,
   );
   app.put(
     `/tenant/:tenantId/task/:id`,

@@ -16,6 +16,11 @@ const TaskView = (props) => {
   return (
     <ViewWrapper>
       <TextViewItem
+        label={i18n('entities.task.fields.type')}
+        value={record.type}
+      />
+
+      <TextViewItem
         label={i18n('entities.task.fields.title')}
         value={record.title}
       />

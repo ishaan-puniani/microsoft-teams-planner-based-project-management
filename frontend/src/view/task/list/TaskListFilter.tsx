@@ -16,6 +16,9 @@ import FilterWrapper from 'src/view/shared/styles/FilterWrapper';
 import * as yup from 'yup';
 
 const schema = yup.object().shape({
+  type: yupFilterSchemas.string(
+    i18n('entities.task.fields.type'),
+  ),
   title: yupFilterSchemas.string(
     i18n('entities.task.fields.title'),
   ),
@@ -43,6 +46,7 @@ const schema = yup.object().shape({
 });
 
 const emptyValues = {
+  type: null,
   title: null,
   description: null,
   leadBy: null,
@@ -54,6 +58,10 @@ const emptyValues = {
 };
 
 const previewRenders = {
+  type: {
+    label: i18n('entities.task.fields.type'),
+    render: filterRenders.generic(),
+  },
   title: {
     label: i18n('entities.task.fields.title'),
     render: filterRenders.generic(),
@@ -145,6 +153,14 @@ const TaskListFilter = (props) => {
           <FormProvider {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)}>
               <div className="row">
+                <div className="col-lg-6 col-12">
+                  <InputFormItem
+                    name="type"
+                    label={i18n(
+                      'entities.task.fields.type',
+                    )}
+                  />
+                </div>
                 <div className="col-lg-6 col-12">
                   <InputFormItem
                     name="title"

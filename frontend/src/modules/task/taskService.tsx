@@ -50,6 +50,21 @@ export default class TaskService {
     return response.data;
   }
 
+  static async bulkCreate(projectId, tasks) {
+    const body = {
+      data: { projectId, tasks },
+    };
+
+    const tenantId = AuthCurrentTenant.get();
+
+    const response = await authAxios.post(
+      `/tenant/${tenantId}/task/bulk-create`,
+      body,
+    );
+
+    return response.data;
+  }
+
   static async import(values, importHash) {
     const body = {
       data: values,

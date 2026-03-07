@@ -217,6 +217,17 @@ class TaskRepository {
         });
       }
 
+      if (filter.type) {
+        criteriaAnd.push({
+          type: {
+            $regex: MongooseQueryUtils.escapeRegExp(
+              filter.type,
+            ),
+            $options: 'i',
+          },
+        });
+      }
+
       if (filter.description) {
         criteriaAnd.push({
           description: {
