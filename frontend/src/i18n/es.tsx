@@ -366,6 +366,7 @@ const en = {
         title: 'Title',
         template: 'Template',
         description: 'Description',
+        parents: 'Parent tasks',
         attachment: 'Attachment',
         leadBy: 'Lead by',
         reviewedBy: 'Reviewed by',

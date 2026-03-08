@@ -30,6 +30,10 @@ export const baseTaskSchema = yup.object().shape({
     i18n('entities.task.fields.description'),
     {},
   ),
+  parents: yupFormSchemas.relationToMany(
+    i18n('entities.task.fields.parents'),
+    {},
+  ),
   attachment: yupFormSchemas.files(
     i18n('entities.task.fields.attachment'),
     {},

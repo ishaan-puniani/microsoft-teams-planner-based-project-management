@@ -66,10 +66,22 @@ export default (database) => {
       sprint: {
         type: String
       },
+      storyPoints: {
+        type: String,
+      },
+      estimatedTime: {
+        type: Schema.Types.Mixed,
+        default: undefined,
+      },
       template: {
         type: Schema.Types.ObjectId,
         ref: 'taskTemplate',
       },
+
+      parents: [{
+        type: Schema.Types.ObjectId,
+        ref: 'task',
+      }],
 
       tenant: {
         type: Schema.Types.ObjectId,

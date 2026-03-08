@@ -1,0 +1,5 @@
+/* ReactGrid embedding: wrapper is the scroll container; grid content must grow so scroll appears */
+.reactgrid-wrapper .reactgrid-content {
+  height: auto !important;
+  min-height: 100%;
+}

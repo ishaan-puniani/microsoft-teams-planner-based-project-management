@@ -19,6 +19,7 @@ import {
 } from './structuredBulkParser';
 import type { ParsedItem } from './structuredBulkParser';
 import { loadPlannerContent, savePlannerContent, PLANNER_SAMPLE_PLACEHOLDER } from './plannerStorage';
+import { generateTaskClientId } from './taskIdUtils';
 
 const PLANNER_SAVE_DEBOUNCE_MS = 500;
 
@@ -51,13 +52,24 @@ function getTemplateFieldIds(template: TemplateWithFields) {
   };
 }
 
-/** Build one task payload for bulk-create API (parsed item + template). */
+/** Build one task payload for bulk-create API (parsed item + template). Includes clientId and parentClientId for hierarchy. */
 function buildTaskPayload(
   projectId: string,
   item: ParsedItem,
   template: TemplateWithFields,
   typeKey: string,
-): { project: string; template: string; type: string; title: string; description?: string; templateData: Record<string, unknown> } {
+  clientId: string,
+  parentClientId: string | undefined,
+): {
+  project: string;
+  template: string;
+  type: string;
+  title: string;
+  description?: string;
+  templateData: Record<string, unknown>;
+  clientId: string;
+  parentClientId?: string;
+} {
   const ids = getTemplateFieldIds(template);
   const templateData: Record<string, unknown> = {};
   if (ids.title) templateData[ids.title] = item.title;
@@ -75,6 +87,8 @@ function buildTaskPayload(
     title: item.title,
     description: item.description || undefined,
     templateData,
+    clientId,
+    ...(parentClientId != null && { parentClientId }),
   };
 }
 
@@ -229,14 +243,17 @@ const ProjectPlannerPage = () => {
     }
     try {
       setCreating(true);
-      const tasks = parsed
-        .map((item) => {
-          const typeKey = LEVEL_TYPES[item.level];
-          const template = templatesByLevel[typeKey];
-          if (!template) return null;
-          return buildTaskPayload(projectId, item, template, typeKey);
-        })
-        .filter(Boolean) as Array<ReturnType<typeof buildTaskPayload>>;
+      const lastClientIdByLevel: Record<number, string> = {};
+      const tasks: Array<ReturnType<typeof buildTaskPayload>> = [];
+      for (const item of parsed) {
+        const typeKey = LEVEL_TYPES[item.level];
+        const template = templatesByLevel[typeKey];
+        if (!template) continue;
+        const clientId = generateTaskClientId();
+        const parentClientId = item.level === 0 ? undefined : lastClientIdByLevel[item.level - 1];
+        lastClientIdByLevel[item.level] = clientId;
+        tasks.push(buildTaskPayload(projectId, item, template, typeKey, clientId, parentClientId));
+      }
       const { count } = await TaskService.bulkCreate(projectId, tasks);
       Message.success(`Created ${count} requirement(s).`);
       setBulkText(PLANNER_SAMPLE_PLACEHOLDER);
@@ -281,6 +298,10 @@ const ProjectPlannerPage = () => {
         </PageTitle>
 
         <div className="mb-3">
+          <Link to={`/project-planner/${projectId}/estimate`} className="btn btn-outline-secondary btn-sm me-2">
+            <i className="fas fa-table me-1" />
+            Estimate / Time plan
+          </Link>
           <Link to={`/project-planner/${projectId}/agent`} className="btn btn-outline-primary btn-sm me-2">
             <i className="fas fa-robot me-1" />
             Generate with AI

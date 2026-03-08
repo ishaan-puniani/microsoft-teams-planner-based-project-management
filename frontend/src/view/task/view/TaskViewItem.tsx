@@ -23,6 +23,7 @@ const TaskViewItem = (props) => {
   };
 
   const displayableRecord = (record) => {
+    const label = record.title || record.key || record.id;
     if (hasPermissionToRead) {
       return (
         <div key={record.id}>
@@ -30,13 +31,13 @@ const TaskViewItem = (props) => {
             className="btn btn-link"
             to={`/task/${record.id}`}
           >
-            {record.id}
+            {label}
           </Link>
         </div>
       );
     }
 
-    return <div key={record.id}>{record.id}</div>;
+    return <div key={record.id}>{label}</div>;
   };
 
   if (!valueAsArray().length) {

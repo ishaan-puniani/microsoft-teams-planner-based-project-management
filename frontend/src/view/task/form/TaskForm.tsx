@@ -15,6 +15,16 @@ import DynamicTaskFormFields from './DynamicTaskFormFields';
 import { baseTaskSchema } from './DynamicTaskSchema';
 import { useDynamicTaskForm } from './useDynamicTaskForm';
 import ProjectAutocompleteFormItem from 'src/view/project/autocomplete/ProjectAutocompleteFormItem';
+import TaskAutocompleteFormItem from 'src/view/task/autocomplete/TaskAutocompleteFormItem';
+
+function normalizeParentsForForm(parents) {
+  if (!parents || !Array.isArray(parents)) return [];
+  return parents.map((p) =>
+    typeof p === 'object' && p != null && (p.id != null || p._id != null)
+      ? { id: p.id ?? p._id, label: p.title ?? p.key ?? p.id ?? p._id }
+      : { id: p, label: String(p) },
+  );
+}
 
 const TaskForm = (props) => {
   const [initialValues] = useState(() => {
@@ -25,6 +35,7 @@ const TaskForm = (props) => {
       type: record.type ?? '',
       title: record.title ?? '',
       description: record.description ?? '',
+      parents: normalizeParentsForForm(record.parents),
       attachment: record.attachment || [],
       leadBy: record.leadBy,
       reviewedBy: record.reviewedBy,
@@ -90,7 +101,9 @@ const TaskForm = (props) => {
       }
     }
     
-    props.onSubmit(props?.record?.id, values);
+    const submitValues = { ...values };
+    submitValues.parents = (values.parents || []).map((p) => (p?.id != null ? p.id : p)).filter(Boolean);
+    props.onSubmit(props?.record?.id, submitValues);
   };
 
   return (
@@ -151,6 +164,14 @@ const TaskForm = (props) => {
                 label={i18n(
                   'entities.task.fields.description',
                 )}
+              />
+            </div>
+            <div className="col-lg-7 col-md-8 col-12">
+              <TaskAutocompleteFormItem
+                name="parents"
+                label={i18n('entities.task.fields.parents')}
+                mode="multiple"
+                showCreate={!props.modal}
               />
             </div>
             <div className="col-lg-7 col-md-8 col-12">

@@ -85,6 +85,45 @@ class TaskRepository {
     return record;
   }
 
+  static async bulkUpdateEstimates(
+    updates: Array<{
+      id: string;
+      title?: string;
+      storyPoints?: string;
+      estimatedTime?: Record<string, number>;
+    }>,
+    options: IRepositoryOptions,
+  ) {
+    const currentTenant =
+      MongooseRepository.getCurrentTenant(options);
+    const currentUser =
+      MongooseRepository.getCurrentUser(options);
+
+    for (const item of updates) {
+      const data: Record<string, unknown> = {
+        updatedBy: currentUser.id,
+      };
+      if (item.title !== undefined) data.title = item.title;
+      if (item.storyPoints !== undefined) data.storyPoints = item.storyPoints;
+      if (item.estimatedTime !== undefined) data.estimatedTime = item.estimatedTime;
+
+      await Task(options.database).updateOne(
+        { _id: item.id, tenant: currentTenant.id },
+        data,
+        options,
+      );
+
+      await this._createAuditLog(
+        AuditLogRepository.UPDATE,
+        item.id,
+        data,
+        options,
+      );
+    }
+
+    return updates.length;
+  }
+
   static async destroy(id, options: IRepositoryOptions) {
     const currentTenant =
       MongooseRepository.getCurrentTenant(options);
@@ -170,6 +209,7 @@ class TaskRepository {
           })
           .populate('project')
           .populate('template')
+          .populate('parents')
           .populate('leadBy')
           .populate('reviewedBy'),
         options,
@@ -204,6 +244,11 @@ class TaskRepository {
       if (filter.id) {
         criteriaAnd.push({
           ['_id']: MongooseQueryUtils.uuid(filter.id),
+        });
+      }
+      if (filter.project) {
+        criteriaAnd.push({
+          project: MongooseQueryUtils.uuid(filter.project),
         });
       }
       if (filter.title) {
@@ -467,6 +512,49 @@ class TaskRepository {
       id: record.id,
       label: record.id,
     }));
+  }
+
+  static async aggregateEstimatesByProject(
+    projectId: string,
+    options: IRepositoryOptions,
+  ) {
+    const currentTenant =
+      MongooseRepository.getCurrentTenant(options);
+    const criteria = {
+      tenant: currentTenant.id,
+      project: MongooseQueryUtils.uuid(projectId),
+    };
+    const rows = await Task(options.database)
+      .find(criteria)
+      .select('estimatedTime')
+      .lean();
+    const totals = {
+      architect: 0,
+      developer: 0,
+      tester: 0,
+      businessAnalyst: 0,
+      ux: 0,
+      pm: 0,
+    };
+    const keyMap: Record<string, keyof typeof totals> = {
+      atchitect: 'architect',
+      developer: 'developer',
+      tester: 'tester',
+      businessAnalyst: 'businessAnalyst',
+      UX: 'ux',
+      PM: 'pm',
+    };
+    for (const row of rows) {
+      const et = row.estimatedTime;
+      if (!et || typeof et !== 'object') continue;
+      for (const [dbKey, outKey] of Object.entries(keyMap)) {
+        const v = et[dbKey];
+        if (typeof v === 'number' && !Number.isNaN(v)) {
+          totals[outKey] += v;
+        }
+      }
+    }
+    return totals;
   }
 
   static async _createAuditLog(

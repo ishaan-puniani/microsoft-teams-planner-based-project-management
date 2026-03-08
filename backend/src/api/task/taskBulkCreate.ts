@@ -28,10 +28,13 @@ export default async (req, res, next) => {
     const optionsWithSession = { ...options, session };
 
     try {
+      const clientIdToCreatedId: Record<string, string> = {};
       let created = 0;
+
       for (const task of tasks) {
         if (!task || typeof task !== 'object' || !task.template) continue;
-        await TaskRepository.create(
+
+        const record = await TaskRepository.create(
           {
             project: projectId,
             template: task.template,
@@ -42,7 +45,24 @@ export default async (req, res, next) => {
           },
           optionsWithSession,
         );
+
+        if (task.clientId) {
+          clientIdToCreatedId[task.clientId] = record.id;
+        }
         created += 1;
+      }
+
+      for (const task of tasks) {
+        if (!task?.parentClientId || !task.clientId) continue;
+        const parentId = clientIdToCreatedId[task.parentClientId];
+        const taskId = clientIdToCreatedId[task.clientId];
+        if (!parentId || !taskId) continue;
+
+        await TaskRepository.update(
+          taskId,
+          { parents: [parentId] },
+          optionsWithSession,
+        );
       }
 
       await MongooseRepository.commitTransaction(session);

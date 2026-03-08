@@ -65,6 +65,39 @@ export default class TaskService {
     return response.data;
   }
 
+  static async bulkUpdateEstimates(updates) {
+    const body = {
+      data: { updates },
+    };
+
+    const tenantId = AuthCurrentTenant.get();
+
+    const response = await authAxios.put(
+      `/tenant/${tenantId}/task/bulk-update-estimates`,
+      body,
+    );
+
+    return response.data;
+  }
+
+  /**
+   * Single call: create new tasks and update estimates. Payload: { projectId, newTasks: [{ tempId, type, title, storyPoints?, estimatedTime?, parentTempId?, parentId? }], updates: [{ id, storyPoints?, estimatedTime? }] }
+   */
+  static async savePlan(payload) {
+    const body = {
+      data: payload,
+    };
+
+    const tenantId = AuthCurrentTenant.get();
+
+    const response = await authAxios.put(
+      `/tenant/${tenantId}/task/plan-save`,
+      body,
+    );
+
+    return response.data;
+  }
+
   static async import(values, importHash) {
     const body = {
       data: values,
@@ -108,6 +141,15 @@ export default class TaskService {
       },
     );
 
+    return response.data;
+  }
+
+  static async getAggregateEstimates(projectId: string) {
+    const tenantId = AuthCurrentTenant.get();
+    const response = await authAxios.get(
+      `/tenant/${tenantId}/task/reports/aggregate-estimates`,
+      { params: { projectId } },
+    );
     return response.data;
   }
 

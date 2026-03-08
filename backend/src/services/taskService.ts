@@ -28,6 +28,12 @@ export default class TaskService {
           data.reviewedBy,
           { ...this.options, session },
         );
+      if (data.parents != null && Array.isArray(data.parents)) {
+        data.parents = await TaskRepository.filterIdsInTenant(
+          data.parents,
+          { ...this.options, session },
+        );
+      }
 
       const record = await TaskRepository.create(data, {
         ...this.options,
@@ -65,6 +71,12 @@ export default class TaskService {
           data.reviewedBy,
           { ...this.options, session },
         );
+      if (data.parents != null && Array.isArray(data.parents)) {
+        data.parents = await TaskRepository.filterIdsInTenant(
+          data.parents,
+          { ...this.options, session },
+        );
+      }
 
       const record = await TaskRepository.update(id, data, {
         ...this.options,
@@ -83,6 +95,119 @@ export default class TaskService {
         'task',
       );
 
+      throw error;
+    }
+  }
+
+  async bulkUpdateEstimates(updates: Array<{ id: string; title?: string; storyPoints?: string; estimatedTime?: Record<string, number> }>) {
+    const session = await MongooseRepository.createSession(
+      this.options.database,
+    );
+
+    try {
+      const count = await TaskRepository.bulkUpdateEstimates(
+        updates,
+        { ...this.options, session },
+      );
+      await MongooseRepository.commitTransaction(session);
+      return { count };
+    } catch (error) {
+      await MongooseRepository.abortTransaction(session);
+      throw error;
+    }
+  }
+
+  /**
+   * Single call: create new tasks, bulk-update estimates, delete tasks.
+   * Payload: { projectId, newTasks, updates, deleteTasks?: string[] }
+   */
+  async savePlan(payload: {
+    projectId: string;
+    newTasks: Array<{
+      tempId: string;
+      type: string;
+      title: string;
+      storyPoints?: string;
+      estimatedTime?: Record<string, number>;
+      parentTempId?: string;
+      parentId?: string;
+    }>;
+    updates: Array<{
+      id: string;
+      title?: string;
+      storyPoints?: string;
+      estimatedTime?: Record<string, number>;
+    }>;
+    deleteTasks?: string[];
+  }) {
+    const session = await MongooseRepository.createSession(
+      this.options.database,
+    );
+    const { projectId, newTasks = [], updates = [], deleteTasks = [] } = payload;
+    const idMap = new Map<string, string>();
+
+    try {
+      for (const id of deleteTasks) {
+        await TaskRepository.destroy(id, {
+          ...this.options,
+          session,
+        });
+      }
+
+      for (const item of newTasks) {
+        let parentIds: string[] = [];
+        if (item.parentId) {
+          parentIds = await TaskRepository.filterIdsInTenant(
+            [item.parentId],
+            { ...this.options, session },
+          );
+        } else if (item.parentTempId) {
+          const resolved = idMap.get(item.parentTempId);
+          if (resolved) parentIds = [resolved];
+        }
+        const data: Record<string, unknown> = {
+          project: projectId,
+          type: item.type || 'TASK',
+          title: item.title || 'New Task',
+          storyPoints: item.storyPoints,
+          estimatedTime:
+            item.estimatedTime &&
+            Object.keys(item.estimatedTime).length > 0
+              ? item.estimatedTime
+              : undefined,
+        };
+        if (parentIds.length > 0) {
+          data.parents = parentIds;
+        }
+        const record = await TaskRepository.create(data, {
+          ...this.options,
+          session,
+        });
+        if (record && record.id) {
+          idMap.set(item.tempId, record.id);
+        }
+      }
+
+      if (updates.length > 0) {
+        await TaskRepository.bulkUpdateEstimates(updates, {
+          ...this.options,
+          session,
+        });
+      }
+
+      await MongooseRepository.commitTransaction(session);
+      return {
+        createdIds: Object.fromEntries(idMap),
+        count: updates.length,
+        deletedCount: deleteTasks.length,
+      };
+    } catch (error) {
+      await MongooseRepository.abortTransaction(session);
+      MongooseRepository.handleUniqueFieldError(
+        error,
+        this.options.language,
+        'task',
+      );
       throw error;
     }
   }
@@ -122,6 +247,13 @@ export default class TaskService {
   async findAndCountAll(args) {
     return TaskRepository.findAndCountAll(
       args,
+      this.options,
+    );
+  }
+
+  async getAggregateEstimates(projectId: string) {
+    return TaskRepository.aggregateEstimatesByProject(
+      projectId,
       this.options,
     );
   }

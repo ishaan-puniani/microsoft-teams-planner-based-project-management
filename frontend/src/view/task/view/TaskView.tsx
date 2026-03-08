@@ -5,6 +5,12 @@ import ViewWrapper from 'src/view/shared/styles/ViewWrapper';
 import FilesViewItem from 'src/view/shared/view/FilesViewItem';
 import TextViewItem from 'src/view/shared/view/TextViewItem';
 import UserViewItem from 'src/view/user/view/UserViewItem';
+import TaskViewItem from 'src/view/task/view/TaskViewItem';
+
+function normalizeParentsForView(parents) {
+  if (!parents || !Array.isArray(parents)) return [];
+  return parents.map((p) => (typeof p === 'object' && p != null && 'id' in p ? p : { id: p }));
+}
 
 const TaskView = (props) => {
   const { record, loading } = props;
@@ -28,6 +34,11 @@ const TaskView = (props) => {
       <TextViewItem
         label={i18n('entities.task.fields.description')}
         value={record.description}
+      />
+
+      <TaskViewItem
+        label={i18n('entities.task.fields.parents')}
+        value={normalizeParentsForView(record.parents)}
       />
 
       <FilesViewItem

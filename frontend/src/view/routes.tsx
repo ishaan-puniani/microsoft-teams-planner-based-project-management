@@ -187,6 +187,20 @@ const privateRoutes = [
     exact: true,
   },
   {
+    path: '/project-planner/:id/estimate',
+    loader: () =>
+      import('src/view/project/planner/ProjectEstimatePlannerPage'),
+    permissionRequired: permissions.projectRead,
+    exact: true,
+  },
+  {
+    path: '/project-planner/:id/estimates-report',
+    loader: () =>
+      import('src/view/project/reports/ProjectEstimatesPage'),
+    permissionRequired: permissions.projectRead,
+    exact: true,
+  },
+  {
     path: '/task-template',
     loader: () =>
       import('src/view/taskTemplate/list/TaskTemplateListPage'),

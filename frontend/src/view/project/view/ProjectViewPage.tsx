@@ -6,6 +6,8 @@ import actions from 'src/modules/project/view/projectViewActions';
 import selectors from 'src/modules/project/view/projectViewSelectors';
 import { AppDispatch } from 'src/modules/store';
 import ContentWrapper from 'src/view/layout/styles/ContentWrapper';
+import { Link } from 'react-router-dom';
+import ProjectPlanView from 'src/view/project/planner/planView/ProjectPlanView';
 import ProjectView from 'src/view/project/view/ProjectView';
 import ProjectViewToolbar from 'src/view/project/view/ProjectViewToolbar';
 import Breadcrumb from 'src/view/shared/Breadcrumb';
@@ -40,6 +42,19 @@ const ProjectViewPage = (props) => {
         <ProjectViewToolbar id={id} />
 
         <ProjectView loading={loading} record={record} />
+
+        <div className="mb-2 mt-3">
+          <Link to={`/project-planner/${id}/estimate`} className="btn btn-outline-secondary btn-sm me-2">
+            <i className="fas fa-table me-1" />
+            Estimate / Time plan
+          </Link>
+          <Link to={`/project-planner/${id}/estimates-report`} className="btn btn-outline-secondary btn-sm me-2">
+            <i className="fas fa-chart-pie me-1" />
+            Estimates report
+          </Link>
+        </div>
+        <ProjectPlanView projectId={id} />
+      
       </ContentWrapper>
     </>
   );
