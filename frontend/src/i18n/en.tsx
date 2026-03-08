@@ -352,6 +352,57 @@ const en = {
         hint: 'Files/Images columns must be the URLs of the files separated by space.',
       },
     },
+    testCycle: {
+      name: 'testCycle',
+      label: 'Test Cycles',
+      menu: 'Test Cycles',
+      exporterFileName: 'Test Cycles_export',
+      list: {
+        menu: 'Test Cycles',
+        title: 'Test Cycles',
+      },
+      create: {
+        success: 'Test Cycle successfully saved',
+      },
+      update: {
+        success: 'Test Cycle successfully saved',
+      },
+      destroy: {
+        success: 'Test Cycle successfully deleted',
+      },
+      destroyAll: {
+        success: 'Test Cycle(s) successfully deleted',
+      },
+      edit: {
+        title: 'Edit Test Cycle',
+      },
+      fields: {
+        id: 'Id',
+        title: 'Title',
+        leadBy: 'Lead by',
+        testResults: 'Test results',
+        result: 'Result',
+        outcome: 'Outcome',
+        createdAt: 'Created at',
+        updatedAt: 'Updated at',
+        updatedAtRange: 'Updated at',
+        createdAtRange: 'Created at',
+      },
+      enumerators: {},
+      placeholders: {},
+      hints: {},
+      new: {
+        title: 'New Test Cycle',
+      },
+      view: {
+        title: 'View Test Cycle',
+      },
+      importer: {
+        title: 'Import Test Cycles',
+        fileName: 'testCycle_import_template',
+        hint: 'Files/Images columns must be the URLs of the files separated by space.',
+      },
+    },
     testSuite: {
       name: 'testSuite',
       label: 'Test Suites',
@@ -451,6 +502,11 @@ const en = {
         title: 'Import Test Cases',
         fileName: 'testCase_import_template',
         hint: 'Files/Images columns must be the URLs of the files separated by space.',
+      },
+      assignToTestCycle: {
+        title: 'Assign to Test Cycle',
+        selectTestCycle: 'Select Test Cycle',
+        success: 'Test cases assigned to test cycle',
       },
     },
     task: {

@@ -71,6 +71,12 @@ export default [
     label: i18n('entities.testPlan.menu'),
   },
   {
+    path: '/test-cycle',
+    permissionRequired: permissions.testCycleRead,
+    icon: 'fas fa-chevron-right',
+    label: i18n('entities.testCycle.menu'),
+  },
+  {
     path: '/test-suite',
     permissionRequired: permissions.testSuiteRead,
     icon: 'fas fa-chevron-right',

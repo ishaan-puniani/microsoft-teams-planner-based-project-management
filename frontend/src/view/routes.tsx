@@ -318,6 +318,43 @@ const privateRoutes = [
     exact: true,
   },
   {
+    path: '/test-cycle',
+    loader: () =>
+      import('src/view/testCycle/list/TestCycleListPage'),
+    permissionRequired: permissions.testCycleRead,
+    exact: true,
+  },
+  {
+    path: '/test-cycle/new',
+    loader: () =>
+      import('src/view/testCycle/form/TestCycleFormPage'),
+    permissionRequired: permissions.testCycleCreate,
+    exact: true,
+  },
+  {
+    path: '/test-cycle/importer',
+    loader: () =>
+      import(
+        'src/view/testCycle/importer/TestCycleImporterPage'
+      ),
+    permissionRequired: permissions.testCycleImport,
+    exact: true,
+  },
+  {
+    path: '/test-cycle/:id/edit',
+    loader: () =>
+      import('src/view/testCycle/form/TestCycleFormPage'),
+    permissionRequired: permissions.testCycleEdit,
+    exact: true,
+  },
+  {
+    path: '/test-cycle/:id',
+    loader: () =>
+      import('src/view/testCycle/view/TestCycleViewPage'),
+    permissionRequired: permissions.testCycleRead,
+    exact: true,
+  },
+  {
     path: '/test-suite',
     loader: () =>
       import('src/view/testSuite/list/TestSuiteListPage'),

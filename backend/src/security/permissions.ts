@@ -357,6 +357,60 @@ class Permissions {
           plans.enterprise,
         ],
       },
+      testCycleImport: {
+        id: 'testCycleImport',
+        allowedRoles: [roles.admin],
+        allowedPlans: [
+          plans.free,
+          plans.growth,
+          plans.enterprise,
+        ],
+      },
+      testCycleCreate: {
+        id: 'testCycleCreate',
+        allowedRoles: [roles.admin],
+        allowedPlans: [
+          plans.free,
+          plans.growth,
+          plans.enterprise,
+        ],
+      },
+      testCycleEdit: {
+        id: 'testCycleEdit',
+        allowedRoles: [roles.admin],
+        allowedPlans: [
+          plans.free,
+          plans.growth,
+          plans.enterprise,
+        ],
+      },
+      testCycleDestroy: {
+        id: 'testCycleDestroy',
+        allowedRoles: [roles.admin],
+        allowedPlans: [
+          plans.free,
+          plans.growth,
+          plans.enterprise,
+        ],
+      },
+      testCycleRead: {
+        id: 'testCycleRead',
+        allowedRoles: [roles.admin, roles.custom],
+        allowedPlans: [
+          plans.free,
+          plans.growth,
+          plans.enterprise,
+        ],
+      },
+      testCycleAutocomplete: {
+        id: 'testCycleAutocomplete',
+        allowedRoles: [roles.admin, roles.custom],
+        allowedPlans: [
+          plans.free,
+          plans.growth,
+          plans.enterprise,
+        ],
+      },
       testSuiteImport: {
         id: 'testSuiteImport',
         allowedRoles: [roles.admin],

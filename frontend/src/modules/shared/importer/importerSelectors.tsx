@@ -76,7 +76,7 @@ export default (rawPath) => {
 
   const selectCount = createSelector(
     [selectRaw],
-    (raw) => raw.rows.length,
+    (raw) => (raw && raw.rows ? raw.rows.length : 0),
   );
 
   const selectSorter = createSelector(

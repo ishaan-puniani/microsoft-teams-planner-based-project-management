@@ -34,7 +34,7 @@ export function parseStructuredBulk(text: string): ParsedItem[] {
   const items: ParsedItem[] = [];
   let current: ParsedItem | null = null;
   let currentContent: string[] = [];
-  let lastWasHeader = false;
+  let _lastWasHeader = false;
   let afterAC = false; // inside "AC:" section of current level-1 item
   let afterTodo = false; // inside "TODO:" section of current level-2 item
   let lastLineWasBlank = false; // so a following no-dash line can start a new epic (multi-epic document)
@@ -98,7 +98,7 @@ export function parseStructuredBulk(text: string): ParsedItem[] {
       continue;
     }
 
-    const { level, isHeader, title } = getLevelAndTitle(trimmed);
+    const { level, isHeader: _isHeader, title } = getLevelAndTitle(trimmed);
     const lineAfterBlank = lastLineWasBlank;
     lastLineWasBlank = false;
 
@@ -126,7 +126,7 @@ export function parseStructuredBulk(text: string): ParsedItem[] {
         todoChecklist: [],
       };
       currentContent = [];
-      lastWasHeader = true;
+      _lastWasHeader = true;
       continue;
     }
 
@@ -151,15 +151,15 @@ export function parseStructuredBulk(text: string): ParsedItem[] {
         if (current) flush();
         current = { level: 0, title: trimmed, description: '', acceptanceCriteria: [], todoChecklist: [] };
         currentContent = [];
-        lastWasHeader = true;
+        _lastWasHeader = true;
       } else {
         if (current) currentContent.push(line);
-        lastWasHeader = false;
+        _lastWasHeader = false;
       }
       continue;
     }
 
-    lastWasHeader = false;
+    _lastWasHeader = false;
   }
 
   if (current) flush();
