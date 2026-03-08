@@ -33,6 +33,10 @@ export default (database) => {
           type: String,
           required: true,
         },
+        label: {
+          type: String,
+          required: true,
+        },
         name: {
           type: String,
           required: true,

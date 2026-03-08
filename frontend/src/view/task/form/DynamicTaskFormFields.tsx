@@ -11,6 +11,7 @@ import TextAreaFormItem from 'src/view/shared/form/items/TextAreaFormItem';
 export interface TaskTemplateField {
   id: string;
   name: string;
+  label: string;
   type: 'TEXT' | 'TEXTAREA' | 'NUMBER' | 'DATE' | 'SELECT' | 'BOOLEAN' | 'CHECKLIST';
   required?: boolean;
   options?: string[];
@@ -35,8 +36,8 @@ const DynamicTaskFormFields: React.FC<DynamicTaskFormFieldsProps> = ({
 
   // Function to render template fields using Controller
   const renderTemplateField = (field: TaskTemplateField) => {
-    const fieldName = `templateData.${field.id}`;
-    const fieldLabel = field.name.charAt(0).toUpperCase() + field.name.slice(1);
+    const fieldName = `templateData.${field.name}`;
+    const fieldLabel = field.label || field.name;
 
     return (
       <div key={fieldName} className="col-lg-7 col-md-8 col-12">

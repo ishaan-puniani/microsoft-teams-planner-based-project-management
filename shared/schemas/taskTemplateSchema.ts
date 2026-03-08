@@ -6,6 +6,7 @@ export const taskTemplateSchema = yup.object({
   type: yup.string().oneOf(['EPIC', 'USER_STORY', 'TASK', 'BUG', 'SUBTASK', 'TEST_PLAN', 'TEST_CASE']).required(),
   fields: yup.array().of(yup.object({
     name: yup.string().required(),
+    label: yup.string().required(),
     type: yup.string().oneOf(['TEXT', 'NUMBER', 'DATE', 'SELECT', 'TEXTAREA', 'BOOLEAN']).required(),
     required: yup.boolean().default(false),
     options: yup.array().of(yup.string()).optional(),

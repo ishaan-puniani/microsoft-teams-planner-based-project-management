@@ -253,6 +253,13 @@ const TaskTemplateForm = (props) => {
                           required
                         />
                       </div>
+                      <div className="col-md-3">
+                        <InputFormItem
+                          name={`fields.${index}.label`}
+                          label={i18n('entities.taskTemplate.fields.fieldLabel')}
+                          required
+                        />
+                      </div>
                       <div className="col-md-2">
                         <SelectFormItem
                           name={`fields.${index}.type`}

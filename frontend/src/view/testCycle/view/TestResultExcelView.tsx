@@ -474,7 +474,7 @@ const TestResultExcelView = ({ testCycleId }: Props) => {
           const draft = clearDraft ? {} : loadDraftFromStorage(testCycleId);
           const merged = mergeRowsWithDraft(serverRows, draft);
           setRows(merged);
-          setInitialRows(merged);
+          setInitialRows(serverRows); // baseline for dirtyCount is server state, not merged
         })
         .catch((e) => {
           Errors.handle(e);
@@ -498,7 +498,7 @@ const TestResultExcelView = ({ testCycleId }: Props) => {
           const draft = loadDraftFromStorage(testCycleId);
           const merged = mergeRowsWithDraft(serverRows, draft);
           setRows(merged);
-          setInitialRows(merged);
+          setInitialRows(serverRows); // baseline for dirtyCount is server state, not merged
         }
       })
       .catch((e) => {
