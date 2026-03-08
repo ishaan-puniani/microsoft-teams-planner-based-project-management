@@ -11,6 +11,8 @@ import taskAutocomplete from './taskAutocomplete';
 import taskCount from './taskCount';
 import taskList from './taskList';
 import taskFind from './taskFind';
+import taskSyncFromPlanner from './taskSyncFromPlanner';
+import taskSendToPlanner from './taskSendToPlanner';
 import aggregateEstimatesByProject from './reports/aggregateEstimatesByProject';
 
 export default (app) => {
@@ -57,6 +59,14 @@ export default (app) => {
   app.get(
     `/tenant/:tenantId/task/:id`,
     taskFind,
+  );
+  app.post(
+    `/tenant/:tenantId/task/:id/sync-from-planner`,
+    taskSyncFromPlanner,
+  );
+  app.post(
+    `/tenant/:tenantId/task/:id/send-to-planner`,
+    taskSendToPlanner,
   );
   app.get(
     `/tenant/:tenantId/task/reports/aggregate-estimates`,

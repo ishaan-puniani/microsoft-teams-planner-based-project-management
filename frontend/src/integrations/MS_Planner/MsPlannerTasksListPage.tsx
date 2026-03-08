@@ -20,6 +20,7 @@ const MsPlannerTasksListPage = () => {
   const [tasks, setTasks] = useState<PlannerTask[]>([]);
   const [planTitle, setPlanTitle] = useState<string | null>(null);
   const [categories, setCategories] = useState<PlanCategories>({});
+  const [buckets, setBuckets] = useState<Array<{ id: string; name?: string }>>([]);
   const [users, setUsers] = useState<Array<{ id: string; displayName?: string | null; mail?: string | null; userPrincipalName?: string | null }>>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -40,6 +41,7 @@ const MsPlannerTasksListPage = () => {
         setTasks(tasksData || []);
         setPlanTitle(planData?.title ?? planData?.name ?? null);
         setCategories(planData?.categories || {});
+        setBuckets(Array.isArray(planData?.buckets) ? planData.buckets : []);
         setUsers(usersData || []);
       } catch (e: any) {
         setError(
@@ -160,6 +162,7 @@ const MsPlannerTasksListPage = () => {
                 <MsPlannerTaskListItem
                   task={task}
                   categories={categories}
+                  buckets={buckets}
                   users={users}
                   onTaskUpdate={handleTaskUpdate}
                 />

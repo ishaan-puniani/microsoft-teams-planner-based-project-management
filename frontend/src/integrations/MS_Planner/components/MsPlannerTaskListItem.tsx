@@ -51,9 +51,15 @@ const PRIORITY_LABELS: Record<number, string> = {
   10: 'Low',
 };
 
+interface BucketOption {
+  id: string;
+  name?: string;
+}
+
 interface MsPlannerTaskListItemProps {
   task: PlannerTask;
   categories?: Record<string, string>;
+  buckets?: BucketOption[];
   users?: GraphUser[];
   onTaskUpdate: (updated: PlannerTask) => void;
 }
@@ -61,6 +67,7 @@ interface MsPlannerTaskListItemProps {
 const MsPlannerTaskListItem = ({
   task,
   categories = {},
+  buckets = [],
   users = [],
   onTaskUpdate,
 }: MsPlannerTaskListItemProps) => {
@@ -101,6 +108,26 @@ const MsPlannerTaskListItem = ({
     [userOptions, assignedIds],
   );
 
+  const bucketOptions = useMemo(
+    () =>
+      buckets.map((b) => ({
+        value: b.id,
+        label: b.name || b.id || '—',
+      })),
+    [buckets],
+  );
+
+  const selectedBucketOption = useMemo(
+    () => bucketOptions.find((opt) => opt.value === task.bucketId) || null,
+    [bucketOptions, task.bucketId],
+  );
+
+  const handleBucketChange = (selected: { value: string; label: string } | null) => {
+    if (!task.id || !etag) return;
+    const bucketId = selected?.value ?? null;
+    applyPatch({ bucketId });
+  };
+
   const handleCategoriesChange = (
     selected: ReadonlyArray<{ value: string; label: string }> | null,
   ) => {
@@ -131,6 +158,7 @@ const MsPlannerTaskListItem = ({
   const applyPatch = async (patch: {
     appliedCategories?: Record<string, boolean>;
     assignments?: Record<string, typeof PLANNER_ASSIGNMENT | null>;
+    bucketId?: string | null;
   }) => {
     if (!task.id || !etag) return;
     setUpdating(true);
@@ -139,6 +167,7 @@ const MsPlannerTaskListItem = ({
       const payload: any = { etag };
       if (patch.appliedCategories !== undefined) payload.appliedCategories = patch.appliedCategories;
       if (patch.assignments !== undefined) payload.assignments = patch.assignments;
+      if (patch.bucketId !== undefined) payload.bucketId = patch.bucketId;
       const updated = await MsPlannerService.updateTask(task.id, payload);
       onTaskUpdate(updated);
     } catch (err: any) {
@@ -196,10 +225,29 @@ const MsPlannerTaskListItem = ({
           )}
         </div>
 
-        {(categoryOptions.length > 0 || userOptions.length > 0) && (
+        {(categoryOptions.length > 0 || userOptions.length > 0 || bucketOptions.length > 0) && (
           <div className="border-top pt-2 mt-2 small">
             {updateError && (
               <div className="alert alert-danger py-1 px-2 mb-2 small">{updateError}</div>
+            )}
+            {bucketOptions.length > 0 && (
+              <div className="mb-2">
+                <label className="d-block text-dark font-weight-bold mb-1">Bucket</label>
+                <Select
+                  className="w-100"
+                  value={selectedBucketOption}
+                  onChange={handleBucketChange}
+                  options={bucketOptions}
+                  isClearable
+                  placeholder="Select bucket..."
+                  isDisabled={!etag || updating}
+                  styles={{
+                    control: (provided) => ({ ...provided, minHeight: 34 }),
+                    valueContainer: (provided) => ({ ...provided, padding: '0 6px' }),
+                  }}
+                  noOptionsMessage={() => i18n('autocomplete.noOptions')}
+                />
+              </div>
             )}
             {categoryOptions.length > 0 && (
               <div className="mb-2">

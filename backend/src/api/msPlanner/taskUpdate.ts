@@ -4,7 +4,7 @@ import ApiResponseHandler from '../apiResponseHandler';
 export default async (req, res, next) => {
   try {
     const taskId = req.params.taskId;
-    const { etag, appliedCategories, assignments, title, priority, startDateTime, dueDateTime } = req.body;
+    const { etag, appliedCategories, assignments, title, priority, startDateTime, dueDateTime, bucketId } = req.body;
 
     if (!etag) {
       return ApiResponseHandler.error(req, res, new Error('etag is required'));
@@ -17,6 +17,7 @@ export default async (req, res, next) => {
       priority,
       startDateTime,
       dueDateTime,
+      bucketId,
     });
 
     await ApiResponseHandler.success(req, res, payload);

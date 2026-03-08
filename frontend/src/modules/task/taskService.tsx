@@ -124,6 +124,34 @@ export default class TaskService {
     return response.data;
   }
 
+  /**
+   * Update local task from linked Microsoft Planner task.
+   * @param id - Task id
+   * @param fields - Optional list: 'title' | 'description' | 'estimatedStart' | 'estimatedEnd'. If omitted, all are applied.
+   */
+  static async syncFromPlanner(id, fields?) {
+    const tenantId = AuthCurrentTenant.get();
+    const response = await authAxios.post(
+      `/tenant/${tenantId}/task/${id}/sync-from-planner`,
+      { data: fields && fields.length ? { fields } : {} },
+    );
+    return response.data;
+  }
+
+  /**
+   * Send task to Microsoft Planner (create or update).
+   * @param id - Task id
+   * @param payload - { planId, bucketId? (required when creating), fields?: ['title','description','estimatedStart','estimatedEnd'] }
+   */
+  static async sendToPlanner(id, payload) {
+    const tenantId = AuthCurrentTenant.get();
+    const response = await authAxios.post(
+      `/tenant/${tenantId}/task/${id}/send-to-planner`,
+      { data: payload },
+    );
+    return response.data;
+  }
+
   static async list(filter, orderBy, limit, offset) {
     const params = {
       filter,

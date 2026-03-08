@@ -300,10 +300,13 @@ export default class MsTaskService {
 
             const detailsData = await detailsResponse.json();
 
+            const buckets = await this.getBuckets(planId);
+
             return {
                 ...planData,
                 details: detailsData,
-                categories: detailsData.categoryDescriptions || {}
+                categories: detailsData.categoryDescriptions || {},
+                buckets: buckets || [],
             };
 
         } catch (error: any) {
@@ -344,6 +347,7 @@ export default class MsTaskService {
             priority?: number;
             startDateTime?: string | null;
             dueDateTime?: string | null;
+            bucketId?: string | null;
         }
     ): Promise<any> {
         const token = await this._getServiceToken();
@@ -357,6 +361,7 @@ export default class MsTaskService {
             if (patch.priority !== undefined) body.priority = patch.priority;
             if (patch.startDateTime !== undefined) body.startDateTime = patch.startDateTime;
             if (patch.dueDateTime !== undefined) body.dueDateTime = patch.dueDateTime;
+            if (patch.bucketId !== undefined) body.bucketId = patch.bucketId;
 
             const response = await fetch(url, {
                 method: 'PATCH',

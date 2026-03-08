@@ -25,6 +25,13 @@ interface PlanDetails {
   categoryDescriptions?: Record<string, string>;
 }
 
+interface BucketRecord {
+  id?: string;
+  name?: string;
+  planId?: string;
+  orderHint?: string;
+}
+
 interface PlanRecord {
   id?: string;
   title?: string;
@@ -35,6 +42,7 @@ interface PlanRecord {
   container?: PlanContainer;
   details?: PlanDetails;
   categories?: Record<string, string>;
+  buckets?: BucketRecord[];
 }
 
 interface GraphUser {
@@ -207,6 +215,32 @@ const MSPlannerDetailsPage = () => {
                     </li>
                   ))}
               </ul>
+            </div>
+          )}
+
+          {record.buckets && record.buckets.length > 0 && (
+            <div className="form-group">
+              <label className="control-label">Buckets</label>
+              <div className="table-responsive">
+                <table className="table table-striped table-bordered">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Bucket ID</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {record.buckets.map((b) => (
+                      <tr key={b.id ?? ''}>
+                        <td>{b.name ?? '—'}</td>
+                        <td>
+                          <code className="small">{b.id ?? '—'}</code>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </ViewWrapper>

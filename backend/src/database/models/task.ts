@@ -82,7 +82,9 @@ export default (database) => {
         type: Schema.Types.ObjectId,
         ref: 'task',
       }],
-
+      msPlannerTaskId: {
+        type: String,
+      },
       tenant: {
         type: Schema.Types.ObjectId,
         ref: 'tenant',
