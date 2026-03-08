@@ -83,4 +83,21 @@ export default class AiAgentService {
     );
     return response.data as { todos: string[] };
   }
+
+  static async suggestTestCasesForTask(
+    taskTitle: string,
+    options?: { taskDescription?: string },
+  ) {
+    const tenantId = AuthCurrentTenant.get();
+    const response = await authAxios.post(
+      `/tenant/${tenantId}/ai-agent/suggest-test-cases-for-task`,
+      {
+        taskTitle,
+        taskDescription: options?.taskDescription,
+      },
+    );
+    return response.data as {
+      testCases: Array<{ title?: string; steps?: string; expectedResult?: string }>;
+    };
+  }
 }

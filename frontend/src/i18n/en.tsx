@@ -425,9 +425,11 @@ const en = {
       },
       fields: {
         id: 'Id',
+        task: 'Task',
         title: 'Title',
         description: 'Description',
         steps: 'Steps',
+        expectedResult: 'Expected result',
         attachment: 'Attachment',
         leadBy: 'Lead by',
         reviewedBy: 'Reviewed by',

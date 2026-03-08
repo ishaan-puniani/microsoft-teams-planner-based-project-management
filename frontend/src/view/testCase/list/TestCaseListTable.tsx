@@ -15,6 +15,7 @@ import Pagination from 'src/view/shared/table/Pagination';
 import TableColumnHeader from 'src/view/shared/table/TableColumnHeader';
 
 import FilesListView from 'src/view/shared/table/FileListView';
+import TaskListItem from 'src/view/task/list/TaskListItem';
 import UserListItem from 'src/view/user/list/UserListItem';
 
 const TestCaseListTable = (props) => {
@@ -93,6 +94,18 @@ const TestCaseListTable = (props) => {
     <TableWrapper>
       <div className="table-responsive">
         <table className="table table-striped mt-2">
+          <colgroup>
+            <col />
+            <col />
+            <col />
+            <col style={{ minWidth: 200 }} />
+            <col style={{ minWidth: 260 }} />
+            <col style={{ minWidth: 260 }} />
+            <col />
+            <col />
+            <col />
+            <col />
+          </colgroup>
           <thead className="thead">
             <tr>
               <TableColumnHeader className="th-checkbox">
@@ -119,9 +132,11 @@ const TestCaseListTable = (props) => {
                 hasRows={hasRows}
                 sorter={sorter}
                 name={'title'}
-                label={i18n(
-                  'entities.testCase.fields.title',
-                )}
+                label={i18n('entities.testCase.fields.title')}
+              />
+
+              <TableColumnHeader
+                label={i18n('entities.testCase.fields.task')}
               />
 
               <TableColumnHeader
@@ -129,27 +144,27 @@ const TestCaseListTable = (props) => {
                 hasRows={hasRows}
                 sorter={sorter}
                 name={'description'}
-                label={i18n(
-                  'entities.testCase.fields.description',
-                )}
+                label={i18n('entities.testCase.fields.description')}
               />
 
               <TableColumnHeader
-                label={i18n(
-                  'entities.testCase.fields.attachment',
-                )}
+                label={i18n('entities.testCase.fields.steps')}
               />
 
               <TableColumnHeader
-                label={i18n(
-                  'entities.testCase.fields.leadBy',
-                )}
+                label={i18n('entities.testCase.fields.expectedResult')}
               />
 
               <TableColumnHeader
-                label={i18n(
-                  'entities.testCase.fields.reviewedBy',
-                )}
+                label={i18n('entities.testCase.fields.attachment')}
+              />
+
+              <TableColumnHeader
+                label={i18n('entities.testCase.fields.leadBy')}
+              />
+
+              <TableColumnHeader
+                label={i18n('entities.testCase.fields.reviewedBy')}
               />
 
               <TableColumnHeader className="th-actions" />
@@ -197,7 +212,38 @@ const TestCaseListTable = (props) => {
                     </div>
                   </th>
                   <td>{row.title}</td>
-                  <td>{row.description}</td>
+                  <td>
+                    <TaskListItem value={row.task} />
+                  </td>
+                  <td style={{ minWidth: 200 }}>{row.description}</td>
+                  <td style={{ minWidth: 260 }}>
+                    <div
+                      className="text-pre-wrap"
+                      style={{
+                        whiteSpace: 'pre-wrap',
+                        maxHeight: 120,
+                        overflow: 'auto',
+                        wordBreak: 'break-word',
+                      }}
+                    >
+                      {row.steps != null ? String(row.steps) : ''}
+                    </div>
+                  </td>
+                  <td style={{ minWidth: 260 }}>
+                    <div
+                      className="text-pre-wrap"
+                      style={{
+                        whiteSpace: 'pre-wrap',
+                        maxHeight: 120,
+                        overflow: 'auto',
+                        wordBreak: 'break-word',
+                      }}
+                    >
+                      {row.expectedResult != null
+                        ? String(row.expectedResult)
+                        : ''}
+                    </div>
+                  </td>
                   <td>
                     <FilesListView value={row.attachment} />
                   </td>

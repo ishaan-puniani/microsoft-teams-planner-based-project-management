@@ -1,0 +1,738 @@
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ReactGrid,
+  Column,
+  Row,
+  HeaderCell,
+  CellChange,
+  Id,
+  CellTemplate,
+  Compatible,
+  Uncertain,
+  CellStyle,
+} from '@silevis/reactgrid';
+import '@silevis/reactgrid/styles.css';
+import '../../project/planner/planView/ProjectTimePlanExcel.css';
+import { i18n } from 'src/i18n';
+import TestCaseService from 'src/modules/testCase/testCaseService';
+import Spinner from 'src/view/shared/Spinner';
+import Errors from 'src/modules/shared/error/errors';
+import AiAgentService from 'src/modules/aiAgent/aiAgentService';
+import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
+
+const PENDING_ID_PREFIX = 'pending-';
+
+function makePendingId(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return `${PENDING_ID_PREFIX}${crypto.randomUUID()}`;
+  }
+  return `${PENDING_ID_PREFIX}${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function isPendingId(id: string): boolean {
+  return id.startsWith(PENDING_ID_PREFIX);
+}
+
+export type TestCaseRow = {
+  id: string;
+  task?: string;
+  title?: string;
+  description?: string;
+  steps?: string;
+  expectedResult?: string;
+};
+
+const STORAGE_KEY_PREFIX = 'testCaseExcelDrafts:';
+
+function getStorageKey(taskId: string): string {
+  return `${STORAGE_KEY_PREFIX}${taskId}`;
+}
+
+type StoredDraft = {
+  pending: TestCaseRow[];
+  overrides: Record<string, { title?: string; steps?: string; expectedResult?: string }>;
+};
+
+function loadDraftFromStorage(taskId: string): StoredDraft {
+  try {
+    const raw = localStorage.getItem(getStorageKey(taskId));
+    if (!raw) return { pending: [], overrides: {} };
+    const parsed = JSON.parse(raw) as StoredDraft;
+    return {
+      pending: Array.isArray(parsed?.pending) ? parsed.pending : [],
+      overrides: parsed?.overrides && typeof parsed.overrides === 'object' ? parsed.overrides : {},
+    };
+  } catch {
+    return { pending: [], overrides: {} };
+  }
+}
+
+function saveDraftToStorage(taskId: string, draft: StoredDraft): void {
+  try {
+    localStorage.setItem(getStorageKey(taskId), JSON.stringify(draft));
+  } catch {
+    // ignore
+  }
+}
+
+const DELETE_COLUMN_ID = 'delete';
+const TITLE_COLUMN_ID = 'title';
+const STEPS_COLUMN_ID = 'steps';
+const EXPECTED_RESULT_COLUMN_ID = 'expectedResult';
+
+type DeleteButtonCell = {
+  type: 'deleteButton';
+  rowId: string;
+  isDeleted: boolean;
+  showRemove: boolean;
+};
+
+function createDeleteButtonTemplate(
+  onToggleDeleteRef: React.MutableRefObject<((rowId: string) => void) | null>,
+  onRemoveRef: React.MutableRefObject<((rowId: string) => void) | null>,
+): CellTemplate<DeleteButtonCell> {
+  return {
+    getCompatibleCell(uncertain: Uncertain<DeleteButtonCell>): Compatible<DeleteButtonCell> {
+      return {
+        ...uncertain,
+        text: '',
+        value: 0,
+        rowId: uncertain.rowId ?? '',
+        isDeleted: uncertain.isDeleted === true,
+        showRemove: uncertain.showRemove === true,
+      } as Compatible<DeleteButtonCell>;
+    },
+    isFocusable: () => false,
+    render(cell: Compatible<DeleteButtonCell>) {
+      return (
+        <span className="d-inline-flex align-items-center gap-1">
+          {cell.showRemove && (
+            <button
+              type="button"
+              className="btn btn-sm btn-link p-0 text-danger border-0"
+              style={{ minWidth: 22 }}
+              title="Remove (local only)"
+              onClick={(e) => {
+                e.stopPropagation();
+                onRemoveRef.current?.(cell.rowId);
+              }}
+            >
+              <i className="fas fa-minus" />
+            </button>
+          )}
+          <button
+            type="button"
+            className={`btn btn-sm btn-link p-0 border-0 ${cell.isDeleted ? 'text-danger' : 'text-secondary'}`}
+            style={{ minWidth: 22 }}
+            title={cell.isDeleted ? 'Undo delete' : 'Mark for delete'}
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              onToggleDeleteRef.current?.(cell.rowId);
+            }}
+          >
+            <i className={cell.isDeleted ? 'fas fa-undo' : 'fas fa-trash-alt'} />
+          </button>
+        </span>
+      );
+    },
+  };
+}
+
+type TextWithSpeechCell = {
+  type: 'textWithSpeech';
+  rowId: string;
+  field: 'title' | 'steps' | 'expectedResult';
+  text: string;
+  style?: CellStyle;
+  multiline?: boolean;
+  /** Row height in px (for multiline textarea minHeight) */
+  rowHeight?: number;
+};
+
+function createTextWithSpeechTemplate(
+  getStateRef: React.MutableRefObject<
+    () => { listening: boolean; dictatingFor: { rowId: string; field: string } | null }
+  >,
+  onChangeRef: React.MutableRefObject<
+    ((rowId: string, field: 'title' | 'steps' | 'expectedResult', text: string) => void) | null
+  >,
+  onMicClickRef: React.MutableRefObject<
+    ((rowId: string, field: 'title' | 'steps' | 'expectedResult') => void) | null
+  >,
+  browserSupportsSpeechRef: React.MutableRefObject<boolean>,
+): CellTemplate<TextWithSpeechCell> {
+  return {
+    getCompatibleCell(uncertain: Uncertain<TextWithSpeechCell>): Compatible<TextWithSpeechCell> {
+      return {
+        ...uncertain,
+        text: uncertain.text ?? '',
+        rowId: uncertain.rowId ?? '',
+        field: uncertain.field ?? 'title',
+        multiline: uncertain.multiline === true,
+        rowHeight: uncertain.rowHeight,
+      } as Compatible<TextWithSpeechCell>;
+    },
+    isFocusable: () => true,
+    render(cell: Compatible<TextWithSpeechCell>) {
+      const state = getStateRef.current?.();
+      const listening = state?.listening ?? false;
+      const dictatingFor = state?.dictatingFor ?? null;
+      const isDictatingThis =
+        dictatingFor?.rowId === cell.rowId && dictatingFor?.field === cell.field;
+      const showMic = browserSupportsSpeechRef.current;
+      const multiline = cell.multiline === true;
+      const rowH = cell.rowHeight ?? DEFAULT_ROW_HEIGHT;
+      const textareaMinHeight = rowH - 12;
+
+      return (
+        <div
+          className="d-flex align-items-start gap-1 w-100 h-100"
+          style={{ minWidth: 0, ...(cell.style as React.CSSProperties) }}
+        >
+          {multiline ? (
+            <textarea
+              className="form-control form-control-sm border-0 bg-transparent flex-grow-1"
+              style={{ minWidth: 0, resize: 'none', minHeight: textareaMinHeight }}
+              value={cell.text}
+              onChange={(e) =>
+                onChangeRef.current?.(cell.rowId, cell.field, e.target.value)
+              }
+              onClick={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
+              rows={3}
+            />
+          ) : (
+            <input
+              type="text"
+              className="form-control form-control-sm border-0 bg-transparent h-100 flex-grow-1"
+              style={{ minWidth: 0 }}
+              value={cell.text}
+              onChange={(e) =>
+                onChangeRef.current?.(cell.rowId, cell.field, e.target.value)
+              }
+              onClick={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
+            />
+          )}
+          {showMic && (
+            <button
+              type="button"
+              className={`btn btn-sm btn-link p-0 border-0 flex-shrink-0 ${isDictatingThis && listening ? 'text-danger' : 'text-secondary'}`}
+              style={{ minWidth: 22 }}
+              title={
+                listening && isDictatingThis
+                  ? 'Stop listening'
+                  : `Dictate ${cell.field} (speech to text)`
+              }
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                onMicClickRef.current?.(cell.rowId, cell.field);
+              }}
+            >
+              <i className={`fas fa-microphone${listening && isDictatingThis ? '-slash' : ''}`} />
+            </button>
+          )}
+        </div>
+      );
+    },
+  };
+}
+
+const DEFAULT_ROW_HEIGHT = 88;
+const DEFAULT_COLUMN_WIDTHS: Record<string, number> = {
+  [DELETE_COLUMN_ID]: 80,
+  [TITLE_COLUMN_ID]: 220,
+  [STEPS_COLUMN_ID]: 280,
+  [EXPECTED_RESULT_COLUMN_ID]: 220,
+};
+
+const COLUMN_IDS = [DELETE_COLUMN_ID, TITLE_COLUMN_ID, STEPS_COLUMN_ID, EXPECTED_RESULT_COLUMN_ID] as const;
+
+type Props = {
+  taskId: string | undefined;
+  taskTitle?: string;
+  taskDescription?: string;
+};
+
+const TestCaseExcelOfTask = ({ taskId, taskTitle = '', taskDescription = '' }: Props) => {
+  const [loading, setLoading] = useState(true);
+  const [rows, setRows] = useState<TestCaseRow[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [dirtyIds, setDirtyIds] = useState<Set<string>>(() => new Set());
+  const [deletedIds, setDeletedIds] = useState<Set<string>>(() => new Set());
+  const [aiLoading, setAiLoading] = useState(false);
+  const [columnWidths, setColumnWidths] = useState<Record<string, number>>(() => ({
+    ...DEFAULT_COLUMN_WIDTHS,
+  }));
+  const [rowHeights, setRowHeights] = useState<Record<string, number>>(() => ({}));
+  const [dictatingFor, setDictatingFor] = useState<{ rowId: string; field: string } | null>(null);
+
+  const {
+    transcript,
+    listening,
+    resetTranscript,
+    browserSupportsSpeechRecognition,
+  } = useSpeechRecognition();
+
+  const onToggleDeleteRef = useRef<((rowId: string) => void) | null>(null);
+  const onRemoveRef = useRef<((rowId: string) => void) | null>(null);
+  const getSpeechStateRef = useRef<
+    () => { listening: boolean; dictatingFor: { rowId: string; field: string } | null }
+  >(() => ({ listening: false, dictatingFor: null }));
+  const onChangeRef = useRef<
+    ((rowId: string, field: 'title' | 'steps' | 'expectedResult', text: string) => void) | null
+  >(null);
+  const onMicClickRef = useRef<
+    ((rowId: string, field: 'title' | 'steps' | 'expectedResult') => void) | null
+  >(null);
+  const browserSupportsSpeechRef = useRef(false);
+  browserSupportsSpeechRef.current = browserSupportsSpeechRecognition;
+  const rowsRef = useRef<TestCaseRow[]>([]);
+  rowsRef.current = rows;
+
+  getSpeechStateRef.current = () => ({ listening, dictatingFor });
+
+  const persistDraft = useCallback(
+    (tid: string | undefined, currentRows: TestCaseRow[]) => {
+      if (!tid) return;
+      const pending = currentRows.filter((r) => isPendingId(r.id));
+      const saved = currentRows.filter((r) => !isPendingId(r.id));
+      const overrides: Record<string, { title?: string; steps?: string; expectedResult?: string }> = {};
+      saved.forEach((r) => {
+        overrides[r.id] = {
+          title: r.title,
+          steps: r.steps,
+          expectedResult: r.expectedResult,
+        };
+      });
+      saveDraftToStorage(tid, { pending, overrides });
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (!listening && dictatingFor != null && transcript.trim()) {
+      const { rowId, field } = dictatingFor;
+      const value = transcript.trim();
+      setRows((prev) => {
+        const next = prev.map((r) => {
+          if (r.id !== rowId) return r;
+          return { ...r, [field]: value };
+        });
+        persistDraft(taskId, next);
+        return next;
+      });
+      setDirtyIds((prev) => new Set(prev).add(rowId));
+      setDictatingFor(null);
+      resetTranscript();
+    }
+  }, [listening, dictatingFor, transcript, taskId, resetTranscript, persistDraft]);
+
+  const handleFieldChange = useCallback(
+    (rowId: string, field: 'title' | 'steps' | 'expectedResult', text: string) => {
+      setRows((prev) => {
+        const next = prev.map((r) =>
+          r.id === rowId ? { ...r, [field]: text } : r,
+        );
+        persistDraft(taskId, next);
+        return next;
+      });
+      setDirtyIds((prev) => new Set(prev).add(rowId));
+    },
+    [taskId, persistDraft],
+  );
+
+  const handleMicClick = useCallback(
+    (rowId: string, field: 'title' | 'steps' | 'expectedResult') => {
+      if (listening) {
+        if (dictatingFor?.rowId === rowId && dictatingFor?.field === field) {
+          SpeechRecognition.stopListening();
+        }
+        return;
+      }
+      setDictatingFor({ rowId, field });
+      resetTranscript();
+      SpeechRecognition.startListening({ continuous: false, language: 'en-US' });
+    },
+    [listening, dictatingFor, resetTranscript],
+  );
+
+  useEffect(() => {
+    onChangeRef.current = handleFieldChange;
+    onMicClickRef.current = handleMicClick;
+  });
+
+  const loadRows = useCallback(() => {
+    if (!taskId) return;
+    setLoading(true);
+    setError(null);
+    TestCaseService.list({ filter: { task: taskId } }, undefined, 500, 0)
+      .then((res: { rows?: TestCaseRow[] }) => {
+        const serverRows = res.rows ?? [];
+        const draft = loadDraftFromStorage(taskId);
+        const overridden = serverRows.map((r) => ({
+          ...r,
+          title: draft.overrides[r.id]?.title ?? r.title,
+          steps: draft.overrides[r.id]?.steps ?? r.steps,
+          expectedResult: draft.overrides[r.id]?.expectedResult ?? r.expectedResult,
+        }));
+        const merged = [...overridden, ...draft.pending];
+        setRows(merged);
+        setDirtyIds(new Set());
+        setDeletedIds(new Set());
+      })
+      .catch((e) => setError((e as Error)?.message ?? 'Failed to load test cases'))
+      .finally(() => setLoading(false));
+  }, [taskId]);
+
+  useEffect(() => {
+    if (!taskId) return;
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    TestCaseService.list({ filter: { task: taskId } }, undefined, 500, 0)
+      .then((res: { rows?: TestCaseRow[] }) => {
+        if (!cancelled) {
+          const serverRows = res.rows ?? [];
+          const draft = loadDraftFromStorage(taskId);
+          const overridden = serverRows.map((r) => ({
+            ...r,
+            title: draft.overrides[r.id]?.title ?? r.title,
+            steps: draft.overrides[r.id]?.steps ?? r.steps,
+            expectedResult: draft.overrides[r.id]?.expectedResult ?? r.expectedResult,
+          }));
+          setRows([...overridden, ...draft.pending]);
+          setDirtyIds(new Set());
+          setDeletedIds(new Set());
+        }
+      })
+      .catch((e) => {
+        if (!cancelled) setError((e as Error)?.message ?? 'Failed to load test cases');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [taskId]);
+
+  const handleAddRow = useCallback(() => {
+    if (!taskId) return;
+    const newRow: TestCaseRow = {
+      id: makePendingId(),
+      task: taskId,
+      title: '',
+      steps: '',
+      expectedResult: '',
+    };
+    setRows((prev) => {
+      const next = [...prev, newRow];
+      persistDraft(taskId, next);
+      return next;
+    });
+  }, [taskId, persistDraft]);
+
+  const handleRemovePending = useCallback(
+    (rowId: string) => {
+      if (!taskId) return;
+      setRows((prev) => {
+        const next = prev.filter((r) => r.id !== rowId);
+        persistDraft(taskId, next);
+        return next;
+      });
+    },
+    [taskId, persistDraft],
+  );
+
+  const handleToggleDelete = useCallback((rowId: string) => {
+    setDeletedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(rowId)) next.delete(rowId);
+      else next.add(rowId);
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    onToggleDeleteRef.current = handleToggleDelete;
+    onRemoveRef.current = handleRemovePending;
+  }, [handleToggleDelete, handleRemovePending]);
+
+  const handleAiGenerate = useCallback(async () => {
+    if (!taskId || !taskTitle?.trim()) return;
+    setAiLoading(true);
+    setError(null);
+    try {
+      const data = await AiAgentService.suggestTestCasesForTask(taskTitle.trim(), {
+        taskDescription: taskDescription?.trim() || undefined,
+      });
+      const list = data?.testCases ?? [];
+      const newRows: TestCaseRow[] = list.map((t) => ({
+        id: makePendingId(),
+        task: taskId,
+        title: t.title ?? 'Test case',
+        steps: t.steps ?? '',
+        expectedResult: t.expectedResult ?? '',
+      }));
+      if (newRows.length > 0) {
+        setRows((prev) => {
+          const next = [...prev, ...newRows];
+          persistDraft(taskId, next);
+          return next;
+        });
+      }
+    } catch (e) {
+      Errors.handle(e);
+      setError((e as Error)?.message ?? 'AI request failed');
+    } finally {
+      setAiLoading(false);
+    }
+  }, [taskId, taskTitle, taskDescription, persistDraft]);
+
+  const handleSave = useCallback(async () => {
+    if (!taskId || !rows.length) return;
+    setSaving(true);
+    try {
+      const pending = rows.filter((r) => isPendingId(r.id) && !deletedIds.has(r.id));
+      const toCreate = pending.map((r) => ({
+        task: taskId,
+        title: r.title ?? '',
+        description: r.description,
+        steps: r.steps ?? '',
+        expectedResult: r.expectedResult ?? '',
+      }));
+
+      const existing = rows.filter((r) => !isPendingId(r.id));
+      const toUpdate = existing.filter(
+        (r) => dirtyIds.has(r.id) && !deletedIds.has(r.id),
+      );
+      const toDelete = Array.from(deletedIds).filter((id) => !isPendingId(id));
+
+      for (const data of toCreate) {
+        await TestCaseService.create(data);
+      }
+      for (const r of toUpdate) {
+        await TestCaseService.update(r.id, {
+          title: r.title,
+          description: r.description,
+          steps: r.steps,
+          expectedResult: r.expectedResult,
+        });
+      }
+      if (toDelete.length > 0) {
+        await TestCaseService.destroyAll(toDelete);
+      }
+
+      setDirtyIds(new Set());
+      setDeletedIds(new Set());
+      localStorage.removeItem(getStorageKey(taskId));
+      loadRows();
+    } catch (e) {
+      setError((e as Error)?.message ?? 'Failed to save');
+    } finally {
+      setSaving(false);
+    }
+  }, [taskId, rows, dirtyIds, deletedIds, loadRows]);
+
+  const deleteButtonTemplate = useMemo(
+    () => createDeleteButtonTemplate(onToggleDeleteRef, onRemoveRef),
+    [],
+  );
+  const textWithSpeechTemplate = useMemo(
+    () =>
+      createTextWithSpeechTemplate(
+        getSpeechStateRef,
+        onChangeRef,
+        onMicClickRef,
+        browserSupportsSpeechRef,
+      ),
+    [],
+  );
+
+  const columns = useMemo<Column[]>(
+    () =>
+      COLUMN_IDS.map((id) => ({
+        columnId: id,
+        width: columnWidths[id] ?? DEFAULT_COLUMN_WIDTHS[id],
+        resizable: id !== DELETE_COLUMN_ID,
+      })),
+    [columnWidths],
+  );
+
+  const gridRows = useMemo((): Row[] => {
+    const headerRow: Row = {
+      rowId: 'header',
+      height: 36,
+      resizable: false,
+      cells: [
+        { type: 'header', text: '' } as HeaderCell,
+        { type: 'header', text: i18n('entities.testCase.fields.title') } as HeaderCell,
+        { type: 'header', text: i18n('entities.testCase.fields.steps') } as HeaderCell,
+        { type: 'header', text: 'Expected result' } as HeaderCell,
+      ],
+    };
+
+    const dataRows = rows.map((r) => {
+      const isDeleted = deletedIds.has(r.id);
+      const isPending = isPendingId(r.id);
+      const style: React.CSSProperties = isDeleted
+        ? { textDecoration: 'line-through', opacity: 0.65 }
+        : {};
+      const rowHeight = rowHeights[r.id] ?? DEFAULT_ROW_HEIGHT;
+
+      return {
+        rowId: r.id,
+        height: rowHeight,
+        resizable: true,
+        cells: [
+          {
+            type: 'deleteButton',
+            rowId: r.id,
+            isDeleted,
+            showRemove: isPending,
+          } as DeleteButtonCell,
+          {
+            type: 'textWithSpeech',
+            rowId: r.id,
+            field: 'title',
+            text: r.title ?? '',
+            style,
+            multiline: false,
+          } as TextWithSpeechCell,
+          {
+            type: 'textWithSpeech',
+            rowId: r.id,
+            field: 'steps',
+            text: r.steps ?? '',
+            style,
+            multiline: true,
+            rowHeight,
+          } as TextWithSpeechCell,
+          {
+            type: 'textWithSpeech',
+            rowId: r.id,
+            field: 'expectedResult',
+            text: r.expectedResult ?? '',
+            style,
+            multiline: true,
+            rowHeight,
+          } as TextWithSpeechCell,
+        ],
+      } as unknown as Row;
+    });
+
+    return [headerRow, ...dataRows];
+  }, [rows, deletedIds, rowHeights]);
+
+  const handleCellsChanged = useCallback(
+    (changes: CellChange[]) => {
+      for (const ch of changes) {
+        if (ch.rowId === 'header') continue;
+        const c = ch as unknown as { type: string; rowId: Id; newCell: { field?: string; text?: string } };
+        if (c.type === 'textWithSpeech' && c.newCell?.field) {
+          const field = c.newCell.field as 'title' | 'steps' | 'expectedResult';
+          handleFieldChange(String(c.rowId), field, c.newCell.text ?? '');
+        }
+      }
+    },
+    [handleFieldChange],
+  );
+
+  const handleColumnResized = useCallback((columnId: Id, width: number) => {
+    setColumnWidths((prev) => ({ ...prev, [String(columnId)]: width }));
+  }, []);
+
+  const handleRowResized = useCallback((rowId: Id, height: number) => {
+    setRowHeights((prev) => ({ ...prev, [String(rowId)]: height }));
+  }, []);
+
+  if (!taskId) return null;
+  if (loading) return <Spinner />;
+  if (error) {
+    return (
+      <div className="mt-4">
+        <div className="alert alert-danger">{error}</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-4">
+      <div className="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+        <h5 className="mb-0">
+          <i className="fas fa-vial me-2" />
+          {i18n('entities.testCase.menu')} — {i18n('entities.task.view.title')}
+        </h5>
+        <div className="d-flex align-items-center gap-2">
+          <button
+            type="button"
+            className="btn btn-outline-success btn-sm"
+            onClick={handleAddRow}
+            title="Add test case row"
+          >
+            <i className="fas fa-plus me-1" />
+            Add row
+          </button>
+          <button
+            type="button"
+            className="btn btn-outline-warning btn-sm"
+            disabled={aiLoading || !taskTitle?.trim()}
+            onClick={handleAiGenerate}
+            title="Generate test cases with AI"
+          >
+            {aiLoading ? (
+              <i className="fas fa-spinner fa-spin me-1" />
+            ) : (
+              <i className="fas fa-star me-1" />
+            )}
+            {aiLoading ? 'Generating…' : 'Generate with AI'}
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary btn-sm"
+            disabled={saving || !rows.length}
+            onClick={handleSave}
+          >
+            {saving ? (
+              <i className="fas fa-spinner fa-spin me-1" />
+            ) : (
+              <i className="fas fa-save me-1" />
+            )}
+            {saving ? 'Saving…' : 'Save changes'}
+          </button>
+        </div>
+      </div>
+      <div
+        className="border rounded reactgrid-wrapper"
+        style={{
+          height: 'min(400px, 50vh)',
+          minHeight: 200,
+          overflow: 'auto',
+          position: 'relative',
+        }}
+      >
+        <ReactGrid
+          columns={columns}
+          rows={gridRows}
+          onCellsChanged={handleCellsChanged}
+          onColumnResized={handleColumnResized}
+          onRowResized={handleRowResized}
+          minRowHeight={40}
+          enableRangeSelection
+          enableColumnResizeOnAllHeaders
+          stickyTopRows={1}
+          customCellTemplates={{
+            deleteButton: deleteButtonTemplate,
+            textWithSpeech: textWithSpeechTemplate,
+          }}
+        />
+      </div>
+    </div>
+  );
+};
+
+export default TestCaseExcelOfTask;

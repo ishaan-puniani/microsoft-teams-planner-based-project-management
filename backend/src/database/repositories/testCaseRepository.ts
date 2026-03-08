@@ -167,6 +167,7 @@ class TestCaseRepository {
             _id: id,
             tenant: currentTenant.id,
           })
+          .populate('task')
           .populate('leadBy')
           .populate('reviewedBy'),
         options,
@@ -203,6 +204,12 @@ class TestCaseRepository {
           ['_id']: MongooseQueryUtils.uuid(filter.id),
         });
       }
+      if (filter.task) {
+        criteriaAnd.push({
+          task: MongooseQueryUtils.uuid(filter.task),
+        });
+      }
+
       if (filter.title) {
         criteriaAnd.push({
           title: {
@@ -290,6 +297,7 @@ class TestCaseRepository {
       .skip(skip)
       .limit(limitEscaped)
       .sort(sort)
+      .populate('task')
       .populate('leadBy')
       .populate('reviewedBy');
     const count = await TestCase(

@@ -1,6 +1,7 @@
 /// File is generated from https://studio.fabbuilder.com - testCase
 
 export interface ITestCaseFilter {
+  task?: string;
   title?: string;
   description?: string;
   leadBy?: string;

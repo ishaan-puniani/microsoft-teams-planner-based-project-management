@@ -15,6 +15,7 @@ import TaskPlannerSyncModal, {
   type PlannerSyncFieldId,
 } from 'src/view/task/view/TaskPlannerSyncModal';
 import Message from 'src/view/shared/message';
+import TestCaseExcelOfTask from 'src/view/testCase/excel/TestCaseExcelOfTask';
 
 const TaskPage = (props) => {
   const dispatch = useDispatch<AppDispatch>();
@@ -111,6 +112,12 @@ const TaskPage = (props) => {
           </button>
         </div>
         <TaskView loading={loading} record={record} />
+
+        <TestCaseExcelOfTask
+          taskId={id}
+          taskTitle={record?.title}
+          taskDescription={record?.description}
+        />
       </ContentWrapper>
 
       {plannerModal === 'sync' && (

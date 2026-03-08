@@ -14,6 +14,10 @@ export default (database) => {
 
   const TestCaseSchema = new Schema(
     {
+      task: {
+        type: Schema.Types.ObjectId,
+        ref: 'task',
+      },
       title: {
         type: String,
       },
@@ -23,6 +27,10 @@ export default (database) => {
       },
 
       steps: {
+        type: Schema.Types.Mixed,
+      },
+
+      expectedResult: {
         type: Schema.Types.Mixed,
       },
 
