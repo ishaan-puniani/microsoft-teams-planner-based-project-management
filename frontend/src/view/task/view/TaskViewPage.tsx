@@ -115,6 +115,10 @@ const TaskPage = (props) => {
 
         <TestCaseExcelOfTask
           taskId={id}
+          projectId={record?.project?.id ?? record?.project}
+          testCaseTemplateId={
+            record?.project?.testCaseTemplate?.id ?? record?.project?.testCaseTemplate
+          }
           taskTitle={record?.title}
           taskDescription={record?.description}
         />

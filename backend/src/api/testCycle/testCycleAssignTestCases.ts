@@ -11,7 +11,7 @@ export default async (req, res, next) => {
 
     const payload = await new TestCycleService(req).addTestCases(
       req.params.id,
-      req.body.testCaseIds || [],
+      req.body.taskIds || [],
     );
 
     await ApiResponseHandler.success(req, res, payload);

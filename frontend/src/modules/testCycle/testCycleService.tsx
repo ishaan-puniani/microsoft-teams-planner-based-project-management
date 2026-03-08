@@ -114,12 +114,12 @@ export default class TestCycleService {
     return response.data;
   }
 
-  static async assignTestCases(testCycleId, testCaseIds) {
+  static async assignTestCases(testCycleId, taskIds) {
     const tenantId = AuthCurrentTenant.get();
 
     const response = await authAxios.post(
       `/tenant/${tenantId}/test-cycle/${testCycleId}/assign-test-cases`,
-      { testCaseIds },
+      { taskIds },
     );
 
     return response.data;

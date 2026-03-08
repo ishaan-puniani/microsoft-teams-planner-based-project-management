@@ -257,14 +257,14 @@ const TestCaseListTable = (props) => {
                   <td className="td-actions">
                     <Link
                       className="btn btn-link"
-                      to={`/test-case/${row.id}`}
+                      to={`/task/${row.id}`}
                     >
                       {i18n('common.view')}
                     </Link>
                     {hasPermissionToEdit && (
                       <Link
                         className="btn btn-link"
-                        to={`/test-case/${row.id}/edit`}
+                        to={`/task/${row.id}/edit`}
                       >
                         {i18n('common.edit')}
                       </Link>

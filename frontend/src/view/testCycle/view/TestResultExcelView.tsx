@@ -378,25 +378,22 @@ export type TestResultRow = {
 function testResultsToRows(testResults: any[]): TestResultRow[] {
   if (!Array.isArray(testResults)) return [];
   return testResults.map((tr, i) => {
-    const testCase = tr.testCase;
+    const task = tr.task;
     const testCaseId =
-      typeof testCase === 'object' && testCase?.id
-        ? testCase.id
-        : typeof testCase === 'string'
-          ? testCase
+      typeof task === 'object' && task?.id
+        ? task.id
+        : typeof task === 'string'
+          ? task
           : `unknown-${i}`;
     const testCaseTitle =
-      typeof testCase === 'object' && testCase?.title
-        ? testCase.title
-        : typeof testCase === 'string'
-          ? testCase
+      typeof task === 'object' && task?.title
+        ? task.title
+        : typeof task === 'string'
+          ? task
           : '';
-    const steps = formatMixed(
-      typeof testCase === 'object' ? testCase?.steps : undefined,
-    );
-    const expectedResult = formatMixed(
-      typeof testCase === 'object' ? testCase?.expectedResult : undefined,
-    );
+    const td = typeof task === 'object' ? task?.templateData : undefined;
+    const steps = formatMixed(td?.testSteps ?? td?.steps);
+    const expectedResult = formatMixed(td?.expectedResult);
     const testedBy =
       typeof tr.testedBy === 'object' && tr.testedBy?.id
         ? tr.testedBy.id
@@ -417,13 +414,13 @@ function testResultsToRows(testResults: any[]): TestResultRow[] {
 }
 
 function rowsToTestResults(rows: TestResultRow[]): Array<{
-  testCase: string;
+  task: string;
   result?: string;
   outcome?: string;
   testedBy?: string;
 }> {
   return rows.map((r) => ({
-    testCase: r.testCaseId,
+    task: r.testCaseId,
     result: r.result || undefined,
     outcome: r.outcome || undefined,
     testedBy: r.testedBy || undefined,

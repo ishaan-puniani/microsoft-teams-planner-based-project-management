@@ -160,7 +160,7 @@ const TestCaseToolbar = (props) => {
   return (
     <Toolbar>
       {hasPermissionToCreate && (
-        <Link to="/test-case/new">
+        <Link to="/task/new?type=TEST_CASE">
           <button className="btn btn-primary" type="button">
             <ButtonIcon iconClass="fas fa-plus" />{' '}
             {i18n('common.new')}
@@ -169,7 +169,7 @@ const TestCaseToolbar = (props) => {
       )}
 
       {hasPermissionToImport && (
-        <Link to="/test-case/importer">
+        <Link to="/task/importer">
           <button className="btn btn-primary" type="button">
             <ButtonIcon iconClass="fas fa-upload" />{' '}
             {i18n('common.import')}

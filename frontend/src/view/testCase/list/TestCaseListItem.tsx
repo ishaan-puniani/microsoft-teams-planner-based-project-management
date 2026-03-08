@@ -28,7 +28,7 @@ const TestCaseListItem = (props) => {
         <div key={record.id}>
           <Link
             className="btn btn-link"
-            to={`/test-case/${record.id}`}
+            to={`/task/${record.id}`}
           >
             {record.title}
           </Link>

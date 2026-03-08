@@ -11,7 +11,6 @@ const models = [
   require('./testPlan').default,
   require('./testCycle').default,
   require('./testSuite').default,
-  require('./testCase').default,
   require('./task').default,
   require('./taskTemplate').default,
   require('./status').default,

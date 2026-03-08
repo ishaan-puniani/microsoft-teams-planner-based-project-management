@@ -5,6 +5,7 @@ import MongooseRepository from '../database/repositories/mongooseRepository';
 import { IServiceOptions } from './IServiceOptions';
 import TaskRepository from '../database/repositories/taskRepository';
 import UserRepository from '../database/repositories/userRepository';
+import ProjectRepository from '../database/repositories/projectRepository';
 
 export default class TaskService {
   options: IServiceOptions;
@@ -33,6 +34,22 @@ export default class TaskService {
           data.parents,
           { ...this.options, session },
         );
+      }
+
+      // When creating a TEST_CASE task, set template from project.testCaseTemplate if not already set
+      if (
+        data.project &&
+        !data.template &&
+        (data.type === 'TEST_CASE' || String(data.type).toUpperCase() === 'TEST_CASE')
+      ) {
+        const project = await ProjectRepository.findById(data.project, {
+          ...this.options,
+          session,
+        });
+        const templateId = project?.testCaseTemplate?.id ?? project?.testCaseTemplate;
+        if (templateId) {
+          data.template = templateId;
+        }
       }
 
       const record = await TaskRepository.create(data, {

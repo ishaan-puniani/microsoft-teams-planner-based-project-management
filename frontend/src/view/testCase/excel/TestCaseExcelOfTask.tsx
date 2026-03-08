@@ -14,7 +14,7 @@ import {
 import '@silevis/reactgrid/styles.css';
 import '../../project/planner/planView/ProjectTimePlanExcel.css';
 import { i18n } from 'src/i18n';
-import TestCaseService from 'src/modules/testCase/testCaseService';
+import TaskService from 'src/modules/task/taskService';
 import Spinner from 'src/view/shared/Spinner';
 import Errors from 'src/modules/shared/error/errors';
 import AiAgentService from 'src/modules/aiAgent/aiAgentService';
@@ -33,13 +33,16 @@ function isPendingId(id: string): boolean {
   return id.startsWith(PENDING_ID_PREFIX);
 }
 
+export const TEST_TYPE_OPTIONS = ['Functional', 'UI', 'Critical'] as const;
+
 export type TestCaseRow = {
   id: string;
   task?: string;
   title?: string;
-  description?: string;
+  preconditions?: string;
   steps?: string;
   expectedResult?: string;
+  testType?: string;
 };
 
 const STORAGE_KEY_PREFIX = 'testCaseExcelDrafts:';
@@ -50,7 +53,7 @@ function getStorageKey(taskId: string): string {
 
 type StoredDraft = {
   pending: TestCaseRow[];
-  overrides: Record<string, { title?: string; steps?: string; expectedResult?: string }>;
+  overrides: Record<string, { title?: string; preconditions?: string; steps?: string; expectedResult?: string; testType?: string }>;
 };
 
 function loadDraftFromStorage(taskId: string): StoredDraft {
@@ -77,8 +80,10 @@ function saveDraftToStorage(taskId: string, draft: StoredDraft): void {
 
 const DELETE_COLUMN_ID = 'delete';
 const TITLE_COLUMN_ID = 'title';
+const PRECONDITIONS_COLUMN_ID = 'preconditions';
 const STEPS_COLUMN_ID = 'steps';
 const EXPECTED_RESULT_COLUMN_ID = 'expectedResult';
+const TEST_TYPE_COLUMN_ID = 'testType';
 
 type DeleteButtonCell = {
   type: 'deleteButton';
@@ -142,7 +147,7 @@ function createDeleteButtonTemplate(
 type TextWithSpeechCell = {
   type: 'textWithSpeech';
   rowId: string;
-  field: 'title' | 'steps' | 'expectedResult';
+  field: 'title' | 'preconditions' | 'steps' | 'expectedResult';
   text: string;
   style?: CellStyle;
   multiline?: boolean;
@@ -150,15 +155,57 @@ type TextWithSpeechCell = {
   rowHeight?: number;
 };
 
+type TestTypeDropdownCell = {
+  type: 'testTypeDropdown';
+  rowId: string;
+  value: string;
+  style?: CellStyle;
+};
+
+function createTestTypeDropdownTemplate(
+  onChangeRef: React.MutableRefObject<
+    ((rowId: string, value: string) => void) | null
+  >,
+): CellTemplate<TestTypeDropdownCell> {
+  return {
+    getCompatibleCell(uncertain: Uncertain<TestTypeDropdownCell>): Compatible<TestTypeDropdownCell> {
+      return {
+        ...uncertain,
+        rowId: uncertain.rowId ?? '',
+        value: uncertain.value ?? 'Functional',
+      } as Compatible<TestTypeDropdownCell>;
+    },
+    isFocusable: () => true,
+    render(cell: Compatible<TestTypeDropdownCell>) {
+      return (
+        <select
+          className="form-select form-select-sm border-0 bg-transparent h-100 w-100"
+          value={cell.value}
+          onChange={(e) => onChangeRef.current?.(cell.rowId, e.target.value)}
+          onClick={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+          style={cell.style as React.CSSProperties}
+        >
+          {TEST_TYPE_OPTIONS.map((opt) => (
+            <option key={opt} value={opt}>
+              {opt}
+            </option>
+          ))}
+        </select>
+      );
+    },
+  };
+}
+
 function createTextWithSpeechTemplate(
   getStateRef: React.MutableRefObject<
     () => { listening: boolean; dictatingFor: { rowId: string; field: string } | null }
   >,
   onChangeRef: React.MutableRefObject<
-    ((rowId: string, field: 'title' | 'steps' | 'expectedResult', text: string) => void) | null
+    ((rowId: string, field: 'title' | 'preconditions' | 'steps' | 'expectedResult', text: string) => void) | null
   >,
   onMicClickRef: React.MutableRefObject<
-    ((rowId: string, field: 'title' | 'steps' | 'expectedResult') => void) | null
+    ((rowId: string, field: 'title' | 'preconditions' | 'steps' | 'expectedResult') => void) | null
   >,
   browserSupportsSpeechRef: React.MutableRefObject<boolean>,
 ): CellTemplate<TextWithSpeechCell> {
@@ -243,20 +290,38 @@ function createTextWithSpeechTemplate(
 const DEFAULT_ROW_HEIGHT = 88;
 const DEFAULT_COLUMN_WIDTHS: Record<string, number> = {
   [DELETE_COLUMN_ID]: 80,
-  [TITLE_COLUMN_ID]: 220,
-  [STEPS_COLUMN_ID]: 280,
-  [EXPECTED_RESULT_COLUMN_ID]: 220,
+  [TITLE_COLUMN_ID]: 200,
+  [PRECONDITIONS_COLUMN_ID]: 200,
+  [STEPS_COLUMN_ID]: 240,
+  [EXPECTED_RESULT_COLUMN_ID]: 200,
+  [TEST_TYPE_COLUMN_ID]: 120,
 };
 
-const COLUMN_IDS = [DELETE_COLUMN_ID, TITLE_COLUMN_ID, STEPS_COLUMN_ID, EXPECTED_RESULT_COLUMN_ID] as const;
+const COLUMN_IDS = [
+  DELETE_COLUMN_ID,
+  TITLE_COLUMN_ID,
+  PRECONDITIONS_COLUMN_ID,
+  STEPS_COLUMN_ID,
+  EXPECTED_RESULT_COLUMN_ID,
+  TEST_TYPE_COLUMN_ID,
+] as const;
 
 type Props = {
   taskId: string | undefined;
+  projectId?: string | null;
+  /** Project's test case template id; when set, new TEST_CASE tasks are created with this template */
+  testCaseTemplateId?: string | null;
   taskTitle?: string;
   taskDescription?: string;
 };
 
-const TestCaseExcelOfTask = ({ taskId, taskTitle = '', taskDescription = '' }: Props) => {
+const TestCaseExcelOfTask = ({
+  taskId,
+  projectId,
+  testCaseTemplateId,
+  taskTitle = '',
+  taskDescription = '',
+}: Props) => {
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<TestCaseRow[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -283,11 +348,12 @@ const TestCaseExcelOfTask = ({ taskId, taskTitle = '', taskDescription = '' }: P
     () => { listening: boolean; dictatingFor: { rowId: string; field: string } | null }
   >(() => ({ listening: false, dictatingFor: null }));
   const onChangeRef = useRef<
-    ((rowId: string, field: 'title' | 'steps' | 'expectedResult', text: string) => void) | null
+    ((rowId: string, field: 'title' | 'preconditions' | 'steps' | 'expectedResult', text: string) => void) | null
   >(null);
   const onMicClickRef = useRef<
-    ((rowId: string, field: 'title' | 'steps' | 'expectedResult') => void) | null
+    ((rowId: string, field: 'title' | 'preconditions' | 'steps' | 'expectedResult') => void) | null
   >(null);
+  const onTestTypeChangeRef = useRef<((rowId: string, value: string) => void) | null>(null);
   const browserSupportsSpeechRef = useRef(false);
   browserSupportsSpeechRef.current = browserSupportsSpeechRecognition;
   const rowsRef = useRef<TestCaseRow[]>([]);
@@ -300,12 +366,14 @@ const TestCaseExcelOfTask = ({ taskId, taskTitle = '', taskDescription = '' }: P
       if (!tid) return;
       const pending = currentRows.filter((r) => isPendingId(r.id));
       const saved = currentRows.filter((r) => !isPendingId(r.id));
-      const overrides: Record<string, { title?: string; steps?: string; expectedResult?: string }> = {};
+      const overrides: Record<string, { title?: string; preconditions?: string; steps?: string; expectedResult?: string; testType?: string }> = {};
       saved.forEach((r) => {
         overrides[r.id] = {
           title: r.title,
+          preconditions: r.preconditions,
           steps: r.steps,
           expectedResult: r.expectedResult,
+          testType: r.testType,
         };
       });
       saveDraftToStorage(tid, { pending, overrides });
@@ -332,7 +400,7 @@ const TestCaseExcelOfTask = ({ taskId, taskTitle = '', taskDescription = '' }: P
   }, [listening, dictatingFor, transcript, taskId, resetTranscript, persistDraft]);
 
   const handleFieldChange = useCallback(
-    (rowId: string, field: 'title' | 'steps' | 'expectedResult', text: string) => {
+    (rowId: string, field: 'title' | 'preconditions' | 'steps' | 'expectedResult', text: string) => {
       setRows((prev) => {
         const next = prev.map((r) =>
           r.id === rowId ? { ...r, [field]: text } : r,
@@ -345,8 +413,22 @@ const TestCaseExcelOfTask = ({ taskId, taskTitle = '', taskDescription = '' }: P
     [taskId, persistDraft],
   );
 
+  const handleTestTypeChange = useCallback(
+    (rowId: string, value: string) => {
+      setRows((prev) => {
+        const next = prev.map((r) =>
+          r.id === rowId ? { ...r, testType: value } : r,
+        );
+        persistDraft(taskId, next);
+        return next;
+      });
+      setDirtyIds((prev) => new Set(prev).add(rowId));
+    },
+    [taskId, persistDraft],
+  );
+
   const handleMicClick = useCallback(
-    (rowId: string, field: 'title' | 'steps' | 'expectedResult') => {
+    (rowId: string, field: 'title' | 'preconditions' | 'steps' | 'expectedResult') => {
       if (listening) {
         if (dictatingFor?.rowId === rowId && dictatingFor?.field === field) {
           SpeechRecognition.stopListening();
@@ -363,21 +445,34 @@ const TestCaseExcelOfTask = ({ taskId, taskTitle = '', taskDescription = '' }: P
   useEffect(() => {
     onChangeRef.current = handleFieldChange;
     onMicClickRef.current = handleMicClick;
+    onTestTypeChangeRef.current = handleTestTypeChange;
   });
 
   const loadRows = useCallback(() => {
     if (!taskId) return;
     setLoading(true);
     setError(null);
-    TestCaseService.list({ filter: { task: taskId } }, undefined, 500, 0)
-      .then((res: { rows?: TestCaseRow[] }) => {
-        const serverRows = res.rows ?? [];
+    TaskService.list({ type: 'TEST_CASE', parents: taskId }, undefined, 500, 0)
+      .then((res: { rows?: any[] }) => {
+        const taskRows = res.rows ?? [];
+        const td = (t: any) => t.templateData ?? {};
+        const serverRows: TestCaseRow[] = taskRows.map((t: any) => ({
+          id: t.id,
+          task: taskId,
+          title: t.title ?? '',
+          preconditions: (td(t).preconditions ?? '') as string,
+          steps: (td(t).testSteps ?? td(t).steps ?? '') as string,
+          expectedResult: (td(t).expectedResult ?? '') as string,
+          testType: (td(t).testType ?? 'Functional') as string,
+        }));
         const draft = loadDraftFromStorage(taskId);
         const overridden = serverRows.map((r) => ({
           ...r,
           title: draft.overrides[r.id]?.title ?? r.title,
+          preconditions: draft.overrides[r.id]?.preconditions ?? r.preconditions,
           steps: draft.overrides[r.id]?.steps ?? r.steps,
           expectedResult: draft.overrides[r.id]?.expectedResult ?? r.expectedResult,
+          testType: draft.overrides[r.id]?.testType ?? r.testType,
         }));
         const merged = [...overridden, ...draft.pending];
         setRows(merged);
@@ -393,16 +488,28 @@ const TestCaseExcelOfTask = ({ taskId, taskTitle = '', taskDescription = '' }: P
     let cancelled = false;
     setLoading(true);
     setError(null);
-    TestCaseService.list({ filter: { task: taskId } }, undefined, 500, 0)
-      .then((res: { rows?: TestCaseRow[] }) => {
+    TaskService.list({ type: 'TEST_CASE', parents: taskId }, undefined, 500, 0)
+      .then((res: { rows?: any[] }) => {
         if (!cancelled) {
-          const serverRows = res.rows ?? [];
+          const taskRows = res.rows ?? [];
+          const td = (t: any) => t.templateData ?? {};
+          const serverRows: TestCaseRow[] = taskRows.map((t: any) => ({
+            id: t.id,
+            task: taskId,
+            title: t.title ?? '',
+            preconditions: (td(t).preconditions ?? '') as string,
+            steps: (td(t).testSteps ?? td(t).steps ?? '') as string,
+            expectedResult: (td(t).expectedResult ?? '') as string,
+            testType: (td(t).testType ?? 'Functional') as string,
+          }));
           const draft = loadDraftFromStorage(taskId);
           const overridden = serverRows.map((r) => ({
             ...r,
             title: draft.overrides[r.id]?.title ?? r.title,
+            preconditions: draft.overrides[r.id]?.preconditions ?? r.preconditions,
             steps: draft.overrides[r.id]?.steps ?? r.steps,
             expectedResult: draft.overrides[r.id]?.expectedResult ?? r.expectedResult,
+            testType: draft.overrides[r.id]?.testType ?? r.testType,
           }));
           setRows([...overridden, ...draft.pending]);
           setDirtyIds(new Set());
@@ -426,8 +533,10 @@ const TestCaseExcelOfTask = ({ taskId, taskTitle = '', taskDescription = '' }: P
       id: makePendingId(),
       task: taskId,
       title: '',
+      preconditions: '',
       steps: '',
       expectedResult: '',
+      testType: 'Functional',
     };
     setRows((prev) => {
       const next = [...prev, newRow];
@@ -475,8 +584,10 @@ const TestCaseExcelOfTask = ({ taskId, taskTitle = '', taskDescription = '' }: P
         id: makePendingId(),
         task: taskId,
         title: t.title ?? 'Test case',
+        preconditions: '',
         steps: t.steps ?? '',
         expectedResult: t.expectedResult ?? '',
+        testType: 'Functional',
       }));
       if (newRows.length > 0) {
         setRows((prev) => {
@@ -494,16 +605,22 @@ const TestCaseExcelOfTask = ({ taskId, taskTitle = '', taskDescription = '' }: P
   }, [taskId, taskTitle, taskDescription, persistDraft]);
 
   const handleSave = useCallback(async () => {
-    if (!taskId || !rows.length) return;
+    if (!taskId || !projectId || !rows.length) return;
     setSaving(true);
     try {
       const pending = rows.filter((r) => isPendingId(r.id) && !deletedIds.has(r.id));
       const toCreate = pending.map((r) => ({
-        task: taskId,
+        type: 'TEST_CASE',
+        project: projectId,
+        ...(testCaseTemplateId && { template: testCaseTemplateId }),
+        parents: [taskId],
         title: r.title ?? '',
-        description: r.description,
-        steps: r.steps ?? '',
-        expectedResult: r.expectedResult ?? '',
+        templateData: {
+          preconditions: r.preconditions ?? '',
+          testSteps: r.steps ?? '',
+          expectedResult: r.expectedResult ?? '',
+          testType: r.testType ?? 'Functional',
+        },
       }));
 
       const existing = rows.filter((r) => !isPendingId(r.id));
@@ -513,18 +630,21 @@ const TestCaseExcelOfTask = ({ taskId, taskTitle = '', taskDescription = '' }: P
       const toDelete = Array.from(deletedIds).filter((id) => !isPendingId(id));
 
       for (const data of toCreate) {
-        await TestCaseService.create(data);
+        await TaskService.create(data);
       }
       for (const r of toUpdate) {
-        await TestCaseService.update(r.id, {
+        await TaskService.update(r.id, {
           title: r.title,
-          description: r.description,
-          steps: r.steps,
-          expectedResult: r.expectedResult,
+          templateData: {
+            preconditions: r.preconditions ?? '',
+            testSteps: r.steps ?? '',
+            expectedResult: r.expectedResult ?? '',
+            testType: r.testType ?? 'Functional',
+          },
         });
       }
       if (toDelete.length > 0) {
-        await TestCaseService.destroyAll(toDelete);
+        await TaskService.destroyAll(toDelete);
       }
 
       setDirtyIds(new Set());
@@ -536,7 +656,7 @@ const TestCaseExcelOfTask = ({ taskId, taskTitle = '', taskDescription = '' }: P
     } finally {
       setSaving(false);
     }
-  }, [taskId, rows, dirtyIds, deletedIds, loadRows]);
+  }, [taskId, projectId, testCaseTemplateId, rows, dirtyIds, deletedIds, loadRows]);
 
   const deleteButtonTemplate = useMemo(
     () => createDeleteButtonTemplate(onToggleDeleteRef, onRemoveRef),
@@ -550,6 +670,10 @@ const TestCaseExcelOfTask = ({ taskId, taskTitle = '', taskDescription = '' }: P
         onMicClickRef,
         browserSupportsSpeechRef,
       ),
+    [],
+  );
+  const testTypeDropdownTemplate = useMemo(
+    () => createTestTypeDropdownTemplate(onTestTypeChangeRef),
     [],
   );
 
@@ -571,8 +695,10 @@ const TestCaseExcelOfTask = ({ taskId, taskTitle = '', taskDescription = '' }: P
       cells: [
         { type: 'header', text: '' } as HeaderCell,
         { type: 'header', text: i18n('entities.testCase.fields.title') } as HeaderCell,
-        { type: 'header', text: i18n('entities.testCase.fields.steps') } as HeaderCell,
-        { type: 'header', text: 'Expected result' } as HeaderCell,
+        { type: 'header', text: 'Preconditions' } as HeaderCell,
+        { type: 'header', text: 'Test Steps' } as HeaderCell,
+        { type: 'header', text: 'Expected Result' } as HeaderCell,
+        { type: 'header', text: 'Test Type' } as HeaderCell,
       ],
     };
 
@@ -583,6 +709,10 @@ const TestCaseExcelOfTask = ({ taskId, taskTitle = '', taskDescription = '' }: P
         ? { textDecoration: 'line-through', opacity: 0.65 }
         : {};
       const rowHeight = rowHeights[r.id] ?? DEFAULT_ROW_HEIGHT;
+      const testTypeValue =
+        r.testType && (TEST_TYPE_OPTIONS as readonly string[]).includes(r.testType)
+          ? r.testType
+          : 'Functional';
 
       return {
         rowId: r.id,
@@ -606,6 +736,15 @@ const TestCaseExcelOfTask = ({ taskId, taskTitle = '', taskDescription = '' }: P
           {
             type: 'textWithSpeech',
             rowId: r.id,
+            field: 'preconditions',
+            text: r.preconditions ?? '',
+            style,
+            multiline: true,
+            rowHeight,
+          } as TextWithSpeechCell,
+          {
+            type: 'textWithSpeech',
+            rowId: r.id,
             field: 'steps',
             text: r.steps ?? '',
             style,
@@ -621,6 +760,12 @@ const TestCaseExcelOfTask = ({ taskId, taskTitle = '', taskDescription = '' }: P
             multiline: true,
             rowHeight,
           } as TextWithSpeechCell,
+          {
+            type: 'testTypeDropdown',
+            rowId: r.id,
+            value: testTypeValue,
+            style,
+          } as TestTypeDropdownCell,
         ],
       } as unknown as Row;
     });
@@ -632,14 +777,21 @@ const TestCaseExcelOfTask = ({ taskId, taskTitle = '', taskDescription = '' }: P
     (changes: CellChange[]) => {
       for (const ch of changes) {
         if (ch.rowId === 'header') continue;
-        const c = ch as unknown as { type: string; rowId: Id; newCell: { field?: string; text?: string } };
+        const c = ch as unknown as {
+          type: string;
+          rowId: Id;
+          newCell: { field?: string; text?: string; value?: string };
+        };
         if (c.type === 'textWithSpeech' && c.newCell?.field) {
-          const field = c.newCell.field as 'title' | 'steps' | 'expectedResult';
+          const field = c.newCell.field as 'title' | 'preconditions' | 'steps' | 'expectedResult';
           handleFieldChange(String(c.rowId), field, c.newCell.text ?? '');
+        }
+        if (c.type === 'testTypeDropdown' && c.newCell?.value != null) {
+          handleTestTypeChange(String(c.rowId), c.newCell.value);
         }
       }
     },
-    [handleFieldChange],
+    [handleFieldChange, handleTestTypeChange],
   );
 
   const handleColumnResized = useCallback((columnId: Id, width: number) => {
@@ -694,7 +846,7 @@ const TestCaseExcelOfTask = ({ taskId, taskTitle = '', taskDescription = '' }: P
           <button
             type="button"
             className="btn btn-primary btn-sm"
-            disabled={saving || !rows.length}
+            disabled={saving || !rows.length || !projectId}
             onClick={handleSave}
           >
             {saving ? (
@@ -728,6 +880,7 @@ const TestCaseExcelOfTask = ({ taskId, taskTitle = '', taskDescription = '' }: P
           customCellTemplates={{
             deleteButton: deleteButtonTemplate,
             textWithSpeech: textWithSpeechTemplate,
+            testTypeDropdown: testTypeDropdownTemplate,
           }}
         />
       </div>

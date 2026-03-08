@@ -5,6 +5,7 @@ import MongooseRepository from '../database/repositories/mongooseRepository';
 import { IServiceOptions } from './IServiceOptions';
 import TestCycleRepository from '../database/repositories/testCycleRepository';
 import UserRepository from '../database/repositories/userRepository';
+import ProjectRepository from '../database/repositories/projectRepository';
 
 export default class TestCycleService {
   options: IServiceOptions;
@@ -19,6 +20,10 @@ export default class TestCycleService {
     );
 
     try {
+      data.project = await ProjectRepository.filterIdInTenant(
+        data.project,
+        { ...this.options, session },
+      );
       data.leadBy = await UserRepository.filterIdInTenant(
         data.leadBy,
         { ...this.options, session },
@@ -51,6 +56,10 @@ export default class TestCycleService {
     );
 
     try {
+      data.project = await ProjectRepository.filterIdInTenant(
+        data.project,
+        { ...this.options, session },
+      );
       data.leadBy = await UserRepository.filterIdInTenant(
         data.leadBy,
         { ...this.options, session },
@@ -105,14 +114,14 @@ export default class TestCycleService {
     return TestCycleRepository.findById(id, this.options);
   }
 
-  async addTestCases(testCycleId, testCaseIds) {
-    if (!testCaseIds || !testCaseIds.length) {
+  async addTestCases(testCycleId, taskIds) {
+    if (!taskIds || !taskIds.length) {
       return this.findById(testCycleId);
     }
 
     return TestCycleRepository.addTestCases(
       testCycleId,
-      testCaseIds,
+      taskIds,
       this.options,
     );
   }

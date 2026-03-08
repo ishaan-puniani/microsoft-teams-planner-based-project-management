@@ -7,7 +7,8 @@ import Error404 from '../../errors/Error404';
 import { IRepositoryOptions } from './IRepositoryOptions';
 import lodash from 'lodash';
 import TestCycle from '../models/testCycle';
-import TestCaseRepository from './testCaseRepository';
+import TaskRepository from './taskRepository';
+import ProjectRepository from './projectRepository';
 
 class TestCycleRepository {
   static async create(data, options: IRepositoryOptions) {
@@ -15,6 +16,13 @@ class TestCycleRepository {
       MongooseRepository.getCurrentTenant(options);
     const currentUser =
       MongooseRepository.getCurrentUser(options);
+
+    if (data.project) {
+      data.key = await ProjectRepository.getNewCounter(
+        data.project,
+        options,
+      );
+    }
 
     const [record] = await TestCycle(
       options.database,
@@ -164,8 +172,9 @@ class TestCycleRepository {
           _id: id,
           tenant: currentTenant.id,
         })
+          .populate('project')
           .populate('leadBy')
-          .populate('testResults.testCase')
+          .populate('testResults.task')
           .populate('testResults.testedBy'),
         options,
       );
@@ -330,7 +339,7 @@ class TestCycleRepository {
 
   static async addTestCases(
     id,
-    testCaseIds,
+    taskIds,
     options: IRepositoryOptions,
   ) {
     const currentTenant =
@@ -348,20 +357,20 @@ class TestCycleRepository {
       throw new Error404();
     }
 
-    const validTestCaseIds =
-      await TestCaseRepository.filterIdsInTenant(
-        testCaseIds,
+    const validTaskIds =
+      await TaskRepository.filterIdsInTenant(
+        taskIds,
         options,
       );
     const existingIds = (record.testResults || []).map(
-      (r) => (r.testCase && r.testCase.toString()) || r.testCase,
+      (r) => (r.task && r.task.toString()) || r.task,
     );
     const existingSet = new Set(existingIds);
-    const toAdd = validTestCaseIds.filter(
-      (cid) => !existingSet.has(cid.toString()),
+    const toAdd = validTaskIds.filter(
+      (tid) => !existingSet.has(tid.toString()),
     );
-    const newEntries = toAdd.map((testCaseId) => ({
-      testCase: testCaseId,
+    const newEntries = toAdd.map((taskId) => ({
+      task: taskId,
     }));
     const updatedTestResults = [
       ...(record.testResults || []),

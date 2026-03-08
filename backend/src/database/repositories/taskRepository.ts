@@ -273,6 +273,13 @@ class TaskRepository {
         });
       }
 
+      if (filter.parents != null && filter.parents !== '') {
+        const parentId = MongooseQueryUtils.uuid(filter.parents);
+        if (parentId) {
+          criteriaAnd.push({ parents: parentId });
+        }
+      }
+
       if (filter.description) {
         criteriaAnd.push({
           description: {

@@ -425,6 +425,8 @@ const testPlanTemplate = {
   },
 };
 
+// Test Case template: used for tasks of type TEST_CASE; project.testCaseTemplate selects this.
+// Required fields: Preconditions, Test Steps, Expected Result, Test Type (Functional | UI | Critical).
 const testCaseTemplate = {
   key: 'testcase',
   name: 'Test Case',
@@ -436,18 +438,6 @@ const testCaseTemplate = {
       type: 'text',
       required: true,
       showInList: true,
-    },
-    {
-      id: 'description',
-      name: 'Description',
-      type: 'textarea',
-      required: false,
-    },
-    {
-      id: 'testObjective',
-      name: 'Test Objective',
-      type: 'textarea',
-      required: true,
     },
     {
       id: 'preconditions',
@@ -471,49 +461,8 @@ const testCaseTemplate = {
       id: 'testType',
       name: 'Test Type',
       type: 'select',
-      options: [
-        'Functional',
-        'Integration',
-        'System',
-        'User Acceptance',
-        'Performance',
-        'Security',
-        'Usability',
-        'Regression',
-        'Smoke',
-        'Sanity',
-      ],
+      options: ['Functional', 'UI', 'Critical'],
       defaultValue: 'Functional',
-    },
-    {
-      id: 'priority',
-      name: 'Priority',
-      type: 'select',
-      options: [
-        'Critical',
-        'High',
-        'Medium',
-        'Low',
-      ],
-      defaultValue: 'Medium',
-    },
-    {
-      id: 'testData',
-      name: 'Test Data',
-      type: 'textarea',
-      required: false,
-    },
-    {
-      id: 'automationStatus',
-      name: 'Automation Status',
-      type: 'select',
-      options: [
-        'Not Automated',
-        'Automated',
-        'In Progress',
-        'Failed',
-      ],
-      defaultValue: 'Not Automated',
     },
   ],
   workflow: {

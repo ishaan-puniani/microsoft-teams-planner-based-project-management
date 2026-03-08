@@ -399,36 +399,6 @@ const privateRoutes = [
     exact: true,
   },
   {
-    path: '/test-case/new',
-    loader: () =>
-      import('src/view/testCase/form/TestCaseFormPage'),
-    permissionRequired: permissions.testCaseCreate,
-    exact: true,
-  },
-  {
-    path: '/test-case/importer',
-    loader: () =>
-      import(
-        'src/view/testCase/importer/TestCaseImporterPage'
-      ),
-    permissionRequired: permissions.testCaseImport,
-    exact: true,
-  },
-  {
-    path: '/test-case/:id/edit',
-    loader: () =>
-      import('src/view/testCase/form/TestCaseFormPage'),
-    permissionRequired: permissions.testCaseEdit,
-    exact: true,
-  },
-  {
-    path: '/test-case/:id',
-    loader: () =>
-      import('src/view/testCase/view/TestCaseViewPage'),
-    permissionRequired: permissions.testCaseRead,
-    exact: true,
-  },
-  {
     path: '/task',
     loader: () => import('src/view/task/list/TaskListPage'),
     permissionRequired: permissions.taskRead,

@@ -1,4 +1,4 @@
-/// File is generated from https://studio.fabbuilder.com - testCase
+/// File is generated from https://studio.fabbuilder.com - testCycle
 
 import mongoose from 'mongoose';
 
@@ -13,14 +13,22 @@ export default (database) => {
 
   const TestCycleSchema = new Schema(
     {
+      project: {
+        type: Schema.Types.ObjectId,
+        ref: 'project',
+      },
+
+      key: {
+        type: String,
+      },
       title: {
         type: String,
       },
       testResults:[
         {
-          testCase:  {
+          task: {
             type: Schema.Types.ObjectId,
-            ref: 'testCase',
+            ref: 'task',
           },
           result:{
             type: String,// PASS | FAIL 
