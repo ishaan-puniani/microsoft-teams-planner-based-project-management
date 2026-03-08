@@ -36,6 +36,7 @@
     "react-router-dom": "6.15.0",
     "react-scripts": "5.0.1",
     "react-select": "5.7.4",
+    "react-speech-recognition": "^4.0.1",
     "react-syntax-highlighter": "15.5.0",
     "react-test-render": "1.1.2",
     "react-tooltip": "^5.21.1",

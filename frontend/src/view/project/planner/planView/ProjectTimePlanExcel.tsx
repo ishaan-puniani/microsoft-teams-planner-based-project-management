@@ -12,6 +12,7 @@ import {
     CellTemplate,
     Compatible,
     Uncertain,
+    CellStyle,
 } from '@silevis/reactgrid';
 import '@silevis/reactgrid/styles.css';
 import './ProjectTimePlanExcel.css';
@@ -22,6 +23,7 @@ import Errors from 'src/modules/shared/error/errors';
 import AiAgentService from 'src/modules/aiAgent/aiAgentService';
 import { parseStructuredBulk } from '../structuredBulkParser';
 import { generateTaskClientId } from '../taskIdUtils';
+import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
 
 const ADD_COLUMN_ID = 'add';
 const AI_COLUMN_ID = 'ai';
@@ -132,6 +134,71 @@ function createAddButtonTemplate(
                         </button>
                     )}
                 </span>
+            );
+        },
+    };
+}
+
+type TitleWithSpeechCell = {
+    type: 'titleWithSpeech';
+    taskId: string;
+    text: string;
+    style?: CellStyle;
+};
+
+function createTitleWithSpeechTemplate(
+    getStateRef: React.MutableRefObject<() => { listening: boolean; dictatingForTaskId: string | null }>,
+    onTitleChangeRef: React.MutableRefObject<((taskId: string, text: string) => void) | null>,
+    onMicClickRef: React.MutableRefObject<((taskId: string) => void) | null>,
+    browserSupportsSpeechRef: React.MutableRefObject<boolean>,
+): CellTemplate<TitleWithSpeechCell> {
+    return {
+        getCompatibleCell(uncertain: Uncertain<TitleWithSpeechCell>): Compatible<TitleWithSpeechCell> {
+            return {
+                ...uncertain,
+                text: uncertain.text ?? '',
+                taskId: uncertain.taskId ?? '',
+            } as Compatible<TitleWithSpeechCell>;
+        },
+        isFocusable: () => true,
+        render(cell: Compatible<TitleWithSpeechCell>) {
+            const state = getStateRef.current?.();
+            const listening = state?.listening ?? false;
+            const dictatingForTaskId = state?.dictatingForTaskId ?? null;
+            const isDictatingThis = dictatingForTaskId === cell.taskId;
+            const showMic = browserSupportsSpeechRef.current;
+
+            return (
+                <div
+                    className="d-flex align-items-center gap-1 w-100 h-100"
+                    style={{ minWidth: 0, ...(cell.style as React.CSSProperties) }}
+                >
+                    <input
+                        type="text"
+                        className="form-control form-control-sm border-0 bg-transparent h-100 flex-grow-1"
+                        style={{ minWidth: 0 }}
+                        value={cell.text}
+                        onChange={(e) => onTitleChangeRef.current?.(cell.taskId, e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        title="Title"
+                    />
+                    {showMic && (
+                        <button
+                            type="button"
+                            className={`btn btn-sm btn-link p-0 border-0 flex-shrink-0 ${isDictatingThis && listening ? 'text-danger' : 'text-secondary'}`}
+                            style={{ minWidth: 22 }}
+                            title={listening && isDictatingThis ? 'Stop listening' : 'Dictate title (speech to text)'}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                                onMicClickRef.current?.(cell.taskId);
+                            }}
+                        >
+                            <i className={`fas fa-microphone${listening && isDictatingThis ? '-slash' : ''}`} />
+                        </button>
+                    )}
+                </div>
             );
         },
     };
@@ -518,12 +585,84 @@ const ProjectTimePlanExcel = ({ projectId }: { projectId: string | undefined }) 
     const [deletedTaskIds, setDeletedTaskIds] = useState<Set<string>>(() => new Set());
     const [columnWidths, setColumnWidths] = useState<Record<string, number>>(() => ({ ...DEFAULT_COLUMN_WIDTHS }));
     const [aiLoadingTaskId, setAiLoadingTaskId] = useState<string | null>(null);
+    const [dictatingForTaskId, setDictatingForTaskId] = useState<string | null>(null);
+
+    const {
+        transcript,
+        listening,
+        resetTranscript,
+        browserSupportsSpeechRecognition,
+    } = useSpeechRecognition();
+
     const onAddChildRef = useRef<((taskId: string, target: 'userstory' | 'task') => void) | null>(null);
     const onRemoveRef = useRef<((taskId: string) => void) | null>(null);
     const onAiStarRef = useRef<((taskId: string, target: AiTarget) => void) | null>(null);
     const onToggleDeleteRef = useRef<((taskId: string) => void) | null>(null);
+    const getSpeechStateRef = useRef<() => { listening: boolean; dictatingForTaskId: string | null }>(() => ({
+        listening: false,
+        dictatingForTaskId: null,
+    }));
+    const onTitleChangeRef = useRef<((taskId: string, text: string) => void) | null>(null);
+    const onMicClickRef = useRef<((taskId: string) => void) | null>(null);
+    const browserSupportsSpeechRef = useRef(false);
+    browserSupportsSpeechRef.current = browserSupportsSpeechRecognition;
     const tasksRef = useRef<TaskRecord[]>([]);
     tasksRef.current = tasks;
+
+    getSpeechStateRef.current = () => ({ listening, dictatingForTaskId });
+
+    useEffect(() => {
+        if (!listening && dictatingForTaskId != null && transcript.trim()) {
+            const taskId = dictatingForTaskId;
+            const newTitle = transcript.trim() || undefined;
+            setTasks((prev) => {
+                const next = prev.map((t) =>
+                    t.id === taskId ? { ...t, title: newTitle } : t,
+                );
+                if (projectId) {
+                    saveEstimatesToStorage(projectId, next);
+                    const pending = next.filter((t) => isPendingId(t.id));
+                    if (pending.length > 0) savePendingToStorage(projectId, pending);
+                }
+                return next;
+            });
+            setDirtyTaskIds((prev) => new Set(prev).add(taskId));
+            setDictatingForTaskId(null);
+            resetTranscript();
+        }
+    }, [listening, dictatingForTaskId, transcript, projectId, resetTranscript]);
+
+    const handleMicClick = useCallback((taskId: string) => {
+        if (listening) {
+            if (dictatingForTaskId === taskId) {
+                SpeechRecognition.stopListening();
+            }
+            return;
+        }
+        setDictatingForTaskId(taskId);
+        resetTranscript();
+        SpeechRecognition.startListening({ continuous: false, language: 'en-US' });
+    }, [listening, dictatingForTaskId, resetTranscript]);
+
+    const handleTitleChange = useCallback((taskId: string, text: string) => {
+        setTasks((prev) => {
+            const next = prev.map((t) =>
+                t.id === taskId ? { ...t, title: text || undefined } : t,
+            );
+            if (projectId) {
+                saveEstimatesToStorage(projectId, next);
+                const pending = next.filter((t) => isPendingId(t.id));
+                if (pending.length > 0) savePendingToStorage(projectId, pending);
+            }
+            return next;
+        });
+        setDirtyTaskIds((prev) => new Set(prev).add(taskId));
+    }, [projectId]);
+
+    useEffect(() => {
+        onTitleChangeRef.current = handleTitleChange;
+        onMicClickRef.current = handleMicClick;
+    });
 
     const loadTasks = useCallback(() => {
         if (!projectId) return;
@@ -753,6 +892,16 @@ const ProjectTimePlanExcel = ({ projectId }: { projectId: string | undefined }) 
         () => createDeleteButtonTemplate(onToggleDeleteRef),
         [],
     );
+    const titleWithSpeechTemplate = useMemo(
+        () =>
+            createTitleWithSpeechTemplate(
+                getSpeechStateRef,
+                onTitleChangeRef,
+                onMicClickRef,
+                browserSupportsSpeechRef,
+            ),
+        [],
+    );
 
     const columns = useMemo<Column[]>(
         () => [
@@ -866,10 +1015,11 @@ const ProjectTimePlanExcel = ({ projectId }: { projectId: string | undefined }) 
                         ...cellStyle(task, isDeleted),
                     } as TextCell,
                     {
-                        type: 'text',
+                        type: 'titleWithSpeech',
+                        taskId: task.id,
                         text: task.title ?? '',
                         ...cellStyle(task, isDeleted),
-                    } as TextCell,
+                    } as TitleWithSpeechCell,
                     {
                         type: 'text',
                         text: storyPointsDisplay,
@@ -1113,10 +1263,11 @@ const ProjectTimePlanExcel = ({ projectId }: { projectId: string | undefined }) 
                     enableColumnResizeOnAllHeaders
                     stickyTopRows={1}
                     customCellTemplates={{
-            addButton: addButtonTemplate,
-            aiButton: aiButtonTemplate,
-            deleteButton: deleteButtonTemplate,
-          }}
+                        addButton: addButtonTemplate,
+                        aiButton: aiButtonTemplate,
+                        deleteButton: deleteButtonTemplate,
+                        titleWithSpeech: titleWithSpeechTemplate,
+                    }}
                 />
             </div>
             <div>
