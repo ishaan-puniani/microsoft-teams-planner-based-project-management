@@ -204,6 +204,50 @@ function createTitleWithSpeechTemplate(
     };
 }
 
+type KeyWithLinkCell = {
+    type: 'keyWithLink';
+    taskId: string;
+    text: string;
+    style?: CellStyle;
+};
+
+function createKeyWithLinkTemplate(): CellTemplate<KeyWithLinkCell> {
+    return {
+        getCompatibleCell(uncertain: Uncertain<KeyWithLinkCell>): Compatible<KeyWithLinkCell> {
+            return {
+                ...uncertain,
+                text: uncertain.text ?? '',
+                taskId: uncertain.taskId ?? '',
+            } as Compatible<KeyWithLinkCell>;
+        },
+        isFocusable: () => false,
+        render(cell: Compatible<KeyWithLinkCell>) {
+            const href = `/task/${cell.taskId}`;
+            return (
+                <div
+                    className="d-flex align-items-center gap-1 w-100 h-100"
+                    style={{ minWidth: 0, ...(cell.style as React.CSSProperties) }}
+                >
+                    <span className="flex-grow-1 text-truncate" style={{ minWidth: 0 }}>
+                        {cell.text}
+                    </span>
+                    <a
+                        href={href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn btn-sm btn-link p-0 border-0 flex-shrink-0 text-secondary"
+                        style={{ minWidth: 22 }}
+                        title="Open task in new tab"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <i className="fas fa-external-link-alt" />
+                    </a>
+                </div>
+            );
+        },
+    };
+}
+
 function createAiButtonTemplate(
     onAiStarRef: React.MutableRefObject<((taskId: string, target: AiTarget) => void) | null>,
 ): CellTemplate<AiButtonCell> {
@@ -902,6 +946,7 @@ const ProjectTimePlanExcel = ({ projectId }: { projectId: string | undefined }) 
             ),
         [],
     );
+    const keyWithLinkTemplate = useMemo(() => createKeyWithLinkTemplate(), []);
 
     const columns = useMemo<Column[]>(
         () => [
@@ -932,6 +977,7 @@ const ProjectTimePlanExcel = ({ projectId }: { projectId: string | undefined }) 
         const headerRow: Row = {
             rowId: 'header',
             cells: [
+                { type: 'header', text: '' } as HeaderCell,
                 { type: 'header', text: '' } as HeaderCell,
                 { type: 'header', text: '' } as HeaderCell,
                 ...HEADERS.map(
@@ -1010,10 +1056,11 @@ const ProjectTimePlanExcel = ({ projectId }: { projectId: string | undefined }) 
                         ...cellStyle(task, isDeleted),
                     } as ChevronCell,
                     {
-                        type: 'text',
+                        type: 'keyWithLink',
+                        taskId: task.id,
                         text: task.key ?? '',
                         ...cellStyle(task, isDeleted),
-                    } as TextCell,
+                    } as KeyWithLinkCell,
                     {
                         type: 'titleWithSpeech',
                         taskId: task.id,
@@ -1266,6 +1313,7 @@ const ProjectTimePlanExcel = ({ projectId }: { projectId: string | undefined }) 
                         addButton: addButtonTemplate,
                         aiButton: aiButtonTemplate,
                         deleteButton: deleteButtonTemplate,
+                        keyWithLink: keyWithLinkTemplate,
                         titleWithSpeech: titleWithSpeechTemplate,
                     }}
                 />
