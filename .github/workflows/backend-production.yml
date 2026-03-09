@@ -1,8 +1,9 @@
 name: Deploy to GCP cloud run
 on:
+  workflow_dispatch:
   push:
     branches:
-      - production
+      - master
     paths:
       - 'backend/**'
       - 'shared/**'

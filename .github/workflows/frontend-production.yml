@@ -1,8 +1,9 @@
 name: Deploy to Firebase Hosting
 on:
+  workflow_dispatch:
   push:
     branches:
-      - production
+      - master
     paths:
       - 'frontend/**'
       - 'shared/**'
