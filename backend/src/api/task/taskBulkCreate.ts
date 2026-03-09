@@ -49,6 +49,8 @@ export default async (req, res, next) => {
             type: task.type,
             title: task.title,
             description: task.description,
+            ...(task.acceptanceCriteria != null && { acceptanceCriteria: task.acceptanceCriteria }),
+            ...(task.checklist != null && { checklist: task.checklist }),
             templateData: task.templateData || {},
             ...(parents.length > 0 && { parents }),
           },

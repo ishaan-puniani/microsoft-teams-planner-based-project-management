@@ -38,11 +38,13 @@ function isPendingId(id: string): boolean {
 
 export const TEST_TYPE_OPTIONS = ['Functional', 'UI', 'Critical'] as const;
 
-/** Row data: id, task, title, plus legacy keys and/or template field ids (templateData) */
+/** Row data: id, task, title, acceptanceCriteria, checklist at root; plus legacy or template field ids */
 export type TestCaseRow = {
   id: string;
   task?: string;
   title?: string;
+  acceptanceCriteria?: string;
+  checklist?: Array<{ label: string; done: boolean }>;
   preconditions?: string;
   steps?: string;
   expectedResult?: string;
@@ -85,6 +87,8 @@ function saveDraftToStorage(taskId: string, draft: StoredDraft): void {
 
 const DELETE_COLUMN_ID = 'delete';
 const TITLE_COLUMN_ID = 'title';
+const ACCEPTANCE_CRITERIA_COLUMN_ID = 'acceptanceCriteria';
+const CHECKLIST_COLUMN_ID = 'checklist';
 const PRECONDITIONS_COLUMN_ID = 'preconditions';
 const STEPS_COLUMN_ID = 'steps';
 const EXPECTED_RESULT_COLUMN_ID = 'expectedResult';
@@ -345,15 +349,23 @@ const DEFAULT_COLUMN_WIDTH = 180;
 const LEGACY_DEFAULT_COLUMN_WIDTHS: Record<string, number> = {
   [DELETE_COLUMN_ID]: 80,
   [TITLE_COLUMN_ID]: 200,
+  [ACCEPTANCE_CRITERIA_COLUMN_ID]: 220,
+  [CHECKLIST_COLUMN_ID]: 220,
   [PRECONDITIONS_COLUMN_ID]: 200,
   [STEPS_COLUMN_ID]: 240,
   [EXPECTED_RESULT_COLUMN_ID]: 200,
   [TEST_TYPE_COLUMN_ID]: 120,
 };
 
-const LEGACY_COLUMN_IDS = [
+const ROOT_COLUMN_IDS = [
   DELETE_COLUMN_ID,
   TITLE_COLUMN_ID,
+  ACCEPTANCE_CRITERIA_COLUMN_ID,
+  CHECKLIST_COLUMN_ID,
+] as const;
+
+const LEGACY_COLUMN_IDS = [
+  ...ROOT_COLUMN_IDS,
   PRECONDITIONS_COLUMN_ID,
   STEPS_COLUMN_ID,
   EXPECTED_RESULT_COLUMN_ID,
@@ -365,16 +377,23 @@ function getDefaultColumnWidths(templateFields: TaskTemplateField[] | null): Rec
   const out: Record<string, number> = {
     [DELETE_COLUMN_ID]: 80,
     [TITLE_COLUMN_ID]: 200,
+    [ACCEPTANCE_CRITERIA_COLUMN_ID]: 220,
+    [CHECKLIST_COLUMN_ID]: 220,
   };
   templateFields.forEach((f) => {
-    out[f.id] = DEFAULT_COLUMN_WIDTH;
+    if (f.id !== ACCEPTANCE_CRITERIA_COLUMN_ID && f.id !== CHECKLIST_COLUMN_ID) {
+      out[f.id] = DEFAULT_COLUMN_WIDTH;
+    }
   });
   return out;
 }
 
 function getColumnIds(templateFields: TaskTemplateField[] | null): string[] {
   if (!templateFields?.length) return [...LEGACY_COLUMN_IDS];
-  return [DELETE_COLUMN_ID, TITLE_COLUMN_ID, ...templateFields.map((f) => f.id)];
+  const rest = templateFields
+    .filter((f) => f.id !== ACCEPTANCE_CRITERIA_COLUMN_ID && f.id !== CHECKLIST_COLUMN_ID)
+    .map((f) => f.id);
+  return [...ROOT_COLUMN_IDS, ...rest];
 }
 
 function formatCellValue(v: any): string {
@@ -490,11 +509,17 @@ const SubtaskExcelView = ({
         if (templateFields?.length) {
           overrides[r.id] = {
             title: r.title,
-            ...templateFields.reduce((acc, f) => ({ ...acc, [f.id]: r[f.id] }), {} as Record<string, any>),
+            acceptanceCriteria: r.acceptanceCriteria,
+            checklist: r.checklist,
+            ...templateFields
+              .filter((f) => f.id !== ACCEPTANCE_CRITERIA_COLUMN_ID && f.id !== CHECKLIST_COLUMN_ID)
+              .reduce((acc, f) => ({ ...acc, [f.id]: r[f.id] }), {} as Record<string, any>),
           };
         } else {
           overrides[r.id] = {
             title: r.title,
+            acceptanceCriteria: r.acceptanceCriteria,
+            checklist: r.checklist,
             preconditions: r.preconditions,
             steps: r.steps,
             expectedResult: r.expectedResult,
@@ -528,8 +553,16 @@ const SubtaskExcelView = ({
   const handleFieldChange = useCallback(
     (rowId: string, field: string, text: string) => {
       setRows((prev) => {
+        let value: string | Array<{ label: string; done: boolean }> = text;
+        if (field === CHECKLIST_COLUMN_ID) {
+          value = text
+            .split(/\n/)
+            .map((s) => s.trim())
+            .filter(Boolean)
+            .map((label) => ({ label, done: false }));
+        }
         const next = prev.map((r) =>
-          r.id === rowId ? { ...r, [field]: text } : r,
+          r.id === rowId ? { ...r, [field]: value } : r,
         );
         persistDraft(taskId, next);
         return next;
@@ -598,11 +631,18 @@ const SubtaskExcelView = ({
         const taskRows = res.rows ?? [];
         const td = (t: any) => t.templateData ?? {};
         const serverRows: TestCaseRow[] = taskRows.map((t: any) => {
-          const base = { id: t.id, task: taskId, title: t.title ?? '' };
+          const base: Record<string, any> = {
+            id: t.id,
+            task: taskId,
+            title: t.title ?? '',
+            acceptanceCriteria: t.acceptanceCriteria ?? '',
+            checklist: Array.isArray(t.checklist) ? t.checklist : [],
+          };
           if (templateFields?.length) {
             templateFields.forEach((f) => {
+              if (f.id === ACCEPTANCE_CRITERIA_COLUMN_ID || f.id === CHECKLIST_COLUMN_ID) return;
               const v = td(t)[f.id];
-              (base as any)[f.id] = v !== undefined && v !== null
+              base[f.id] = v !== undefined && v !== null
                 ? v
                 : (f.defaultValue ?? (f.type === 'CHECKLIST' ? [] : ''));
             });
@@ -641,11 +681,18 @@ const SubtaskExcelView = ({
           const taskRows = res.rows ?? [];
           const td = (t: any) => t.templateData ?? {};
           const serverRows: TestCaseRow[] = taskRows.map((t: any) => {
-            const base = { id: t.id, task: taskId, title: t.title ?? '' };
+            const base: Record<string, any> = {
+              id: t.id,
+              task: taskId,
+              title: t.title ?? '',
+              acceptanceCriteria: t.acceptanceCriteria ?? '',
+              checklist: Array.isArray(t.checklist) ? t.checklist : [],
+            };
             if (templateFields?.length) {
               templateFields.forEach((f) => {
+                if (f.id === ACCEPTANCE_CRITERIA_COLUMN_ID || f.id === CHECKLIST_COLUMN_ID) return;
                 const v = td(t)[f.id];
-                (base as any)[f.id] = v !== undefined && v !== null
+                base[f.id] = v !== undefined && v !== null
                   ? v
                   : (f.defaultValue ?? (f.type === 'CHECKLIST' ? [] : ''));
               });
@@ -687,18 +734,24 @@ const SubtaskExcelView = ({
           id: makePendingId(),
           task: taskId,
           title: '',
-          ...templateFields.reduce(
-            (acc, f) => ({
-              ...acc,
-              [f.id]: f.defaultValue ?? (f.type === 'CHECKLIST' ? [] : ''),
-            }),
-            {} as Record<string, any>,
-          ),
+          acceptanceCriteria: '',
+          checklist: [],
+          ...templateFields
+            .filter((f) => f.id !== ACCEPTANCE_CRITERIA_COLUMN_ID && f.id !== CHECKLIST_COLUMN_ID)
+            .reduce(
+              (acc, f) => ({
+                ...acc,
+                [f.id]: f.defaultValue ?? (f.type === 'CHECKLIST' ? [] : ''),
+              }),
+              {} as Record<string, any>,
+            ),
         }
       : {
           id: makePendingId(),
           task: taskId,
           title: '',
+          acceptanceCriteria: '',
+          checklist: [],
           preconditions: '',
           steps: '',
           expectedResult: '',
@@ -753,14 +806,18 @@ const SubtaskExcelView = ({
           id: makePendingId(),
           task: taskId,
           title: String(item?.title ?? 'User Story').trim() || 'User Story',
+          acceptanceCriteria: item?.acceptanceCriteria?.join?.('\n') ?? '',
+          checklist: (item?.todoChecklist ?? []).map((label: string) => ({ label, done: false })),
           ...(templateFields?.length
-            ? templateFields.reduce(
-                (acc, f) => ({
-                  ...acc,
-                  [f.id]: f.defaultValue ?? (f.type === 'CHECKLIST' ? [] : ''),
-                }),
-                {} as Record<string, any>,
-              )
+            ? templateFields
+                .filter((f) => f.id !== ACCEPTANCE_CRITERIA_COLUMN_ID && f.id !== CHECKLIST_COLUMN_ID)
+                .reduce(
+                  (acc, f) => ({
+                    ...acc,
+                    [f.id]: f.defaultValue ?? (f.type === 'CHECKLIST' ? [] : ''),
+                  }),
+                  {} as Record<string, any>,
+                )
             : {}),
         }));
         if (newRows.length > 0) {
@@ -779,14 +836,18 @@ const SubtaskExcelView = ({
           id: makePendingId(),
           task: taskId,
           title: String(item?.title ?? 'Task').trim() || 'Task',
+          acceptanceCriteria: item?.acceptanceCriteria?.join?.('\n') ?? '',
+          checklist: (item?.todoChecklist ?? []).map((label: string) => ({ label, done: false })),
           ...(templateFields?.length
-            ? templateFields.reduce(
-                (acc, f) => ({
-                  ...acc,
-                  [f.id]: f.defaultValue ?? (f.type === 'CHECKLIST' ? [] : ''),
-                }),
-                {} as Record<string, any>,
-              )
+            ? templateFields
+                .filter((f) => f.id !== ACCEPTANCE_CRITERIA_COLUMN_ID && f.id !== CHECKLIST_COLUMN_ID)
+                .reduce(
+                  (acc, f) => ({
+                    ...acc,
+                    [f.id]: f.defaultValue ?? (f.type === 'CHECKLIST' ? [] : ''),
+                  }),
+                  {} as Record<string, any>,
+                )
             : {}),
         }));
         if (newRows.length > 0) {
@@ -806,16 +867,20 @@ const SubtaskExcelView = ({
             id: makePendingId(),
             task: taskId,
             title: t.title ?? 'Test case',
+            acceptanceCriteria: '',
+            checklist: [],
           };
           if (templateFields?.length) {
-            templateFields.forEach((f) => {
-              const aiValue =
-                f.id === 'steps' || f.id === 'testSteps' ? (t.steps ?? '')
-                : f.id === 'expectedResult' ? (t.expectedResult ?? '')
-                : f.id === 'preconditions' ? ''
-                : f.defaultValue ?? (f.type === 'CHECKLIST' ? [] : '');
-              (base as any)[f.id] = aiValue;
-            });
+            templateFields
+              .filter((f) => f.id !== ACCEPTANCE_CRITERIA_COLUMN_ID && f.id !== CHECKLIST_COLUMN_ID)
+              .forEach((f) => {
+                const aiValue =
+                  f.id === 'steps' || f.id === 'testSteps' ? (t.steps ?? '')
+                  : f.id === 'expectedResult' ? (t.expectedResult ?? '')
+                  : f.id === 'preconditions' ? ''
+                  : f.defaultValue ?? (f.type === 'CHECKLIST' ? [] : '');
+                (base as any)[f.id] = aiValue;
+              });
             return base;
           }
           return {
@@ -845,15 +910,17 @@ const SubtaskExcelView = ({
   const buildTemplateData = useCallback(
     (r: TestCaseRow) => {
       if (templateFields?.length) {
-        return templateFields.reduce(
-          (acc, f) => ({
-            ...acc,
-            [f.id]: r[f.id] !== undefined && r[f.id] !== null
-              ? r[f.id]
-              : (f.defaultValue ?? (f.type === 'CHECKLIST' ? [] : '')),
-          }),
-          {} as Record<string, any>,
-        );
+        return templateFields
+          .filter((f) => f.id !== ACCEPTANCE_CRITERIA_COLUMN_ID && f.id !== CHECKLIST_COLUMN_ID)
+          .reduce(
+            (acc, f) => ({
+              ...acc,
+              [f.id]: r[f.id] !== undefined && r[f.id] !== null
+                ? r[f.id]
+                : (f.defaultValue ?? (f.type === 'CHECKLIST' ? [] : '')),
+            }),
+            {} as Record<string, any>,
+          );
       }
       return {
         preconditions: r.preconditions ?? '',
@@ -874,6 +941,8 @@ const SubtaskExcelView = ({
         type: childType,
         ...(templateId && { template: templateId }),
         title: r.title ?? '',
+        ...(r.acceptanceCriteria != null && r.acceptanceCriteria !== '' && { acceptanceCriteria: r.acceptanceCriteria }),
+        ...(r.checklist != null && r.checklist.length > 0 && { checklist: r.checklist }),
         templateData: buildTemplateData(r),
         parents: [taskId],
       }));
@@ -895,6 +964,8 @@ const SubtaskExcelView = ({
               ...(templateId && { template: templateId }),
               parents: [taskId],
               title: p.title,
+              ...(p.acceptanceCriteria != null && { acceptanceCriteria: p.acceptanceCriteria }),
+              ...(p.checklist != null && { checklist: p.checklist }),
               templateData: p.templateData,
             });
           }
@@ -903,6 +974,8 @@ const SubtaskExcelView = ({
       for (const r of toUpdate) {
         await TaskService.update(r.id, {
           title: r.title,
+          ...(r.acceptanceCriteria != null && { acceptanceCriteria: r.acceptanceCriteria }),
+          ...(r.checklist != null && { checklist: r.checklist }),
           templateData: buildTemplateData(r),
         });
       }
@@ -959,11 +1032,15 @@ const SubtaskExcelView = ({
     const headerCells: HeaderCell[] = [
       { type: 'header', text: '' },
       { type: 'header', text: i18n('entities.testCase.fields.title') },
+      { type: 'header', text: i18n('entities.requirement.fields.acceptanceCriteria') },
+      { type: 'header', text: 'Checklist' },
     ];
     if (templateFields?.length) {
-      templateFields.forEach((f) => {
-        headerCells.push({ type: 'header', text: f.name || f.id });
-      });
+      templateFields
+        .filter((f) => f.id !== ACCEPTANCE_CRITERIA_COLUMN_ID && f.id !== CHECKLIST_COLUMN_ID)
+        .forEach((f) => {
+          headerCells.push({ type: 'header', text: f.name || f.id });
+        });
     } else {
       headerCells.push(
         { type: 'header', text: 'Preconditions' },
@@ -1002,33 +1079,53 @@ const SubtaskExcelView = ({
           style,
           multiline: false,
         } as TextWithSpeechCell,
+        {
+          type: 'textWithSpeech',
+          rowId: r.id,
+          field: ACCEPTANCE_CRITERIA_COLUMN_ID,
+          text: r.acceptanceCriteria ?? '',
+          style,
+          multiline: true,
+          rowHeight,
+        } as TextWithSpeechCell,
+        {
+          type: 'textWithSpeech',
+          rowId: r.id,
+          field: CHECKLIST_COLUMN_ID,
+          text: formatCellValue(r.checklist),
+          style,
+          multiline: true,
+          rowHeight,
+        } as TextWithSpeechCell,
       ];
 
       if (templateFields?.length) {
-        templateFields.forEach((f) => {
-          if (f.type === 'SELECT') {
-            const opts = f.options ?? [];
-            cells.push({
-              type: 'dropdown',
-              rowId: r.id,
-              fieldId: f.id,
-              value: String(r[f.id] ?? (opts[0] ?? '')),
-              options: opts,
-              style,
-            } as DropdownCell);
-          } else {
-            const multiline = f.type === 'TEXTAREA';
-            cells.push({
-              type: 'textWithSpeech',
-              rowId: r.id,
-              field: f.id,
-              text: formatCellValue(r[f.id]),
-              style,
-              multiline,
-              rowHeight: multiline ? rowHeight : undefined,
-            } as TextWithSpeechCell);
-          }
-        });
+        templateFields
+          .filter((f) => f.id !== ACCEPTANCE_CRITERIA_COLUMN_ID && f.id !== CHECKLIST_COLUMN_ID)
+          .forEach((f) => {
+            if (f.type === 'SELECT') {
+              const opts = f.options ?? [];
+              cells.push({
+                type: 'dropdown',
+                rowId: r.id,
+                fieldId: f.id,
+                value: String(r[f.id] ?? (opts[0] ?? '')),
+                options: opts,
+                style,
+              } as DropdownCell);
+            } else {
+              const multiline = f.type === 'TEXTAREA';
+              cells.push({
+                type: 'textWithSpeech',
+                rowId: r.id,
+                field: f.id,
+                text: formatCellValue(r[f.id]),
+                style,
+                multiline,
+                rowHeight: multiline ? rowHeight : undefined,
+              } as TextWithSpeechCell);
+            }
+          });
       } else {
         const testTypeValue =
           r.testType && (TEST_TYPE_OPTIONS as readonly string[]).includes(r.testType)

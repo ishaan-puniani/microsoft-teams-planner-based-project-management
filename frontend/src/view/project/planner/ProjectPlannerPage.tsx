@@ -29,30 +29,7 @@ type TemplateWithFields = {
   fields?: Array<{ id?: string; _id?: string; name?: string; type?: string }>;
 };
 
-function fieldId(f: { id?: string; _id?: string }): string | null {
-  return f.id || (f as any)._id || null;
-}
-
-function getTemplateFieldIds(template: TemplateWithFields) {
-  const fields = template?.fields || [];
-  const byName = (name: string) =>
-    fields.find((f) => String(f.name || '').toLowerCase() === name.toLowerCase());
-  const byType = (type: string) => fields.find((f) => f.type === type);
-
-  const title = byName('title') || byType('TEXT');
-  const description = byName('description') || fields.find((f) => f.type === 'TEXTAREA');
-  const acceptanceCriteria = byName('acceptance criteria');
-  const checklist = fields.find((f) => f.type === 'CHECKLIST');
-
-  return {
-    title: title ? fieldId(title) : null,
-    description: description ? fieldId(description) : null,
-    acceptanceCriteria: acceptanceCriteria ? fieldId(acceptanceCriteria) : null,
-    checklist: checklist ? fieldId(checklist) : null,
-  };
-}
-
-/** Build one task payload for bulk-create API (parsed item + template). Includes clientId and parentClientId for hierarchy. */
+/** Build one task payload for bulk-create API. acceptanceCriteria and checklist are at root; no templateData. */
 function buildTaskPayload(
   projectId: string,
   item: ParsedItem,
@@ -66,27 +43,23 @@ function buildTaskPayload(
   type: string;
   title: string;
   description?: string;
-  templateData: Record<string, unknown>;
+  acceptanceCriteria?: string;
+  checklist?: Array<{ label: string; done: boolean }>;
   clientId: string;
   parentClientId?: string;
 } {
-  const ids = getTemplateFieldIds(template);
-  const templateData: Record<string, unknown> = {};
-  if (ids.title) templateData[ids.title] = item.title;
-  if (ids.description && item.description) templateData[ids.description] = item.description;
-  if (ids.acceptanceCriteria && item.acceptanceCriteria.length > 0) {
-    templateData[ids.acceptanceCriteria] = item.acceptanceCriteria.join('\n');
-  }
-  if (ids.checklist && item.todoChecklist.length > 0) {
-    templateData[ids.checklist] = item.todoChecklist.map((label) => ({ label, done: false }));
-  }
   return {
     project: projectId,
     template: template.id,
     type: typeKey,
     title: item.title,
-    description: item.description || undefined,
-    templateData,
+    ...(item.description && { description: item.description }),
+    ...(item.acceptanceCriteria.length > 0 && {
+      acceptanceCriteria: item.acceptanceCriteria.join('\n'),
+    }),
+    ...(item.todoChecklist.length > 0 && {
+      checklist: item.todoChecklist.map((label) => ({ label, done: false })),
+    }),
     clientId,
     ...(parentClientId != null && { parentClientId }),
   };

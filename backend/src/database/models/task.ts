@@ -31,7 +31,15 @@ export default (database) => {
       description: {
         type: String,
       },
-
+      acceptanceCriteria: {
+        type: String,
+      },
+      checklist: [
+        {
+          label: { type: String },
+          done: { type: Boolean },
+        },
+      ],
       templateData: {
         type: Schema.Types.Mixed,
       },
@@ -64,7 +72,7 @@ export default (database) => {
       },
 
       sprint: {
-        type: String
+        type: String,
       },
       storyPoints: {
         type: String,
@@ -78,10 +86,12 @@ export default (database) => {
         ref: 'taskTemplate',
       },
 
-      parents: [{
-        type: Schema.Types.ObjectId,
-        ref: 'task',
-      }],
+      parents: [
+        {
+          type: Schema.Types.ObjectId,
+          ref: 'task',
+        },
+      ],
       msPlannerTaskId: {
         type: String,
       },
