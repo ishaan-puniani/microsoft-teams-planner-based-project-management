@@ -1,4 +1,4 @@
-name: Deploy to Firebase Hosting on Merge
+name: Deploy to GCP cloud run
 on:
   push:
     branches:
