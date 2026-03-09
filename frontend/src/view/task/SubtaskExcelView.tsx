@@ -403,7 +403,7 @@ function formatCellValue(v: any): string {
   return String(v);
 }
 
-export type TaskChildrenType = 'USER_STORY' | 'TASK' | 'TEST_CASE';
+export type TaskChildrenType = 'USER_STORY' | 'TASK' | 'TEST_CASE' | 'BUG';
 
 type Props = {
   taskId: string | undefined;
@@ -1225,11 +1225,13 @@ const SubtaskExcelView = ({
       <div className="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
           <h5 className="mb-0">
           <i className="fas fa-vial me-2" />
-          {childType === 'TEST_CASE'
-            ? i18n('entities.testCase.menu')
-            : childType === 'USER_STORY'
-              ? 'User Stories'
-              : 'Tasks'}{' '}
+          {childType === 'BUG'
+            ? 'Bugs'
+            : childType === 'TEST_CASE'
+              ? i18n('entities.testCase.menu')
+              : childType === 'USER_STORY'
+                ? 'User Stories'
+                : 'Tasks'}{' '}
           — {i18n('entities.task.view.title')}
         </h5>
         <div className="d-flex align-items-center gap-2">
@@ -1237,7 +1239,7 @@ const SubtaskExcelView = ({
             type="button"
             className="btn btn-outline-success btn-sm"
             onClick={handleAddRow}
-            title="Add test case row"
+            title={childType === 'BUG' ? 'Add bug row' : 'Add test case row'}
           >
             <i className="fas fa-plus me-1" />
             Add row
@@ -1245,14 +1247,16 @@ const SubtaskExcelView = ({
           <button
             type="button"
             className="btn btn-outline-warning btn-sm"
-            disabled={aiLoading || !taskTitle?.trim()}
+            disabled={aiLoading || !taskTitle?.trim() || childType === 'BUG'}
             onClick={handleAiGenerate}
             title={
               childType === 'USER_STORY'
                 ? 'Generate user stories with AI'
                 : childType === 'TASK'
                   ? 'Generate tasks with AI'
-                  : 'Generate test cases with AI'
+                  : childType === 'BUG'
+                    ? 'Add bug rows manually'
+                    : 'Generate test cases with AI'
             }
           >
             {aiLoading ? (
@@ -1266,7 +1270,9 @@ const SubtaskExcelView = ({
                 ? 'Generate user stories'
                 : childType === 'TASK'
                   ? 'Generate tasks'
-                  : 'Generate test cases'}
+                  : childType === 'BUG'
+                    ? 'Add bug'
+                    : 'Generate test cases'}
           </button>
           <button
             type="button"

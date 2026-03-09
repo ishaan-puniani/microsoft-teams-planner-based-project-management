@@ -173,6 +173,10 @@ class TestCycleRepository {
           tenant: currentTenant.id,
         })
           .populate('project')
+          // .populate({
+          //   path: 'project',
+          //   populate: { path: 'bugTemplate' },
+          // })
           .populate('leadBy')
           .populate('testResults.task')
           .populate('testResults.testedBy'),

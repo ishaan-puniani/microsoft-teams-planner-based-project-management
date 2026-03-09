@@ -7,6 +7,7 @@ import TaskService from 'src/modules/task/taskService';
 import TaskForm from 'src/view/task/form/TaskForm';
 
 const TaskFormModal = (props) => {
+  const { record: initialRecord, onSuccess, onClose } = props;
   const modalRef = useRef<any>();
   const modalInstanceRef = useRef<any>();
   const [saveLoading, setSaveLoading] = useState(false);
@@ -26,7 +27,7 @@ const TaskFormModal = (props) => {
       const { id } = await TaskService.create(data);
       const record = await TaskService.find(id);
       modalInstanceRef.current?.hide();
-      props.onSuccess(record);
+      onSuccess?.(record);
     } catch (error) {
       Errors.handle(error);
     } finally {
@@ -37,7 +38,7 @@ const TaskFormModal = (props) => {
   const doCancel = () => {
     if (modalInstanceRef.current) {
       modalInstanceRef.current.hide();
-      props.onClose();
+      onClose?.();
     }
   };
 
@@ -60,6 +61,7 @@ const TaskFormModal = (props) => {
           </div>
           <div className="modal-body">
             <TaskForm
+              record={initialRecord}
               saveLoading={saveLoading}
               onSubmit={doSubmit}
               onCancel={doCancel}

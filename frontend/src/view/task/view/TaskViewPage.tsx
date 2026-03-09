@@ -122,14 +122,18 @@ const TaskPage = (props) => {
               ? 'USER_STORY'
               : record?.type === 'USER_STORY'
                 ? 'TASK'
-                : 'TEST_CASE'
+                : record?.type === 'TEST_CASE'
+                  ? 'BUG'
+                  : 'TEST_CASE'
           }
           templateId={
             record?.type === 'EPIC'
               ? record?.project?.userStoryTemplate?.id ?? record?.project?.userStoryTemplate
               : record?.type === 'USER_STORY'
                 ? record?.project?.taskTemplate?.id ?? record?.project?.taskTemplate
-                : record?.project?.testCaseTemplate?.id ?? record?.project?.testCaseTemplate
+                : record?.type === 'TEST_CASE'
+                  ? record?.project?.bugTemplate?.id ?? record?.project?.bugTemplate
+                  : record?.project?.testCaseTemplate?.id ?? record?.project?.testCaseTemplate
           }
           taskTitle={record?.title}
           taskDescription={record?.description}

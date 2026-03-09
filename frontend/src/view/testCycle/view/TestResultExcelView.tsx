@@ -17,9 +17,11 @@ import '@silevis/reactgrid/styles.css';
 import '../../project/planner/planView/ProjectTimePlanExcel.css';
 import { i18n } from 'src/i18n';
 import TestCycleService from 'src/modules/testCycle/testCycleService';
+import TaskService from 'src/modules/task/taskService';
 import Spinner from 'src/view/shared/Spinner';
 import Errors from 'src/modules/shared/error/errors';
 import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
+import TaskFormModal from 'src/view/task/form/TaskFormModal';
 
 const RESULT_OPTIONS = [
   { value: 'PASS', label: 'PASS' },
@@ -32,6 +34,7 @@ const STEPS_COLUMN_ID = 'steps';
 const EXPECTED_RESULT_COLUMN_ID = 'expectedResult';
 const RESULT_COLUMN_ID = 'result';
 const OUTCOME_COLUMN_ID = 'outcome';
+const BUGS_COLUMN_ID = 'bugs';
 
 const DEFAULT_ROW_HEIGHT = 88;
 const DEFAULT_COLUMN_WIDTHS: Record<string, number> = {
@@ -40,6 +43,7 @@ const DEFAULT_COLUMN_WIDTHS: Record<string, number> = {
   [EXPECTED_RESULT_COLUMN_ID]: 200,
   [RESULT_COLUMN_ID]: 100,
   [OUTCOME_COLUMN_ID]: 260,
+  [BUGS_COLUMN_ID]: 220,
 };
 
 const COLUMN_IDS = [
@@ -48,6 +52,7 @@ const COLUMN_IDS = [
   EXPECTED_RESULT_COLUMN_ID,
   RESULT_COLUMN_ID,
   OUTCOME_COLUMN_ID,
+  BUGS_COLUMN_ID,
 ] as const;
 
 const STORAGE_KEY_PREFIX = 'testCycleResultDrafts:';
@@ -364,6 +369,63 @@ function createTextWithSpeechTemplate(
   };
 }
 
+export type BugRef = { id: string; title: string };
+
+type BugsCell = {
+  type: 'bugs';
+  rowId: string;
+  bugs: BugRef[];
+};
+
+function createBugsCellTemplate(
+  onLogBugRef: React.MutableRefObject<((rowId: string) => void) | null>,
+): CellTemplate<BugsCell> {
+  return {
+    getCompatibleCell(uncertain: Uncertain<BugsCell>): Compatible<BugsCell> {
+      return {
+        ...uncertain,
+        rowId: uncertain.rowId ?? '',
+        bugs: Array.isArray(uncertain.bugs) ? uncertain.bugs : [],
+      } as Compatible<BugsCell>;
+    },
+    isFocusable: () => false,
+    render(cell: Compatible<BugsCell>) {
+      const list = cell.bugs ?? [];
+      return (
+        <div
+          className="w-100 h-100 d-flex flex-column gap-1 p-1 overflow-auto"
+          style={{ minHeight: 0 }}
+          onPointerDownCapture={(e) => e.stopPropagation()}
+          onMouseDownCapture={(e) => e.stopPropagation()}
+        >
+          {list.length > 0 && (
+            <ul className="list-unstyled mb-0 small" style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+              {list.map((b) => (
+                <li key={b.id}>
+                  <a href={`/task/${b.id}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
+                    {b.title || b.id}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
+          <button
+            type="button"
+            className="btn btn-sm btn-outline-danger border-0 align-self-start"
+            onClick={(e) => {
+              e.stopPropagation();
+              onLogBugRef.current?.(cell.rowId);
+            }}
+          >
+            <i className="fas fa-bug me-1" />
+            Log bug
+          </button>
+        </div>
+      );
+    },
+  };
+}
+
 export type TestResultRow = {
   rowId: string;
   testCaseId: string;
@@ -373,6 +435,7 @@ export type TestResultRow = {
   result: string;
   outcome: string;
   testedBy?: string;
+  bugs?: BugRef[];
 };
 
 function testResultsToRows(testResults: any[]): TestResultRow[] {
@@ -437,11 +500,17 @@ const TestResultExcelView = ({ testCycleId }: Props) => {
   const [initialRows, setInitialRows] = useState<TestResultRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [projectId, setProjectId] = useState<string | null>(null);
+  const [projectName, setProjectName] = useState<string | null>(null);
+  const [projectBugTemplateId, setProjectBugTemplateId] = useState<string | null>(null);
+  const [projectBugTemplateName, setProjectBugTemplateName] = useState<string | null>(null);
+  const [bugModalForRowId, setBugModalForRowId] = useState<string | null>(null);
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>(() => ({
     ...DEFAULT_COLUMN_WIDTHS,
   }));
   const [rowHeights, setRowHeights] = useState<Record<string, number>>(() => ({}));
   const [dictatingFor, setDictatingFor] = useState<{ rowId: string; field: string } | null>(null);
+  const onLogBugRef = useRef<((rowId: string) => void) | null>(null);
 
   const {
     transcript,
@@ -471,10 +540,44 @@ const TestResultExcelView = ({ testCycleId }: Props) => {
         .then((record: any) => {
           const list = record?.testResults ?? [];
           const serverRows = testResultsToRows(list);
+          const project = record?.project;
+          const pid = project?.id ?? project ?? null;
+          const pName = project?.name ?? null;
+          const bugTpl = project?.bugTemplate;
+          const bugTplId = bugTpl?.id ?? bugTpl ?? null;
+          const bugTplName = bugTpl?.name ?? null;
+          setProjectId(pid);
+          setProjectName(pName);
+          setProjectBugTemplateId(bugTplId);
+          setProjectBugTemplateName(bugTplName);
           const draft = clearDraft ? {} : loadDraftFromStorage(testCycleId);
           const merged = mergeRowsWithDraft(serverRows, draft);
-          setRows(merged);
-          setInitialRows(serverRows); // baseline for dirtyCount is server state, not merged
+          const testCaseIds = new Set(serverRows.map((r) => r.testCaseId));
+          TaskService.list({ type: 'BUG' }, undefined, 500, 0)
+            .then((res: { rows?: any[] }) => {
+              const bugs = res.rows ?? [];
+              const bugsByParent: Record<string, BugRef[]> = {};
+              testCaseIds.forEach((id) => (bugsByParent[id] = []));
+              bugs.forEach((b: any) => {
+                const parents = b.parents;
+                const parentId = Array.isArray(parents)
+                  ? parents[0]?.id ?? parents[0]
+                  : parents;
+                if (parentId && testCaseIds.has(parentId)) {
+                  (bugsByParent[parentId] ??= []).push({
+                    id: b.id,
+                    title: b.title ?? '',
+                  });
+                }
+              });
+              const withBugs = merged.map((r) => ({
+                ...r,
+                bugs: bugsByParent[r.testCaseId] ?? [],
+              }));
+              setRows(withBugs);
+            })
+            .catch(() => setRows(merged));
+          setInitialRows(serverRows);
         })
         .catch((e) => {
           Errors.handle(e);
@@ -492,14 +595,50 @@ const TestResultExcelView = ({ testCycleId }: Props) => {
     setError(null);
     TestCycleService.find(testCycleId)
       .then((record: any) => {
-        if (!cancelled) {
-          const list = record?.testResults ?? [];
-          const serverRows = testResultsToRows(list);
-          const draft = loadDraftFromStorage(testCycleId);
-          const merged = mergeRowsWithDraft(serverRows, draft);
-          setRows(merged);
-          setInitialRows(serverRows); // baseline for dirtyCount is server state, not merged
-        }
+        if (cancelled) return;
+        const list = record?.testResults ?? [];
+        const serverRows = testResultsToRows(list);
+        const project = record?.project;
+        const pid = project?.id ?? project ?? null;
+        const pName = project?.name ?? null;
+        const bugTpl = project?.bugTemplate;
+        const bugTplId = bugTpl?.id ?? bugTpl ?? null;
+        const bugTplName = bugTpl?.name ?? null;
+        setProjectId(pid);
+        setProjectName(pName);
+        setProjectBugTemplateId(bugTplId);
+        setProjectBugTemplateName(bugTplName);
+        const draft = loadDraftFromStorage(testCycleId);
+        const merged = mergeRowsWithDraft(serverRows, draft);
+        const testCaseIds = new Set(serverRows.map((r) => r.testCaseId));
+        TaskService.list({ type: 'BUG' }, undefined, 500, 0)
+          .then((res: { rows?: any[] }) => {
+            if (cancelled) return;
+            const bugs = res.rows ?? [];
+            const bugsByParent: Record<string, BugRef[]> = {};
+            testCaseIds.forEach((id) => (bugsByParent[id] = []));
+            bugs.forEach((b: any) => {
+              const parents = b.parents;
+              const parentId = Array.isArray(parents)
+                ? parents[0]?.id ?? parents[0]
+                : parents;
+              if (parentId && testCaseIds.has(parentId)) {
+                (bugsByParent[parentId] ??= []).push({
+                  id: b.id,
+                  title: b.title ?? '',
+                });
+              }
+            });
+            const withBugs = merged.map((r) => ({
+              ...r,
+              bugs: bugsByParent[r.testCaseId] ?? [],
+            }));
+            setRows(withBugs);
+          })
+          .catch(() => {
+            if (!cancelled) setRows(merged);
+          });
+        setInitialRows(serverRows);
       })
       .catch((e) => {
         if (!cancelled) {
@@ -558,11 +697,21 @@ const TestResultExcelView = ({ testCycleId }: Props) => {
     SpeechRecognition.startListening({ continuous: false, language: 'en-US' });
   }, [listening, dictatingFor, resetTranscript]);
 
+  const handleLogBug = useCallback((rowId: string) => {
+    setBugModalForRowId(rowId);
+  }, []);
+
   useEffect(() => {
     onChangeRef.current = handleOutcomeChange;
     onMicClickRef.current = handleMicClick;
     resultSelectChangeRef.current = handleResultChange;
+    onLogBugRef.current = handleLogBug;
   });
+
+  const bugsCellTemplate = useMemo(
+    () => createBugsCellTemplate(onLogBugRef),
+    [],
+  );
 
   const handleCellsChanged = useCallback((changes: CellChange[]) => {
     setRows((prev) => {
@@ -683,6 +832,7 @@ const TestResultExcelView = ({ testCycleId }: Props) => {
         { type: 'header', text: i18n('entities.testCase.fields.expectedResult') } as HeaderCell,
         { type: 'header', text: i18n('entities.testCycle.fields.result') } as HeaderCell,
         { type: 'header', text: i18n('entities.testCycle.fields.outcome') } as HeaderCell,
+        { type: 'header', text: 'Bugs' } as HeaderCell,
       ],
     };
 
@@ -709,6 +859,11 @@ const TestResultExcelView = ({ testCycleId }: Props) => {
             multiline: true,
             rowHeight,
           } as TextWithSpeechCell,
+          {
+            type: 'bugs',
+            rowId: r.rowId,
+            bugs: r.bugs ?? [],
+          } as BugsCell,
         ],
       } as unknown as Row;
     });
@@ -725,6 +880,11 @@ const TestResultExcelView = ({ testCycleId }: Props) => {
       </div>
     );
   }
+
+  const rowForBugModal =
+    bugModalForRowId != null
+      ? rows.find((r) => r.rowId === bugModalForRowId) ?? null
+      : null;
 
   return (
     <div className="mt-4">
@@ -777,9 +937,33 @@ const TestResultExcelView = ({ testCycleId }: Props) => {
               readOnlyMultiline: readOnlyMultilineTemplate,
               resultSelect: resultSelectTemplate,
               textWithSpeech: textWithSpeechTemplate,
+              bugs: bugsCellTemplate,
             }}
           />
         </div>
+      )}
+      {rowForBugModal && projectId != null && (
+        <TaskFormModal
+          record={{
+            parents: [rowForBugModal.testCaseId],
+            type: 'BUG',
+            project: {
+              id: projectId,
+              label: projectName ?? projectId,
+            },
+            ...(projectBugTemplateId && {
+              template: {
+                id: projectBugTemplateId,
+                label: projectBugTemplateName ?? projectBugTemplateId,
+              },
+            }),
+          }}
+          onClose={() => setBugModalForRowId(null)}
+          onSuccess={() => {
+            setBugModalForRowId(null);
+            loadData(false);
+          }}
+        />
       )}
     </div>
   );
