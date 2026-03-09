@@ -1,0 +1,32 @@
+name: Deploy to Firebase Hosting on Merge
+on:
+  push:
+    branches:
+      - production
+    paths:
+      - 'frontend/**'
+      - 'shared/**'
+
+defaults:
+  run:
+    working-directory: ./frontend
+jobs:
+  deploy:
+    name: Build and Deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@main
+      - name: Install Dependencies
+        run: npm install --ignore-peer --force
+      - name: Build
+        env:
+          NODE_OPTIONS: '--max_old_space_size=4096'
+        run: npm run build:production
+      - name: Deploy to Firebase
+        uses: w9jds/firebase-action@v12.8.0
+        with:
+          args: deploy --project ${{ secrets.GCP_PROJECT }} --only hosting:app-hiiit-org
+        env:
+          GCP_SA_KEY: ${{ secrets.GCP_CREDENTIALS }}
+          PROJECT_PATH: ./frontend
