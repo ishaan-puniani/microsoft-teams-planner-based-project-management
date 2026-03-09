@@ -6,17 +6,9 @@ import InputNumberFormItem from 'src/view/shared/form/items/InputNumberFormItem'
 import SelectFormItem from 'src/view/shared/form/items/SelectFormItem';
 import SwitchFormItem from 'src/view/shared/form/items/SwitchFormItem';
 import TextAreaFormItem from 'src/view/shared/form/items/TextAreaFormItem';
+import { TaskTemplateField } from './DynamicTaskSchema';
 
-// Define types locally since shared directory is not accessible
-export interface TaskTemplateField {
-  id: string;
-  name: string;
-  label: string;
-  type: 'TEXT' | 'TEXTAREA' | 'NUMBER' | 'DATE' | 'SELECT' | 'BOOLEAN' | 'CHECKLIST';
-  required?: boolean;
-  options?: string[];
-  defaultValue?: any;
-}
+export type { TaskTemplateField };
 
 export interface ChecklistItem {
   label: string;

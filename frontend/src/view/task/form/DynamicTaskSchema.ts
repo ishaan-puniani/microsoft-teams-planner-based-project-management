@@ -6,6 +6,7 @@ import * as yup from 'yup';
 export interface TaskTemplateField {
   id: string;
   name: string;
+  label?: string;
   type: 'TEXT' | 'TEXTAREA' | 'NUMBER' | 'DATE' | 'SELECT' | 'BOOLEAN' | 'CHECKLIST';
   required?: boolean;
   options?: string[];

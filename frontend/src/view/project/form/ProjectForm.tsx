@@ -1,5 +1,5 @@
 import { yupResolver } from '@hookform/resolvers/yup';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { i18n } from 'src/i18n';
 import yupFormSchemas from 'src/modules/shared/yup/yupFormSchemas';
@@ -75,6 +75,19 @@ const schema = yup.object().shape({
 
 });
 
+function normalizeRelationToOne(value: any): { id: string; label: string } | null {
+  if (value == null) return null;
+  if (typeof value === 'object' && (value.id != null || value._id != null)) {
+    const id = String(value.id ?? value._id);
+    const label = value.label ?? value.name ?? id;
+    return { id, label };
+  }
+  if (typeof value === 'string' && value.trim() !== '') {
+    return { id: value, label: value };
+  }
+  return null;
+}
+
 const ProjectForm = (props) => {
   const [initialValues] = useState(() => {
     const record = props.record || {};
@@ -87,15 +100,15 @@ const ProjectForm = (props) => {
       endDate: record.endDate,
       status: record.status,
       priority: record.priority,
-      msGroup: record.msGroup,
-      msPlan: record.msPlan,
-      epicTemplate: record.epicTemplate,
-      userStoryTemplate: record.userStoryTemplate,
-      taskTemplate: record.taskTemplate,
-      bugTemplate: record.bugTemplate,
-      subtaskTemplate: record.subtaskTemplate,
-      testPlanTemplate: record.testPlanTemplate,
-      testCaseTemplate: record.testCaseTemplate,
+      msGroup: normalizeRelationToOne(record.msGroup),
+      msPlan: normalizeRelationToOne(record.msPlan),
+      epicTemplate: normalizeRelationToOne(record.epicTemplate),
+      userStoryTemplate: normalizeRelationToOne(record.userStoryTemplate),
+      taskTemplate: normalizeRelationToOne(record.taskTemplate),
+      bugTemplate: normalizeRelationToOne(record.bugTemplate),
+      subtaskTemplate: normalizeRelationToOne(record.subtaskTemplate),
+      testPlanTemplate: normalizeRelationToOne(record.testPlanTemplate),
+      testCaseTemplate: normalizeRelationToOne(record.testCaseTemplate),
     };
   });
 
@@ -116,6 +129,15 @@ const ProjectForm = (props) => {
   };
 
   const groupId = form.watch('msGroup')?.id;
+  const prevGroupIdRef = useRef<string | undefined>(undefined);
+
+  // When msGroup changes, clear msPlan so the plan list refetches for the new group and we don't keep a plan from the previous group
+  useEffect(() => {
+    if (prevGroupIdRef.current !== undefined && prevGroupIdRef.current !== groupId) {
+      form.setValue('msPlan', null);
+    }
+    prevGroupIdRef.current = groupId;
+  }, [groupId, form]);
 
   return (
     <FormWrapper>
@@ -131,6 +153,7 @@ const ProjectForm = (props) => {
             {groupId?.length > 2 &&
               <div className="col-lg-7 col-md-8 col-12">
                 <MsPlanAutocompleteFormItem
+                  key={groupId}
                   name="msPlan"
                   label={i18n('entities.project.fields.msPlan')}
                   groupId={groupId}
