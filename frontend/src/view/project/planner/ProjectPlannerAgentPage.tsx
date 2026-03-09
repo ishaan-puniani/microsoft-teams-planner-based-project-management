@@ -77,7 +77,6 @@ function parseFullTextToAgentState(fullText: string): {
     const start = epicIdxs[ei];
     const end = epicIdxs[ei + 1] ?? items.length;
     const epicItems = items.slice(start, end);
-    const _epicTitle = epicItems[0].level === 0 ? epicItems[0].title : '';
     const rest = epicItems.slice(1);
     const blocks: ParsedItem[][] = [];
     let current: ParsedItem[] = [];
