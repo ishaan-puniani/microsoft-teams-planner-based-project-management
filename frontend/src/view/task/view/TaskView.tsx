@@ -7,6 +7,31 @@ import TextViewItem from 'src/view/shared/view/TextViewItem';
 import UserViewItem from 'src/view/user/view/UserViewItem';
 import TaskViewItem from 'src/view/task/view/TaskViewItem';
 
+/** Child task type and project template for the Excel children grid. Only defined when the viewed task can have children. */
+export type ChildTypeConfig = {
+  type: 'USER_STORY' | 'TASK' | 'TEST_CASE';
+  templateId: string | null;
+};
+
+export function getChildTypeAndTemplate(record: {
+  type?: string | null;
+  project?: { userStoryTemplate?: any; taskTemplate?: any; testCaseTemplate?: any } | null;
+} | null): ChildTypeConfig | null {
+  if (!record?.type || !record?.project) return null;
+  const project = record.project;
+  const templateId = (t: any) => (t?.id != null ? t.id : t);
+  switch (String(record.type).toUpperCase()) {
+    case 'EPIC':
+      return { type: 'USER_STORY', templateId: templateId(project.userStoryTemplate) ?? null };
+    case 'USER_STORY':
+      return { type: 'TASK', templateId: templateId(project.taskTemplate) ?? null };
+    case 'TASK':
+      return { type: 'TEST_CASE', templateId: templateId(project.testCaseTemplate) ?? null };
+    default:
+      return null;
+  }
+}
+
 function normalizeParentsForView(parents) {
   if (!parents || !Array.isArray(parents)) return [];
   return parents.map((p) => (typeof p === 'object' && p != null && 'id' in p ? p : { id: p }));

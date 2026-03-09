@@ -55,7 +55,7 @@ export const useDynamicTaskForm = ({ form, watchedTemplate }: UseDynamicTaskForm
         if (normalizedFields.length > 0 && form) {
           console.log('Current form values:', form.getValues());
           normalizedFields.forEach((field) => {
-            const fieldName = `templateData.${field.id}`;
+            const fieldName = `templateData.${field.name}`;
             const existingValue = form.getValues(fieldName);
             
             console.log(`Field ${fieldName}: existingValue=${existingValue}, defaultValue=${field.defaultValue}`);

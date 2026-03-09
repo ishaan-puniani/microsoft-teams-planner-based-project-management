@@ -25,6 +25,8 @@ const en = {
     continue: 'Continue',
     filters: 'Filters',
     planner: 'Planner',
+    clone: 'Clone',
+    loading: 'Loading...',
   },
 
   app: {
@@ -402,6 +404,8 @@ const en = {
       },
       view: {
         title: 'View Test Cycle',
+        cloneTitle: 'Clone Test Cycle',
+        cloneNewNameLabel: 'New name',
       },
       importer: {
         title: 'Import Test Cycles',

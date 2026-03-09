@@ -10,6 +10,7 @@ import ContentWrapper from 'src/view/layout/styles/ContentWrapper';
 import Breadcrumb from 'src/view/shared/Breadcrumb';
 import PageTitle from 'src/view/shared/styles/PageTitle';
 import TaskView from 'src/view/task/view/TaskView';
+import { getChildTypeAndTemplate } from 'src/view/task/view/TaskView';
 import TaskViewToolbar from 'src/view/task/view/TaskViewToolbar';
 import TaskPlannerSyncModal, {
   type PlannerSyncFieldId,
@@ -113,15 +114,19 @@ const TaskPage = (props) => {
         </div>
         <TaskView loading={loading} record={record} />
 
-        <TestCaseExcelOfTask
-          taskId={id}
-          projectId={record?.project?.id ?? record?.project}
-          testCaseTemplateId={
-            record?.project?.testCaseTemplate?.id ?? record?.project?.testCaseTemplate
-          }
-          taskTitle={record?.title}
-          taskDescription={record?.description}
-        />
+        {(() => {
+          const childConfig = getChildTypeAndTemplate(record);
+          return childConfig ? (
+            <TestCaseExcelOfTask
+              taskId={id}
+              projectId={record?.project?.id ?? record?.project}
+              type={childConfig.type}
+              templateId={childConfig.templateId}
+              taskTitle={record?.title}
+              taskDescription={record?.description}
+            />
+          ) : null;
+        })()}
       </ContentWrapper>
 
       {plannerModal === 'sync' && (
