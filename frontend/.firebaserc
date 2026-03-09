@@ -1,0 +1,15 @@
+{
+  "projects": {
+    "default": "fab-builder"
+  },
+  "targets": {
+    "fab-builder": {
+      "hosting": {
+        "planner-tool": [
+          "planner-tool"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}
