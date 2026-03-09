@@ -1,12 +1,6 @@
 name: Deploy to Firebase Hosting
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - master
-    paths:
-      - 'frontend/**'
-      - 'shared/**'
 
 defaults:
   run:
