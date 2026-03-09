@@ -15,6 +15,7 @@ import TaskPlannerSyncModal, {
   type PlannerSyncFieldId,
 } from 'src/view/task/view/TaskPlannerSyncModal';
 import Message from 'src/view/shared/message';
+import SubtaskExcelView from 'src/view/task/SubtaskExcelView';
 import TestCaseExcelOfTask from 'src/view/testCase/excel/TestCaseExcelOfTask';
 
 const TaskPage = (props) => {
@@ -113,6 +114,29 @@ const TaskPage = (props) => {
         </div>
         <TaskView loading={loading} record={record} />
 
+        <SubtaskExcelView
+          taskId={id}
+          projectId={record?.project?.id ?? record?.project}
+          type={
+            record?.type === 'EPIC'
+              ? 'USER_STORY'
+              : record?.type === 'USER_STORY'
+                ? 'TASK'
+                : 'TEST_CASE'
+          }
+          templateId={
+            record?.type === 'EPIC'
+              ? record?.project?.userStoryTemplate?.id ?? record?.project?.userStoryTemplate
+              : record?.type === 'USER_STORY'
+                ? record?.project?.taskTemplate?.id ?? record?.project?.taskTemplate
+                : record?.project?.testCaseTemplate?.id ?? record?.project?.testCaseTemplate
+          }
+          taskTitle={record?.title}
+          taskDescription={record?.description}
+        />
+
+        <hr />
+        
         <TestCaseExcelOfTask
           taskId={id}
           projectId={record?.project?.id ?? record?.project}

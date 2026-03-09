@@ -34,6 +34,14 @@ export default async (req, res, next) => {
       for (const task of tasks) {
         if (!task || typeof task !== 'object' || !task.template) continue;
 
+        let parents = [];
+        if (task.parents != null && Array.isArray(task.parents) && task.parents.length > 0) {
+          parents = await TaskRepository.filterIdsInTenant(
+            task.parents,
+            optionsWithSession,
+          );
+        }
+
         const record = await TaskRepository.create(
           {
             project: projectId,
@@ -42,6 +50,7 @@ export default async (req, res, next) => {
             title: task.title,
             description: task.description,
             templateData: task.templateData || {},
+            ...(parents.length > 0 && { parents }),
           },
           optionsWithSession,
         );
