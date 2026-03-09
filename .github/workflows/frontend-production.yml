@@ -26,7 +26,8 @@ jobs:
       - name: Deploy to Firebase
         uses: w9jds/firebase-action@v12.8.0
         with:
-          args: deploy --project ${{ secrets.GCP_PROJECT }} --only hosting:app-hiiit-org
+          args: deploy --project ${{ secrets.GCP_PROJECT }} --only hosting:${{ secrets.GCP_HOSTING }}
         env:
           GCP_SA_KEY: ${{ secrets.GCP_CREDENTIALS }}
+
           PROJECT_PATH: ./frontend
