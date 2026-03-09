@@ -26,6 +26,8 @@ const MsPlannerTasksListPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [createVisible, setCreateVisible] = useState(false);
   const [quickCreateVisible, setQuickCreateVisible] = useState(false);
+  type LayoutMode = 'list' | 'grid2' | 'grid3';
+  const [layout, setLayout] = useState<LayoutMode>('grid3');
 
   useEffect(() => {
     if (!planId) return;
@@ -150,13 +152,49 @@ const MsPlannerTasksListPage = () => {
           categories={categories}
           users={users}
         />
-
+        <div className="d-flex align-items-center gap-1 mb-3">
+          <span className="text-muted small me-2">Layout:</span>
+          <div className="btn-group btn-group-sm" role="group">
+            <button
+              type="button"
+              className={`btn btn-outline-secondary ${layout === 'list' ? 'active' : ''}`}
+              onClick={() => setLayout('list')}
+              title="List view"
+            >
+              <i className="fas fa-list" />
+            </button>
+            <button
+              type="button"
+              className={`btn btn-outline-secondary ${layout === 'grid2' ? 'active' : ''}`}
+              onClick={() => setLayout('grid2')}
+              title="2 columns"
+            >
+              <i className="fas fa-th-large" />
+            </button>
+            <button
+              type="button"
+              className={`btn btn-outline-secondary ${layout === 'grid3' ? 'active' : ''}`}
+              onClick={() => setLayout('grid3')}
+              title="3 columns"
+            >
+              <i className="fas fa-th" />
+            </button>
+          </div>
+        </div>
         {tasks.length === 0 ? (
           <div className="text-center text-muted py-5">
             No tasks in this plan.
           </div>
         ) : (
-          <div className="row row-cols-1 row-cols-md-2 row-cols-lg-3 row-cols-xl-4 g-3">
+          <div
+            className={`row g-3 ${
+              layout === 'list'
+                ? 'row-cols-1'
+                : layout === 'grid2'
+                  ? 'row-cols-1 row-cols-md-2'
+                  : 'row-cols-1 row-cols-md-2 row-cols-lg-3'
+            }`}
+          >
             {tasks.map((task) => (
               <div key={task.id} className="col">
                 <MsPlannerTaskListItem
