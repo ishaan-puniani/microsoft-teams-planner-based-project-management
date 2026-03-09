@@ -1,6 +1,6 @@
 {
   "hosting": {
-    "target": "fab-builder",
+    "target": "planner-tool",
     "public": "build",
     "ignore": [
       "firebase.json",
