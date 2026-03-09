@@ -1,7 +1,7 @@
 {
   "hosting": {
     "target": "fab-builder",
-    "public": "dist",
+    "public": "build",
     "ignore": [
       "firebase.json",
       "**/.*",
