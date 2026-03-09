@@ -706,6 +706,25 @@ export default class UserRepository {
     );
   }
 
+  static async destroy(id, options: IRepositoryOptions) {
+    const record = await this.findById(id, options);
+
+    await User(options.database).deleteOne(
+      { _id: id },
+      options,
+    );
+
+    await AuditLogRepository.log(
+      {
+        entityName: 'user',
+        entityId: id,
+        action: AuditLogRepository.DELETE,
+        values: record,
+      },
+      options,
+    );
+  }
+
   /**
    * Normalize the user fields.
    */

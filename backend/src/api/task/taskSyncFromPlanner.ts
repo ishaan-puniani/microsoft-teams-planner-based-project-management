@@ -35,7 +35,7 @@ export default async (req, res, next) => {
       ? requestedFields.filter((f) => ALLOWED_FIELDS.includes(f))
       : ALLOWED_FIELDS;
 
-    const update = {};
+    const update: Record<string, any> = {};
     if (fieldsToApply.includes('title') && plannerTask.title != null) {
       update.title = String(plannerTask.title).trim() || undefined;
     }

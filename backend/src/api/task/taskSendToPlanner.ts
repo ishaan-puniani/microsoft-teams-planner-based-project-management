@@ -37,7 +37,7 @@ export default async (req, res, next) => {
       const etag = plannerTask['@odata.etag'] || plannerTask.etag;
       const detailsEtag = plannerDetails._detailsEtag || '';
 
-      const patch = {};
+      const patch: Record<string, any> = {};
       if (fieldsToSend.includes('title') && task.title != null) patch.title = String(task.title).trim();
       if (fieldsToSend.includes('estimatedStart')) patch.startDateTime = toISODate(task.estimatedStart);
       if (fieldsToSend.includes('estimatedEnd')) patch.dueDateTime = toISODate(task.estimatedEnd);
