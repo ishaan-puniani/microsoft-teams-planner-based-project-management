@@ -8,6 +8,7 @@ import ButtonIcon from 'src/view/shared/ButtonIcon';
 import FormWrapper from 'src/view/shared/styles/FormWrapper';
 import ProjectAutocompleteFormItem from 'src/view/project/autocomplete/ProjectAutocompleteFormItem';
 import TaskAutocompleteFormItem from 'src/view/task/autocomplete/TaskAutocompleteFormItem';
+import TaskTemplateAutocompleteFormItem from 'src/view/taskTemplate/autocomplete/TaskTemplateAutocompleteFormItem';
 import SelectFormItem from 'src/view/shared/form/items/SelectFormItem';
 import Errors from 'src/modules/shared/error/errors';
 import Message from 'src/view/shared/message';
@@ -60,6 +61,10 @@ const quickCreateSchema = yup.object().shape({
     i18n('entities.task.fields.type'),
     {},
   ),
+  template: yupFormSchemas.relationToOne(
+    i18n('entities.task.fields.template'),
+    {},
+  ),
   parents: yupFormSchemas.relationToMany(
     i18n('entities.task.fields.parents'),
     {},
@@ -69,6 +74,7 @@ const quickCreateSchema = yup.object().shape({
 type QuickCreateFormValues = {
   project?: any;
   type?: string;
+  template?: any;
   parents?: any[];
 };
 
@@ -78,6 +84,7 @@ export interface QuickCreateTaskWithDetailProps {
   onSuccess?: (tasks: any[]) => void;
   initialProject?: any;
   initialType?: string;
+  initialTemplate?: any;
   initialParents?: any[];
   /** If true, render as modal; if false, render inline (e.g. in a page) */
   modal?: boolean;
@@ -89,6 +96,7 @@ const QuickCreateTaskWithDetail: React.FC<QuickCreateTaskWithDetailProps> = ({
   onSuccess,
   initialProject = null,
   initialType = 'TASK',
+  initialTemplate = null,
   initialParents = [],
   modal = true,
 }) => {
@@ -101,6 +109,7 @@ const QuickCreateTaskWithDetail: React.FC<QuickCreateTaskWithDetailProps> = ({
     defaultValues: {
       project: initialProject,
       type: initialType,
+      template: initialTemplate,
       parents: initialParents || [],
     },
   });
@@ -127,19 +136,26 @@ const QuickCreateTaskWithDetail: React.FC<QuickCreateTaskWithDetailProps> = ({
         .map((p) => (p?.id != null ? p.id : p))
         .filter(Boolean);
 
+      const templateId = values.template?.id ?? values.template;
       setSaveLoading(true);
       try {
-        const tasksPayload = parsedTasks.map((task) => ({
-          type: values.type || 'TASK',
-          title: task.title || 'Untitled',
-          description: task.description || '',
-          ...(parentIds.length > 0 && { parents: parentIds }),
-        }));
+        const tasksPayload = parsedTasks.map((task) => {
+          const item: any = {
+            type: values.type || 'TASK',
+            title: task.title || 'Untitled',
+            description: task.description || '',
+            ...(parentIds.length > 0 && { parents: parentIds }),
+          };
+          if (templateId) {
+            item.template = templateId;
+          }
+          return item;
+        });
         await TaskService.bulkCreate(projectId, tasksPayload);
         onSuccess?.([]);
         if (modal && onClose) {
           setTextareaValue('');
-          form.reset({ project: values.project, type: values.type, parents: values.parents });
+          form.reset({ project: values.project, type: values.type, template: values.template, parents: values.parents });
           onClose();
         }
       } catch (error) {
@@ -176,6 +192,13 @@ const QuickCreateTaskWithDetail: React.FC<QuickCreateTaskWithDetailProps> = ({
                 name="type"
                 label={i18n('entities.task.fields.type')}
                 options={TYPE_OPTIONS}
+              />
+            </div>
+            <div className="col-lg-7 col-md-8 col-12">
+              <TaskTemplateAutocompleteFormItem
+                name="template"
+                label={i18n('entities.task.fields.template')}
+                hint={i18n('entities.task.hints.template')}
               />
             </div>
             <div className="col-lg-7 col-md-8 col-12">
