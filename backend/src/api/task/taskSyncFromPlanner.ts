@@ -3,6 +3,7 @@ import ApiResponseHandler from '../apiResponseHandler';
 import Permissions from '../../security/permissions';
 import TaskService from '../../services/taskService';
 import MsTaskService from '../../integrations/msGraph/msTaskService';
+import { getMsPlannerAuth } from '../msPlanner/getMsPlannerAuth';
 
 const ALLOWED_FIELDS = ['title', 'description', 'estimatedStart', 'estimatedEnd'];
 
@@ -26,9 +27,18 @@ export default async (req, res, next) => {
       );
     }
 
+    const msPlannerAuth = getMsPlannerAuth(req);
+    if (!msPlannerAuth) {
+      return ApiResponseHandler.error(
+        req,
+        res,
+        new Error('Microsoft Planner credentials not configured for this tenant'),
+      );
+    }
+
     const [plannerTask, plannerDetails] = await Promise.all([
-      MsTaskService.getTask(task.msPlannerTaskId),
-      MsTaskService.getTaskDetails(task.msPlannerTaskId),
+      MsTaskService.getTask(task.msPlannerTaskId, msPlannerAuth),
+      MsTaskService.getTaskDetails(task.msPlannerTaskId, msPlannerAuth),
     ]);
 
     const fieldsToApply = Array.isArray(requestedFields)
