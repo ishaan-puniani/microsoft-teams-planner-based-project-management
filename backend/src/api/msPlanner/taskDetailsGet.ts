@@ -1,10 +1,12 @@
 import MsTaskService from '../../integrations/msGraph/msTaskService';
 import ApiResponseHandler from '../apiResponseHandler';
+import { getMsPlannerAuth } from './getMsPlannerAuth';
 
 export default async (req, res, next) => {
   try {
+    const msPlannerAuth = getMsPlannerAuth(req);
     const taskId = req.params.taskId;
-    const payload = await MsTaskService.getTaskDetails(taskId);
+    const payload = await MsTaskService.getTaskDetails(taskId, msPlannerAuth);
     await ApiResponseHandler.success(req, res, payload);
   } catch (error) {
     await ApiResponseHandler.error(req, res, error);

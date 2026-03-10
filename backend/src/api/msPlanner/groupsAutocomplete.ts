@@ -1,10 +1,11 @@
-import { getConfig } from '../../config';
 import MsTaskService from '../../integrations/msGraph/msTaskService';
 import ApiResponseHandler from '../apiResponseHandler';
+import { getMsPlannerAuth } from './getMsPlannerAuth';
 
 export default async (req, res, next) => {
   try {
-    const payload = await MsTaskService.getAllGroups();
+    const msPlannerAuth = getMsPlannerAuth(req);
+    const payload = await MsTaskService.getAllGroups(msPlannerAuth);
     const autocompletePayload = payload.map((group) => ({
       id: group.id,
       label: group.displayName,

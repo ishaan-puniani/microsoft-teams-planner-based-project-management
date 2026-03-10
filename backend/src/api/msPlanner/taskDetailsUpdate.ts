@@ -1,8 +1,10 @@
 import MsTaskService from '../../integrations/msGraph/msTaskService';
 import ApiResponseHandler from '../apiResponseHandler';
+import { getMsPlannerAuth } from './getMsPlannerAuth';
 
 export default async (req, res, next) => {
   try {
+    const msPlannerAuth = getMsPlannerAuth(req);
     const taskId = req.params.taskId;
     const { detailsEtag = '', description, checklist, references } = req.body;
 
@@ -10,7 +12,7 @@ export default async (req, res, next) => {
       description,
       checklist,
       references,
-    });
+    }, msPlannerAuth);
 
     await ApiResponseHandler.success(req, res, payload);
   } catch (error) {

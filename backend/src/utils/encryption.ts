@@ -1,10 +1,11 @@
 import crypto from 'crypto';
+import { getConfig } from '../config';
 
 const ALGORITHM = 'aes-256-cbc';
 const IV_LENGTH = 16;
 
 function getEncryptionKey(): Buffer {
-  const raw = process.env.DATA_ENCRYPTION_KET || process.env.DATA_ENCRYPTION_KEY;
+  const raw = getConfig().DATA_ENCRYPTION_KEY;
   if (!raw || raw.length === 0) {
     throw new Error('DATA_ENCRYPTION_KET (or DATA_ENCRYPTION_KEY) must be set');
   }

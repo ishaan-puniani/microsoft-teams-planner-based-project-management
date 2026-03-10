@@ -1,13 +1,15 @@
 import { getConfig } from "../../config";
 
+export type MsPlannerCredentials = {
+    MS_TENANT_ID?: string;
+    MS_CLIENT_ID?: string;
+    MS_CLIENT_SECRET?: string;
+    MS_SCOPE?: string;
+};
+
 export default class MsTaskService {
 
-    static async _getServiceToken(credentials?: {
-        MS_TENANT_ID?: string;
-        MS_CLIENT_ID?: string;
-        MS_CLIENT_SECRET?: string;
-        MS_SCOPE?: string;
-    }): Promise<string> {
+    static async _getServiceToken(credentials?: MsPlannerCredentials): Promise<string> {
         const tenantId = credentials?.MS_TENANT_ID || getConfig().MS_TENANT_ID;
         const clientId = credentials?.MS_CLIENT_ID || getConfig().MS_CLIENT_ID;
         const clientSecret = credentials?.MS_CLIENT_SECRET || getConfig().MS_CLIENT_SECRET;
@@ -44,8 +46,8 @@ export default class MsTaskService {
         }
     }
 
-    static async getAllGroups(): Promise<any> {
-        const token = await this._getServiceToken();
+    static async getAllGroups(credentials?: MsPlannerCredentials): Promise<any> {
+        const token = await this._getServiceToken(credentials);
         const url = `https://graph.microsoft.com/v1.0/groups`;
 
         try {
@@ -67,8 +69,8 @@ export default class MsTaskService {
         }
     }
 
-    static async getAllPlansInGroup(groupId: string): Promise<any> {
-        const token = await this._getServiceToken();
+    static async getAllPlansInGroup(groupId: string, credentials?: MsPlannerCredentials): Promise<any> {
+        const token = await this._getServiceToken(credentials);
         const url = `https://graph.microsoft.com/v1.0/groups/${groupId}/planner/plans`;
 
         try {
@@ -90,8 +92,8 @@ export default class MsTaskService {
         }
     }
 
-    static async getTasksOfBoard(planId: string): Promise<any> {
-        const token = await this._getServiceToken();
+    static async getTasksOfBoard(planId: string, credentials?: MsPlannerCredentials): Promise<any> {
+        const token = await this._getServiceToken(credentials);
         const url = `https://graph.microsoft.com/v1.0/planner/plans/${planId}/tasks`;
 
         try {
@@ -113,8 +115,8 @@ export default class MsTaskService {
         }
     }
 
-    static async getTask(taskId: string): Promise<any> {
-        const token = await this._getServiceToken();
+    static async getTask(taskId: string, credentials?: MsPlannerCredentials): Promise<any> {
+        const token = await this._getServiceToken(credentials);
         const url = `https://graph.microsoft.com/v1.0/planner/tasks/${taskId}`;
         try {
             const response = await fetch(url, {
@@ -130,8 +132,8 @@ export default class MsTaskService {
         }
     }
 
-    static async getTaskDetails(taskId: string): Promise<any> {
-        const token = await this._getServiceToken();
+    static async getTaskDetails(taskId: string, credentials?: MsPlannerCredentials): Promise<any> {
+        const token = await this._getServiceToken(credentials);
         const url = `https://graph.microsoft.com/v1.0/planner/tasks/${taskId}/details`;
         try {
             const response = await fetch(url, {
@@ -149,8 +151,8 @@ export default class MsTaskService {
         }
     }
 
-    static async searchTaskByTextInTitle(planId: string, titleQuery: string): Promise<any> {
-        const token = await this._getServiceToken();
+    static async searchTaskByTextInTitle(planId: string, titleQuery: string, credentials?: MsPlannerCredentials): Promise<any> {
+        const token = await this._getServiceToken(credentials);
         const url = `https://graph.microsoft.com/v1.0/planner/plans/${planId}/tasks`;
 
         try {
@@ -176,8 +178,8 @@ export default class MsTaskService {
         }
     }
 
-    static async createTask(planId: string, taskData: any): Promise<any> {
-        const token = await this._getServiceToken();
+    static async createTask(planId: string, taskData: any, credentials?: MsPlannerCredentials): Promise<any> {
+        const token = await this._getServiceToken(credentials);
         const url = `https://graph.microsoft.com/v1.0/planner/tasks`;
 
         try {
@@ -202,8 +204,8 @@ export default class MsTaskService {
         }
     }
 
-    static async getBuckets(planId: string): Promise<any> {
-        const token = await this._getServiceToken();
+    static async getBuckets(planId: string, credentials?: MsPlannerCredentials): Promise<any> {
+        const token = await this._getServiceToken(credentials);
         const url = `https://graph.microsoft.com/v1.0/planner/plans/${planId}/buckets`;
 
         try {
@@ -225,8 +227,8 @@ export default class MsTaskService {
         }
     }
 
-    static async getCategories(planId: string): Promise<any> {
-        const token = await this._getServiceToken();
+    static async getCategories(planId: string, credentials?: MsPlannerCredentials): Promise<any> {
+        const token = await this._getServiceToken(credentials);
         const url = `https://graph.microsoft.com/v1.0/planner/plans/${planId}/details`;
 
         try {
@@ -248,8 +250,8 @@ export default class MsTaskService {
         }
     }
 
-    static async getUserByEmail(email: string): Promise<any> {
-        const token = await this._getServiceToken();
+    static async getUserByEmail(email: string, credentials?: MsPlannerCredentials): Promise<any> {
+        const token = await this._getServiceToken(credentials);
         const url = `https://graph.microsoft.com/v1.0/users/${email}`;
 
         try {
@@ -270,7 +272,7 @@ export default class MsTaskService {
         }
     }
 
-    static async getBoardDetails(planId: string, credentials): Promise<any> {
+    static async getBoardDetails(planId: string, credentials?: MsPlannerCredentials): Promise<any> {
         const token = await this._getServiceToken(credentials);
 
         try {
@@ -305,7 +307,7 @@ export default class MsTaskService {
 
             const detailsData = await detailsResponse.json();
 
-            const buckets = await this.getBuckets(planId);
+            const buckets = await this.getBuckets(planId, credentials);
 
             return {
                 ...planData,
@@ -319,8 +321,8 @@ export default class MsTaskService {
         }
     }
 
-    static async getAllUsers(): Promise<any> {
-        const token = await this._getServiceToken();
+    static async getAllUsers(credentials?: MsPlannerCredentials): Promise<any> {
+        const token = await this._getServiceToken(credentials);
         const url = `https://graph.microsoft.com/v1.0/users`;
 
         try {
@@ -353,9 +355,10 @@ export default class MsTaskService {
             startDateTime?: string | null;
             dueDateTime?: string | null;
             bucketId?: string | null;
-        }
+        },
+        credentials?: MsPlannerCredentials
     ): Promise<any> {
-        const token = await this._getServiceToken();
+        const token = await this._getServiceToken(credentials);
         const url = `https://graph.microsoft.com/v1.0/planner/tasks/${taskId}`;
 
         try {
@@ -390,8 +393,8 @@ export default class MsTaskService {
         }
     }
 
-    static async updateTaskDetails(taskId: string, description: string): Promise<any> {
-        const token = await this._getServiceToken();
+    static async updateTaskDetails(taskId: string, description: string, credentials?: MsPlannerCredentials): Promise<any> {
+        const token = await this._getServiceToken(credentials);
         const url = `https://graph.microsoft.com/v1.0/planner/tasks/${taskId}/details`;
 
         try {
@@ -484,9 +487,10 @@ export default class MsTaskService {
     static async updateTaskDetailsWithEtag(
         taskId: string,
         detailsEtag: string,
-        patch: { description?: string; checklist?: Record<string, any>; references?: Record<string, any> }
+        patch: { description?: string; checklist?: Record<string, any>; references?: Record<string, any> },
+        credentials?: MsPlannerCredentials
     ): Promise<any> {
-        const token = await this._getServiceToken();
+        const token = await this._getServiceToken(credentials);
         const url = `https://graph.microsoft.com/v1.0/planner/tasks/${taskId}/details`;
         try {
             let etag = detailsEtag;
@@ -532,9 +536,9 @@ export default class MsTaskService {
      * @param taskId - The ID of the task
      * @param checklistItems - Array of checklist items to add
      */
-    static async addChecklistItems(taskId: string, checklistItems: Array<{ title: string, isChecked: boolean }>): Promise<any> {
+    static async addChecklistItems(taskId: string, checklistItems: Array<{ title: string, isChecked: boolean }>, credentials?: MsPlannerCredentials): Promise<any> {
         try {
-            const token = await this._getServiceToken();
+            const token = await this._getServiceToken(credentials);
 
             console.log(`Adding ${checklistItems.length} checklist items to task: ${taskId}`);
 
@@ -634,9 +638,9 @@ export default class MsTaskService {
      * @param planId - The ID of the plan
      * @param bucketName - Name of the bucket to find
      */
-    static async getBucketByName(planId: string, bucketName: string): Promise<any> {
+    static async getBucketByName(planId: string, bucketName: string, credentials?: MsPlannerCredentials): Promise<any> {
         try {
-            const buckets = await this.getBuckets(planId);
+            const buckets = await this.getBuckets(planId, credentials);
             console.log(`Looking for bucket: "${bucketName}"`);
             console.log(`Available buckets: ${buckets.map((b: any) => `"${b.name}"`).join(', ')}`);
 
