@@ -13,12 +13,14 @@ import taskSelectors from 'src/modules/task/taskSelectors';
 import ButtonIcon from 'src/view/shared/ButtonIcon';
 import ConfirmModal from 'src/view/shared/modals/ConfirmModal';
 import Toolbar from 'src/view/shared/styles/Toolbar';
+import QuickCreateTaskWithDetail from 'src/view/task/form/QuickCreateTaskWithDetail';
 
 const TaskToolbar = (props) => {
   const [
     destroyAllConfirmVisible,
     setDestroyAllConfirmVisible,
   ] = useState(false);
+  const [quickCreateVisible, setQuickCreateVisible] = useState(false);
   const dispatch = useDispatch<AppDispatch>();
   const selectedKeys = useSelector(
     selectors.selectSelectedKeys,
@@ -136,13 +138,32 @@ const TaskToolbar = (props) => {
 
   return (
     <Toolbar>
+
       {hasPermissionToCreate && (
-        <Link to="/task/new">
-          <button className="btn btn-primary" type="button">
-            <ButtonIcon iconClass="fas fa-plus" />{' '}
-            {i18n('common.new')}
+        <>
+          <button
+            className="btn btn-primary"
+            type="button"
+            onClick={() => setQuickCreateVisible(true)}
+          >
+            <ButtonIcon iconClass="fas fa-bolt" />{' '}
+            {i18n('entities.task.quickCreate.title')}
           </button>
-        </Link>
+          <QuickCreateTaskWithDetail
+            visible={quickCreateVisible}
+            onClose={() => setQuickCreateVisible(false)}
+            onSuccess={() => {
+              setQuickCreateVisible(false);
+              dispatch(actions.doFetchCurrentFilter());
+            }}
+          />
+          <Link to="/task/new">
+            <button className="btn btn-primary" type="button">
+              <ButtonIcon iconClass="fas fa-plus" />{' '}
+              {i18n('common.new')}
+            </button>
+          </Link>
+        </>
       )}
 
       {hasPermissionToImport && (

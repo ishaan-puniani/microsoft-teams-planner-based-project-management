@@ -594,6 +594,13 @@ const en = {
         fileName: 'task_import_template',
         hint: 'Files/Images columns must be the URLs of the files separated by space.',
       },
+      quickCreate: {
+        title: 'Quick Create Tasks',
+        tasksLabel: 'Tasks (one block per task)',
+        hint: 'One block per task: first line is title, following lines are description. Separate blocks with a blank line.',
+        enterAtLeastOne: 'Enter at least one task (title on first line, description below).',
+        create: 'Create tasks',
+      },
     },
     status: {
       name: 'status',
