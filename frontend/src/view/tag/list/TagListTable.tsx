@@ -13,6 +13,7 @@ import Spinner from 'src/view/shared/Spinner';
 import TableWrapper from 'src/view/shared/styles/TableWrapper';
 import Pagination from 'src/view/shared/table/Pagination';
 import TableColumnHeader from 'src/view/shared/table/TableColumnHeader';
+import ProjectListItem from 'src/view/project/list/ProjectListItem';
 
 const TagListTable = (props) => {
   const [recordIdToDestroy, setRecordIdToDestroy] =
@@ -115,6 +116,13 @@ const TagListTable = (props) => {
                 onSort={doChangeSort}
                 hasRows={hasRows}
                 sorter={sorter}
+                name={'project'}
+                label={i18n('entities.tag.fields.project')}
+              />
+              <TableColumnHeader
+                onSort={doChangeSort}
+                hasRows={hasRows}
+                sorter={sorter}
                 name={'title'}
                 label={i18n('entities.tag.fields.title')}
               />
@@ -163,6 +171,13 @@ const TagListTable = (props) => {
                       </label>
                     </div>
                   </th>
+                  <td>
+                    {row.project?.id ? (
+                      <ProjectListItem value={row.project} />
+                    ) : (
+                      row.project ?? '—'
+                    )}
+                  </td>
                   <td>{row.title}</td>
 
                   <td className="td-actions">

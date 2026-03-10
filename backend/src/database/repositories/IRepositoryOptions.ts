@@ -5,4 +5,5 @@ export interface IRepositoryOptions {
   currentTenant?: any;
   session?: any;
   bypassPermissionValidation?: any;
+  projectId?: string | null;
 }

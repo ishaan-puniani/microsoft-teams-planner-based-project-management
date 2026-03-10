@@ -18,8 +18,11 @@ class TaskRepository {
       MongooseRepository.getCurrentTenant(options);
     const currentUser =
       MongooseRepository.getCurrentUser(options);
-    
-    data.key = await ProjectRepository.getNewCounter(data.project, options);
+
+    data.key = await ProjectRepository.getNewCounter(
+      data.project,
+      options,
+    );
 
     const [record] = await Task(options.database).create(
       [
@@ -104,8 +107,10 @@ class TaskRepository {
         updatedBy: currentUser.id,
       };
       if (item.title !== undefined) data.title = item.title;
-      if (item.storyPoints !== undefined) data.storyPoints = item.storyPoints;
-      if (item.estimatedTime !== undefined) data.estimatedTime = item.estimatedTime;
+      if (item.storyPoints !== undefined)
+        data.storyPoints = item.storyPoints;
+      if (item.estimatedTime !== undefined)
+        data.estimatedTime = item.estimatedTime;
 
       await Task(options.database).updateOne(
         { _id: item.id, tenant: currentTenant.id },
@@ -200,12 +205,19 @@ class TaskRepository {
   static async findById(id, options: IRepositoryOptions) {
     const currentTenant =
       MongooseRepository.getCurrentTenant(options);
+    const tenantCriteria = { tenant: currentTenant.id };
+    const isObjectId =
+      typeof id === 'string' && /^[a-fA-F0-9]{24}$/.test(id);
+    const orConditions: any[] = [{ key: id }];
+    if (isObjectId) {
+      orConditions.unshift({ _id: id });
+    }
     let record =
       await MongooseRepository.wrapWithSessionIfExists(
         Task(options.database)
           .findOne({
-            _id: id,
-            tenant: currentTenant.id,
+            $or: orConditions,
+            ...tenantCriteria,
           })
           .populate('project')
           .populate('template')
@@ -236,9 +248,17 @@ class TaskRepository {
 
     const currentTenant =
       MongooseRepository.getCurrentTenant(options);
-    criteriaAnd.push({
+    const defaultFilter: any = {
       tenant: currentTenant.id,
-    });
+    };
+
+    if (options.projectId) {
+      defaultFilter.project = MongooseQueryUtils.uuid(
+        options.projectId,
+      );
+    }
+
+    criteriaAnd.push(defaultFilter);
 
     if (filter) {
       if (filter.id) {
@@ -274,7 +294,9 @@ class TaskRepository {
       }
 
       if (filter.parents != null && filter.parents !== '') {
-        const parentId = MongooseQueryUtils.uuid(filter.parents);
+        const parentId = MongooseQueryUtils.uuid(
+          filter.parents,
+        );
         if (parentId) {
           criteriaAnd.push({ parents: parentId });
         }
@@ -289,6 +311,27 @@ class TaskRepository {
             $options: 'i',
           },
         });
+      }
+
+      if (filter.status) {
+        criteriaAnd.push({
+          status: filter.status,
+        });
+      }
+
+      if (
+        filter.tags != null &&
+        Array.isArray(filter.tags) &&
+        filter.tags.length > 0
+      ) {
+        const tagIds = filter.tags
+          .map((id) => MongooseQueryUtils.uuid(id))
+          .filter(Boolean);
+        if (tagIds.length > 0) {
+          criteriaAnd.push({
+            tags: { $in: tagIds },
+          });
+        }
       }
 
       if (filter.leadBy) {
@@ -554,7 +597,9 @@ class TaskRepository {
     for (const row of rows) {
       const et = row.estimatedTime;
       if (!et || typeof et !== 'object') continue;
-      for (const [dbKey, outKey] of Object.entries(keyMap)) {
+      for (const [dbKey, outKey] of Object.entries(
+        keyMap,
+      )) {
         const v = et[dbKey];
         if (typeof v === 'number' && !Number.isNaN(v)) {
           totals[outKey] += v;

@@ -32,6 +32,32 @@ const TaskView = (props) => {
       />
 
       <TextViewItem
+        label={i18n('entities.task.fields.status')}
+        value={
+          record.status
+            ? i18n(`entities.task.enumerators.status.${record.status}`)
+            : null
+        }
+      />
+
+      {record.tags && record.tags.length > 0 && (
+        <div style={{ marginBottom: '16px' }}>
+          <label className="col-form-label">
+            {i18n('entities.task.fields.tags')}
+          </label>
+          <div className="form-control-plaintext">
+            {record.tags
+              .map((t) =>
+                typeof t === 'object' && t != null
+                  ? t.title || t.label || t.id
+                  : t,
+              )
+              .join(', ')}
+          </div>
+        </div>
+      )}
+
+      <TextViewItem
         label={i18n('entities.task.fields.description')}
         value={record.description}
       />

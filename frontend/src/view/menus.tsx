@@ -100,10 +100,10 @@ export default [
   //   icon: 'fas fa-chevron-right',
   //   label: i18n('entities.status.menu'),
   // },
-  // {
-  //   path: '/tag',
-  //   permissionRequired: permissions.tagRead,
-  //   icon: 'fas fa-chevron-right',
-  //   label: i18n('entities.tag.menu'),
-  // },
+  {
+    path: '/tag',
+    permissionRequired: permissions.tagRead,
+    icon: 'fas fa-chevron-right',
+    label: i18n('entities.tag.menu'),
+  },
 ].filter(Boolean);

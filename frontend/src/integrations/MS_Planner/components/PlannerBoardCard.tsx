@@ -38,7 +38,7 @@ interface ReactTrelloCardProps {
 }
 
 export function DefaultBoardCard(props: ReactTrelloCardProps) {
-  const { id, title, label, onClick } = props;
+  const { title, label, onClick } = props;
   return (
     <div
       className="card border shadow-sm default-board-card"

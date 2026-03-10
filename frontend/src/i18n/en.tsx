@@ -566,8 +566,19 @@ const en = {
         updatedAt: 'Updated at',
         updatedAtRange: 'Updated at',
         createdAtRange: 'Created at',
+        status: 'Status',
+        tags: 'Tags',
       },
-      enumerators: {},
+      enumerators: {
+        status: {
+          OPEN: 'Open',
+          PLANNED: 'Planned',
+          IN_PROGRESS: 'In Progress',
+          DONE: 'Done',
+          INVALID: 'Invalid',
+          FUTURE: 'Future',
+        },
+      },
       placeholders: {},
       hints: {
         template: 'Select a template to pre-populate task fields and workflow',
@@ -657,6 +668,7 @@ const en = {
       },
       fields: {
         id: 'Id',
+        project: 'Project',
         title: 'Title',
         createdAt: 'Created at',
         updatedAt: 'Updated at',

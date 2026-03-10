@@ -7,6 +7,7 @@ import authSelectors from 'src/modules/auth/authSelectors';
 import layoutActions from 'src/modules/layout/layoutActions';
 import { AppDispatch, getHistory } from 'src/modules/store';
 import I18nSelect from 'src/view/layout/I18nSelect';
+import ProjectSelect from 'src/view/layout/ProjectSelect';
 import HeaderWrapper from 'src/view/layout/styles/HeaderWrapper';
 import Avatar from 'src/view/shared/Avatar';
 
@@ -67,8 +68,11 @@ function Header(props) {
       >
         <i className="fas fa-bars" />
       </button>
-
+      <span className="i18n-select">
+          <ProjectSelect />
+        </span>
       <div>
+      
         <span className="i18n-select">
           <I18nSelect />
         </span>

@@ -6,6 +6,7 @@ const layoutActions = {
   MENU_TOGGLE: `${prefix}_MENU_TOGGLE`,
   MENU_HIDE: `${prefix}_MENU_HIDE`,
   MENU_SHOW: `${prefix}_MENU_SHOW`,
+  SELECT_PROJECT: `${prefix}_SELECT_PROJECT`,
 
   doChangeLanguage: (language) => {
     setLanguageCode(language);
@@ -32,6 +33,13 @@ const layoutActions = {
   doHideMenu: () => {
     return {
       type: layoutActions.MENU_HIDE,
+    };
+  },
+
+  doSelectProject: (project) => {
+    return {
+      type: layoutActions.SELECT_PROJECT,
+      payload: project,
     };
   },
 };

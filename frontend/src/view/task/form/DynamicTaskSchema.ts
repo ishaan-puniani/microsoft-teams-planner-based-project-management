@@ -68,6 +68,14 @@ export const baseTaskSchema = yup.object().shape({
     {},
   ),
   templateData: yup.object().shape({}), // Dynamic template data object
+  status: yupFormSchemas.string(
+    i18n('entities.task.fields.status'),
+    {},
+  ),
+  tags: yupFormSchemas.relationToMany(
+    i18n('entities.task.fields.tags'),
+    {},
+  ),
 });
 
 // Function to create dynamic schema by extending base schema with template fields

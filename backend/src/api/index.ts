@@ -4,6 +4,7 @@ import path from 'path';
 import express from 'express';
 import cors from 'cors';
 import { authMiddleware } from '../middlewares/authMiddleware';
+import { projectMiddleware } from '../middlewares/projectMiddleware';
 import { tenantMiddleware } from '../middlewares/tenantMiddleware';
 import { databaseMiddleware } from '../middlewares/databaseMiddleware';
 import bodyParser from 'body-parser';
@@ -37,6 +38,8 @@ import aiAgentRoutes from './aiAgent';
 
 const app = express();
 
+app.set('trust proxy', 1);  // or true / number of proxies
+
 // Use qs so array params like ids[]=1&ids[]=2 become req.query.ids = ['1','2']
 app.set('query parser', (str) =>
   qs.parse(str, { arrayLimit: 1000 }),
@@ -54,6 +57,9 @@ app.use(languageMiddleware);
 // Configures the authentication middleware
 // to set the currentUser to the requests
 app.use(authMiddleware);
+
+// Sets req.projectId from header (or cookie) for task list default filter
+app.use(projectMiddleware);
 
 // Setup the Documentation
 // setupSwaggerUI(app);

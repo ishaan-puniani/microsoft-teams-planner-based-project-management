@@ -13,6 +13,10 @@ export default (database) => {
 
   const TagSchema = new Schema(
     {
+      project: {
+        type: Schema.Types.ObjectId,
+        ref: 'project',
+      },
       title: {
         type: String,
       },

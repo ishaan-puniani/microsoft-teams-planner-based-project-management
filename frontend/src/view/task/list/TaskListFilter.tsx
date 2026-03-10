@@ -12,7 +12,9 @@ import ButtonIcon from 'src/view/shared/ButtonIcon';
 import FilterPreview from 'src/view/shared/filter/FilterPreview';
 import DatePickerRangeFormItem from 'src/view/shared/form/items/DatePickerRangeFormItem';
 import InputFormItem from 'src/view/shared/form/items/InputFormItem';
+import SelectFormItem from 'src/view/shared/form/items/SelectFormItem';
 import FilterWrapper from 'src/view/shared/styles/FilterWrapper';
+import TagAutocompleteFormItem from 'src/view/tag/autocomplete/TagAutocompleteFormItem';
 import * as yup from 'yup';
 
 const schema = yup.object().shape({
@@ -24,6 +26,12 @@ const schema = yup.object().shape({
   ),
   description: yupFilterSchemas.string(
     i18n('entities.task.fields.description'),
+  ),
+  status: yupFilterSchemas.enumerator(
+    i18n('entities.task.fields.status'),
+  ),
+  tags: yupFilterSchemas.relationToMany(
+    i18n('entities.task.fields.tags'),
   ),
   leadBy: yupFilterSchemas.relationToOne(
     i18n('entities.task.fields.leadBy'),
@@ -49,6 +57,8 @@ const emptyValues = {
   type: null,
   title: null,
   description: null,
+  status: null,
+  tags: [],
   leadBy: null,
   reviewedBy: null,
   estimatedStartRange: [],
@@ -69,6 +79,14 @@ const previewRenders = {
   description: {
     label: i18n('entities.task.fields.description'),
     render: filterRenders.generic(),
+  },
+  status: {
+    label: i18n('entities.task.fields.status'),
+    render: filterRenders.enumerator('entities.task.enumerators.status'),
+  },
+  tags: {
+    label: i18n('entities.task.fields.tags'),
+    render: filterRenders.relationToMany(),
   },
   estimatedStartRange: {
     label: i18n('entities.task.fields.estimatedStartRange'),
@@ -177,8 +195,28 @@ const TaskListFilter = (props) => {
                     )}
                   />
                 </div>
-                <div className="col-lg-6 col-12"></div>
-                <div className="col-lg-6 col-12"></div>
+                <div className="col-lg-6 col-12">
+                  <SelectFormItem
+                    name="status"
+                    label={i18n('entities.task.fields.status')}
+                    options={[
+                      { value: 'OPEN', label: i18n('entities.task.enumerators.status.OPEN') },
+                      { value: 'PLANNED', label: i18n('entities.task.enumerators.status.PLANNED') },
+                      { value: 'IN_PROGRESS', label: i18n('entities.task.enumerators.status.IN_PROGRESS') },
+                      { value: 'DONE', label: i18n('entities.task.enumerators.status.DONE') },
+                      { value: 'INVALID', label: i18n('entities.task.enumerators.status.INVALID') },
+                      { value: 'FUTURE', label: i18n('entities.task.enumerators.status.FUTURE') },
+                    ]}
+                  />
+                </div>
+                <div className="col-lg-6 col-12">
+                  <TagAutocompleteFormItem
+                    name="tags"
+                    label={i18n('entities.task.fields.tags')}
+                    mode="multiple"
+                    showCreate={false}
+                  />
+                </div>
                 <div className="col-lg-6 col-12">
                   <DatePickerRangeFormItem
                     name="estimatedStartRange"

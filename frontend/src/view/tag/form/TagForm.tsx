@@ -6,11 +6,16 @@ import yupFormSchemas from 'src/modules/shared/yup/yupFormSchemas';
 import ButtonIcon from 'src/view/shared/ButtonIcon';
 import InputFormItem from 'src/view/shared/form/items/InputFormItem';
 import FormWrapper from 'src/view/shared/styles/FormWrapper';
+import ProjectAutocompleteFormItem from 'src/view/project/autocomplete/ProjectAutocompleteFormItem';
 import * as yup from 'yup';
 
 const schema = yup.object().shape({
+  project: yupFormSchemas.relationToOne(
+    i18n('entities.tag.fields.project'),
+    {},
+  ),
   title: yupFormSchemas.string(
-    i18n('entities.title.fields.title'),
+    i18n('entities.tag.fields.title'),
     {},
   ),
 });
@@ -20,6 +25,7 @@ const TagForm = (props) => {
     const record = props.record || {};
 
     return {
+      project: record.project,
       title: record.title,
     };
   });
@@ -45,6 +51,13 @@ const TagForm = (props) => {
       <FormProvider {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
           <div className="row">
+            <div className="col-lg-7 col-md-8 col-12">
+              <ProjectAutocompleteFormItem
+                name="project"
+                label={i18n('entities.tag.fields.project')}
+                showCreate={!props.modal}
+              />
+            </div>
             <div className="col-lg-7 col-md-8 col-12">
               <InputFormItem
                 name="title"

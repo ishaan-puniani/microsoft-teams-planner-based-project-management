@@ -92,6 +92,18 @@ export default (database) => {
           ref: 'task',
         },
       ],
+
+      tags: [
+        {
+          type: Schema.Types.ObjectId,
+          ref: 'tag',
+        },
+      ],
+
+      status: {
+        type: String // OPEN | PLANNED | IN_PROGRESS | DONE | INVALID | FUTURE
+      },
+
       msPlannerTaskId: {
         type: String,
       },

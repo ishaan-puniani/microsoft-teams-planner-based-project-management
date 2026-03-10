@@ -17,11 +17,17 @@ const selectLanguage = createSelector(
   (layout) => layout.language,
 );
 
+const selectSelectedProject = createSelector(
+  [selectRaw],
+  (layout) => layout.selectedProject,
+);
+
 const layoutSelectors = {
   selectRaw,
   selectMenuVisible,
   selectLoading,
   selectLanguage,
+  selectSelectedProject,
 };
 
 export default layoutSelectors;

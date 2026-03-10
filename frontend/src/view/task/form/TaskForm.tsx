@@ -16,6 +16,8 @@ import { baseTaskSchema } from './DynamicTaskSchema';
 import { useDynamicTaskForm } from './useDynamicTaskForm';
 import ProjectAutocompleteFormItem from 'src/view/project/autocomplete/ProjectAutocompleteFormItem';
 import TaskAutocompleteFormItem from 'src/view/task/autocomplete/TaskAutocompleteFormItem';
+import TagAutocompleteFormItem from 'src/view/tag/autocomplete/TagAutocompleteFormItem';
+import SelectFormItem from 'src/view/shared/form/items/SelectFormItem';
 
 function normalizeParentsForForm(parents) {
   if (!parents || !Array.isArray(parents)) return [];
@@ -23,6 +25,15 @@ function normalizeParentsForForm(parents) {
     typeof p === 'object' && p != null && (p.id != null || p._id != null)
       ? { id: p.id ?? p._id, label: p.title ?? p.key ?? p.id ?? p._id }
       : { id: p, label: String(p) },
+  );
+}
+
+function normalizeTagsForForm(tags) {
+  if (!tags || !Array.isArray(tags)) return [];
+  return tags.map((t) =>
+    typeof t === 'object' && t != null && (t.id != null || t._id != null)
+      ? { id: t.id ?? t._id, label: t.title ?? t.label ?? t.id ?? t._id }
+      : { id: t, label: String(t) },
   );
 }
 
@@ -53,6 +64,8 @@ const TaskForm = (props) => {
         : null,
       template: record.template,
       templateData: record.templateData || {}, // Initialize templateData object
+      status: record.status ?? '',
+      tags: normalizeTagsForForm(record.tags),
     };
   });
 
@@ -103,6 +116,7 @@ const TaskForm = (props) => {
     
     const submitValues = { ...values };
     submitValues.parents = (values.parents || []).map((p) => (p?.id != null ? p.id : p)).filter(Boolean);
+    submitValues.tags = (values.tags || []).map((t) => (t?.id != null ? t.id : t)).filter(Boolean);
     props.onSubmit(props?.record?.id, submitValues);
   };
 
@@ -129,6 +143,20 @@ const TaskForm = (props) => {
               <InputFormItem
                 name="title"
                 label={i18n('entities.task.fields.title')}
+              />
+            </div>
+            <div className="col-lg-7 col-md-8 col-12">
+              <SelectFormItem
+                name="status"
+                label={i18n('entities.task.fields.status')}
+                options={[
+                  { value: 'OPEN', label: i18n('entities.task.enumerators.status.OPEN') },
+                  { value: 'PLANNED', label: i18n('entities.task.enumerators.status.PLANNED') },
+                  { value: 'IN_PROGRESS', label: i18n('entities.task.enumerators.status.IN_PROGRESS') },
+                  { value: 'DONE', label: i18n('entities.task.enumerators.status.DONE') },
+                  { value: 'INVALID', label: i18n('entities.task.enumerators.status.INVALID') },
+                  { value: 'FUTURE', label: i18n('entities.task.enumerators.status.FUTURE') },
+                ]}
               />
             </div>
             <div className="col-lg-7 col-md-8 col-12">
@@ -170,6 +198,14 @@ const TaskForm = (props) => {
               <TaskAutocompleteFormItem
                 name="parents"
                 label={i18n('entities.task.fields.parents')}
+                mode="multiple"
+                showCreate={!props.modal}
+              />
+            </div>
+            <div className="col-lg-7 col-md-8 col-12">
+              <TagAutocompleteFormItem
+                name="tags"
+                label={i18n('entities.task.fields.tags')}
                 mode="multiple"
                 showCreate={!props.modal}
               />
