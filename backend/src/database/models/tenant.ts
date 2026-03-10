@@ -21,6 +21,22 @@ export default (database) => {
         maxlength: 255,
       },
       url: { type: String, maxlength: 1024 },
+      // msPlanner: {
+      //   MS_TENANT_ID: {
+      //     type: String
+      //   },
+      //   MS_CLIENT_ID: {
+      //     type: String
+      //   },
+      //   MS_CLIENT_SECRET: {
+      //     type: String
+      //   },
+      //   MS_SCOPE: {
+      //     type: String
+      //   },
+      // },
+      /** Encrypted msPlanner config; decrypted when loading tenant. */
+      msPlannerEncrypted: { type: String },
       plan: {
         type: String,
         required: true,

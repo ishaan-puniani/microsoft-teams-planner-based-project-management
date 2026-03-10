@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import config from 'src/config';
 import { i18n } from 'src/i18n';
@@ -11,6 +12,21 @@ import Avatar from 'src/view/shared/Avatar';
 
 function Header(props) {
   const dispatch = useDispatch<AppDispatch>();
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const doToggleMenu = () => {
     dispatch(layoutActions.doToggleMenu());
@@ -57,10 +73,21 @@ function Header(props) {
           <I18nSelect />
         </span>
 
-        <div className="dropdown">
+        <div
+          ref={dropdownRef}
+          className={`dropdown ${dropdownOpen ? 'show' : ''}`}
+        >
           <span
-            className="user-dropdown"
-            data-toggle="dropdown"
+            role="button"
+            tabIndex={0}
+            className={`user-dropdown ${dropdownOpen ? 'dropdown-menu-show' : ''}`}
+            onClick={() => setDropdownOpen(!dropdownOpen)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                setDropdownOpen((v) => !v);
+              }
+            }}
           >
             <div className="user-dropdown-content">
               <span className="user-dropdown-avatar">
@@ -82,9 +109,14 @@ function Header(props) {
               </span>
             </div>
           </span>
-          <div className="dropdown-menu dropdown-menu-right">
+          <div
+            className={`dropdown-menu dropdown-menu-right ${dropdownOpen ? 'show' : ''}`}
+          >
             <button
-              onClick={doNavigateToProfile}
+              onClick={() => {
+                setDropdownOpen(false);
+                doNavigateToProfile();
+              }}
               className="dropdown-item"
               type="button"
             >
@@ -92,7 +124,10 @@ function Header(props) {
               {i18n('auth.profile.title')}
             </button>
             <button
-              onClick={doNavigateToPasswordChange}
+              onClick={() => {
+                setDropdownOpen(false);
+                doNavigateToPasswordChange();
+              }}
               className="dropdown-item"
               type="button"
             >
@@ -103,7 +138,10 @@ function Header(props) {
               config.tenantMode,
             ) && (
               <button
-                onClick={doNavigateToTenants}
+                onClick={() => {
+                  setDropdownOpen(false);
+                  doNavigateToTenants();
+                }}
                 className="dropdown-item"
                 type="button"
               >
@@ -121,6 +159,7 @@ function Header(props) {
                 <button
                   className="dropdown-item"
                   type="button"
+                  onClick={() => setDropdownOpen(false)}
                 >
                   <i className="fas fa-code" />{' '}
                   {i18n('api.menu')}
@@ -128,7 +167,10 @@ function Header(props) {
               </a>
             )}
             <button
-              onClick={doSignout}
+              onClick={() => {
+                setDropdownOpen(false);
+                doSignout();
+              }}
               className="dropdown-item"
               type="button"
             >

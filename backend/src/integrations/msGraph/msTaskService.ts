@@ -2,11 +2,16 @@ import { getConfig } from "../../config";
 
 export default class MsTaskService {
 
-    static async _getServiceToken(): Promise<string> {
-        const tenantId = getConfig().MS_TENANT_ID;
-        const clientId = getConfig().MS_CLIENT_ID;
-        const clientSecret = getConfig().MS_CLIENT_SECRET;
-        const scope = getConfig().MS_SCOPE;
+    static async _getServiceToken(credentials?: {
+        MS_TENANT_ID?: string;
+        MS_CLIENT_ID?: string;
+        MS_CLIENT_SECRET?: string;
+        MS_SCOPE?: string;
+    }): Promise<string> {
+        const tenantId = credentials?.MS_TENANT_ID || getConfig().MS_TENANT_ID;
+        const clientId = credentials?.MS_CLIENT_ID || getConfig().MS_CLIENT_ID;
+        const clientSecret = credentials?.MS_CLIENT_SECRET || getConfig().MS_CLIENT_SECRET;
+        const scope = credentials?.MS_SCOPE || getConfig().MS_SCOPE;
 
         const tokenUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`;
 
@@ -265,8 +270,8 @@ export default class MsTaskService {
         }
     }
 
-    static async getBoardDetails(planId: string): Promise<any> {
-        const token = await this._getServiceToken();
+    static async getBoardDetails(planId: string, credentials): Promise<any> {
+        const token = await this._getServiceToken(credentials);
 
         try {
             // Get plan details first

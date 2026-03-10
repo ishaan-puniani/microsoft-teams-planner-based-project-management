@@ -767,6 +767,13 @@ const en = {
       tenantId: 'Workspace',
       tenantUrl: 'Workspace URL',
       plan: 'Plan',
+      msPlanner: {
+        title: 'Microsoft Planner',
+        tenantId: 'Azure AD Tenant ID',
+        clientId: 'Application (client) ID',
+        clientSecret: 'Client secret',
+        scope: 'Scope',
+      },
     },
     enumerators: {},
     placeholders: {},

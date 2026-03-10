@@ -10,6 +10,25 @@ import InputFormItem from 'src/view/shared/form/items/InputFormItem';
 import FormWrapper from 'src/view/shared/styles/FormWrapper';
 import * as yup from 'yup';
 
+const msPlannerSchema = yup.object().shape({
+  MS_TENANT_ID: yupFormSchemas.string(
+    i18n('tenant.fields.msPlanner.tenantId'),
+    { max: 255 },
+  ),
+  MS_CLIENT_ID: yupFormSchemas.string(
+    i18n('tenant.fields.msPlanner.clientId'),
+    { max: 255 },
+  ),
+  MS_CLIENT_SECRET: yupFormSchemas.string(
+    i18n('tenant.fields.msPlanner.clientSecret'),
+    { max: 255 },
+  ),
+  MS_SCOPE: yupFormSchemas.string(
+    i18n('tenant.fields.msPlanner.scope'),
+    { max: 512 },
+  ),
+});
+
 const schemaWithUrl = yup.object().shape({
   name: yupFormSchemas.string(
     i18n('tenant.fields.tenantName'),
@@ -27,6 +46,7 @@ const schemaWithUrl = yup.object().shape({
       /^[a-z0-9][-a-zA-Z0-9]*$/,
       i18n('tenant.validation.url'),
     ),
+  msPlanner: msPlannerSchema,
 });
 
 const schemaWithoutUrl = yup.object().shape({
@@ -37,6 +57,7 @@ const schemaWithoutUrl = yup.object().shape({
       max: 50,
     },
   ),
+  msPlanner: msPlannerSchema,
 });
 
 const schema = tenantSubdomain.isEnabled
@@ -44,9 +65,22 @@ const schema = tenantSubdomain.isEnabled
   : schemaWithoutUrl;
 
 function TenantForm(props) {
-  const [initialValues] = useState(
-    () => props.record || { name: '' },
-  );
+  const defaultMsPlanner = {
+    MS_TENANT_ID: '',
+    MS_CLIENT_ID: '',
+    MS_CLIENT_SECRET: '',
+    MS_SCOPE: '',
+  };
+  const [initialValues] = useState(() => {
+    const base = props.record || { name: '' };
+    return {
+      ...base,
+      msPlanner: {
+        ...defaultMsPlanner,
+        ...(base.msPlanner || {}),
+      },
+    };
+  });
 
   const form = useForm({
     resolver: yupResolver(schema as yup.AnyObjectSchema),
@@ -58,6 +92,8 @@ function TenantForm(props) {
     const { ...data } = values;
     props.onSubmit(props.record?.id, data);
   };
+
+  const msPlannerSectionTitle = i18n('tenant.fields.msPlanner.title');
 
   const onReset = () => {
     Object.keys(initialValues).forEach((key) => {
@@ -88,6 +124,41 @@ function TenantForm(props) {
                 />
               </div>
             )}
+
+            <div className="col-12">
+              <h5 className="mb-3 mt-2">{msPlannerSectionTitle}</h5>
+            </div>
+
+            {props.record?.msPlannerEncrypted?.length>10 && <div className="col-12">Already saved MS Planner Config with encrypted <button>Change</button></div>}
+
+            <div className="col-lg-7 col-md-8 col-12">
+              <InputFormItem
+                name="msPlanner.MS_TENANT_ID"
+                label={i18n('tenant.fields.msPlanner.tenantId')}
+                type="text"
+              />
+            </div>
+            <div className="col-lg-7 col-md-8 col-12">
+              <InputFormItem
+                name="msPlanner.MS_CLIENT_ID"
+                label={i18n('tenant.fields.msPlanner.clientId')}
+                type="text"
+              />
+            </div>
+            <div className="col-lg-7 col-md-8 col-12">
+              <InputFormItem
+                name="msPlanner.MS_CLIENT_SECRET"
+                label={i18n('tenant.fields.msPlanner.clientSecret')}
+                type="password"
+              />
+            </div>
+            <div className="col-lg-7 col-md-8 col-12">
+              <InputFormItem
+                name="msPlanner.MS_SCOPE"
+                label={i18n('tenant.fields.msPlanner.scope')}
+                type="text"
+              />
+            </div>
           </div>
 
           <div className="form-buttons">

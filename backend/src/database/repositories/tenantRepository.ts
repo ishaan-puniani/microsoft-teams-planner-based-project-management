@@ -11,8 +11,34 @@ import { v4 as uuid } from 'uuid';
 import { isUserInTenant } from '../utils/userTenantUtils';
 import SettingsRepository from './settingsRepository';
 import { IRepositoryOptions } from './IRepositoryOptions';
+import { encrypt, decrypt } from '../../utils/encryption';
 
 const forbiddenTenantUrls = ['www'];
+
+function prepareMsPlannerForSave(data: any): void {
+  if (data.msPlanner != null && typeof data.msPlanner === 'object') {
+    try {
+      data.msPlannerEncrypted = encrypt(JSON.stringify(data.msPlanner));
+    } catch (e) {
+      // If encryption is not configured, skip storing
+      delete data.msPlannerEncrypted;
+    }
+    delete data.msPlanner;
+  }
+}
+
+function attachDecryptedMsPlanner(output: any): void {
+  if (!output) return;
+  if (output.msPlannerEncrypted) {
+    try {
+      output.msPlanner = JSON.parse(decrypt(output.msPlannerEncrypted));
+    } catch (e) {
+      output.msPlanner = undefined;
+    }
+    delete output.msPlannerEncrypted;
+  }
+  // If only plain msPlanner exists (legacy), leave it; next save will encrypt it
+}
 
 class TenantRepository {
   static async create(data, options: IRepositoryOptions) {
@@ -38,6 +64,7 @@ class TenantRepository {
       );
     }
 
+    prepareMsPlannerForSave(data);
     const [record] = await Tenant(options.database).create(
       [
         {
@@ -108,13 +135,19 @@ class TenantRepository {
     delete data.planUserId;
     delete data.planStatus;
 
+    prepareMsPlannerForSave(data);
+
+    const updatePayload: any = {
+      ...data,
+      updatedBy:
+        MongooseRepository.getCurrentUser(options).id,
+    };
+    if (data.msPlannerEncrypted != null) {
+      updatePayload.$unset = { msPlanner: 1 };
+    }
     await Tenant(options.database).updateOne(
       { _id: id },
-      {
-        ...data,
-        updatedBy:
-          MongooseRepository.getCurrentUser(options).id,
-      },
+      updatePayload,
       options,
     );
 
@@ -266,6 +299,7 @@ class TenantRepository {
       ? record.toObject()
       : record;
 
+    // attachDecryptedMsPlanner(output);
     output.settings = await SettingsRepository.find({
       currentTenant: record,
       ...options,
@@ -289,6 +323,7 @@ class TenantRepository {
       ? record.toObject()
       : record;
 
+    attachDecryptedMsPlanner(output);
     output.settings = await SettingsRepository.find({
       currentTenant: record,
       ...options,
@@ -298,7 +333,14 @@ class TenantRepository {
   }
 
   static async findDefault(options: IRepositoryOptions) {
-    return Tenant(options.database).findOne();
+    const record = await MongooseRepository.wrapWithSessionIfExists(
+      Tenant(options.database).findOne(),
+      options,
+    );
+    if (!record) return record;
+    const output = record.toObject ? record.toObject() : record;
+    attachDecryptedMsPlanner(output);
+    return output;
   }
 
   static async findAndCountAll(
@@ -389,7 +431,13 @@ class TenantRepository {
       options.database,
     ).countDocuments(criteria);
 
-    return { rows, count };
+    const outputRows = rows.map((r) => {
+      const out = r.toObject ? r.toObject() : r;
+      // attachDecryptedMsPlanner(out);
+      return out;
+    });
+
+    return { rows: outputRows, count };
   }
 
   static async findAllAutocomplete(
