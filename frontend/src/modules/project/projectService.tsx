@@ -113,4 +113,16 @@ export default class ProjectService {
 
     return response.data;
   }
+
+  /**
+   * Sync tasks from Microsoft Planner into this project.
+   * Returns { synced, totalFromPlanner }.
+   */
+  static async syncTasksFromMsPlanner(projectId) {
+    const tenantId = AuthCurrentTenant.get();
+    const response = await authAxios.get(
+      `/tenant/${tenantId}/sync-ms-project/${projectId}`,
+    );
+    return response.data;
+  }
 }

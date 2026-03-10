@@ -31,6 +31,11 @@ export default (database) => {
       description: {
         type: String,
       },
+      categories: [
+        {
+          type: String,
+        },
+      ],
       acceptanceCriteria: {
         type: String,
       },
@@ -45,7 +50,11 @@ export default (database) => {
       },
 
       attachment: [FileSchema],
-
+      assignedTo: [
+        {
+          type: String,
+        },
+      ],
       leadBy: {
         type: Schema.Types.ObjectId,
         ref: 'user',
@@ -101,9 +110,11 @@ export default (database) => {
       ],
 
       status: {
-        type: String // OPEN | PLANNED | IN_PROGRESS | DONE | INVALID | FUTURE
+        type: String, // OPEN | PLANNED | IN_PROGRESS | DONE | INVALID | FUTURE
       },
-
+      bucket:{
+        type: String,
+      },
       msPlannerTaskId: {
         type: String,
       },

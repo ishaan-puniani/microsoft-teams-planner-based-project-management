@@ -256,6 +256,28 @@ export default class MsTaskService {
         }
     }
 
+    static async getUserById(userId: string, credentials?: MsPlannerCredentials): Promise<any> {
+        const token = await this._getServiceToken(credentials);
+        const url = `https://graph.microsoft.com/v1.0/users/${userId}`;
+
+        try {
+            const response = await fetch(url, {
+                method: "GET",
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to fetch user ${userId}: ${response.status} ${response.statusText}`);
+            }
+
+            return await response.json();
+        } catch (error: any) {
+            throw new Error(`Failed to get user ${userId}: ${error.message}`);
+        }
+    }
+
     static async getUserByEmail(email: string, credentials?: MsPlannerCredentials): Promise<any> {
         const token = await this._getServiceToken(credentials);
         const url = `https://graph.microsoft.com/v1.0/users/${email}`;

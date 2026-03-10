@@ -8,6 +8,7 @@ import projectAutocomplete from './projectAutocomplete';
 import projectCount from './projectCount';
 import projectList from './projectList';
 import projectFind from './projectFind';
+import syncTasksFromMsPlanner from './syncTasksFromMsPlanner';
 
 export default (app) => {
   app.post(
@@ -41,6 +42,11 @@ export default (app) => {
   app.get(
     `/tenant/:tenantId/project/:id`,
     projectFind,
+  );
+
+  app.get(
+    `/tenant/:tenantId/sync-ms-project/:projectId`,
+    syncTasksFromMsPlanner,
   );
 };
 /// File is generated from https://studio.fabbuilder.com - project

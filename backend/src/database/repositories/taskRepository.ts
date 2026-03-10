@@ -129,6 +129,85 @@ class TaskRepository {
     return updates.length;
   }
 
+  /**
+   * Bulk insert tasks from MS Planner sync, skipping any task whose
+   * msPlannerTaskId is already referred to by an existing task in the tenant.
+   */
+  static async insertBulkTasksIgnoreAlreadyReferredByMsPlannerTaskId(
+    projectId,
+    tasksData: Array<{
+      msPlannerTaskId: string;
+      title: string;
+      categories: string[];
+      description?: string;
+      estimatedStart?: Date;
+      estimatedEnd?: Date;
+      assignedTo?: string[];
+      status?: string;
+      bucket?: string;
+    }>,
+    options: IRepositoryOptions,
+  ): Promise<number> {
+    if (!tasksData || tasksData.length === 0) {
+      return 0;
+    }
+
+    const currentTenant =
+      MongooseRepository.getCurrentTenant(options);
+    const currentUser =
+      MongooseRepository.getCurrentUser(options);
+
+    const msPlannerTaskIds = tasksData.map((t) => t.msPlannerTaskId);
+    const existingMsPlannerTaskIds = await MongooseRepository.wrapWithSessionIfExists(
+      Task(options.database)
+        .find({
+          msPlannerTaskId: { $in: msPlannerTaskIds },
+          tenant: currentTenant.id,
+        })
+        .distinct('msPlannerTaskId'),
+      options,
+    );
+    const existingSet = new Set(
+      (existingMsPlannerTaskIds || []).map(String),
+    );
+    const toInsert = tasksData.filter((t) => !existingSet.has(t.msPlannerTaskId));
+    if (toInsert.length === 0) {
+      return 0;
+    }
+
+    const docs: any[] = [];
+    for (const item of toInsert) {
+      const key = await ProjectRepository.getNewCounter(
+        projectId,
+        options,
+      );
+      docs.push({
+        project: projectId,
+        key,
+        title: item.title,
+        categories: item.categories || [],
+        msPlannerTaskId: item.msPlannerTaskId,
+        status: item.status ?? 'OPEN',
+        tenant: currentTenant.id,
+        createdBy: currentUser.id,
+        updatedBy: currentUser.id,
+        ...(item.description != null && { description: item.description }),
+        ...(item.estimatedStart != null && {
+          estimatedStart: item.estimatedStart,
+        }),
+        ...(item.estimatedEnd != null && {
+          estimatedEnd: item.estimatedEnd,
+        }),
+        ...(item.assignedTo != null &&
+          item.assignedTo.length > 0 && { assignedTo: item.assignedTo }),
+        ...(item.bucket != null && item.bucket !== '' && { bucket: item.bucket }),
+      });
+    }
+
+    await Task(options.database).insertMany(docs, options);
+    return toInsert.length;
+  }
+
   static async destroy(id, options: IRepositoryOptions) {
     const currentTenant =
       MongooseRepository.getCurrentTenant(options);
