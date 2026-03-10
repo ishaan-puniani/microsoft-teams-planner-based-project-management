@@ -32,7 +32,9 @@ export default async (req, res, next) => {
       let created = 0;
 
       for (const task of tasks) {
-        if (!task || typeof task !== 'object' || !task.template) continue;
+        if (!task || typeof task !== 'object') continue;
+        // Support both template-based bulk create and simple bulk create (type, title, description only)
+        const hasTemplate = task.template != null && task.template !== '';
 
         let parents = [];
         if (task.parents != null && Array.isArray(task.parents) && task.parents.length > 0) {
@@ -42,18 +44,22 @@ export default async (req, res, next) => {
           );
         }
 
+        const createData: any = {
+          project: projectId,
+          type: task.type ?? 'TASK',
+          title: task.title ?? '',
+          description: task.description ?? '',
+          ...(parents.length > 0 && { parents }),
+        };
+        if (hasTemplate) {
+          createData.template = task.template;
+          createData.templateData = task.templateData || {};
+          if (task.acceptanceCriteria != null) createData.acceptanceCriteria = task.acceptanceCriteria;
+          if (task.checklist != null) createData.checklist = task.checklist;
+        }
+
         const record = await TaskRepository.create(
-          {
-            project: projectId,
-            template: task.template,
-            type: task.type,
-            title: task.title,
-            description: task.description,
-            ...(task.acceptanceCriteria != null && { acceptanceCriteria: task.acceptanceCriteria }),
-            ...(task.checklist != null && { checklist: task.checklist }),
-            templateData: task.templateData || {},
-            ...(parents.length > 0 && { parents }),
-          },
+          createData,
           optionsWithSession,
         );
 

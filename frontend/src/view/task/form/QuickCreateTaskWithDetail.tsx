@@ -129,23 +129,14 @@ const QuickCreateTaskWithDetail: React.FC<QuickCreateTaskWithDetailProps> = ({
 
       setSaveLoading(true);
       try {
-        const created: any[] = [];
-        for (const task of parsedTasks) {
-          const payload: any = {
-            project: projectId,
-            type: values.type || 'TASK',
-            title: task.title || 'Untitled',
-            description: task.description || '',
-          };
-          if (parentIds.length > 0) {
-            payload.parents = parentIds;
-          }
-          const record = await TaskService.create(payload);
-          if (record?.id) {
-            created.push(record);
-          }
-        }
-        onSuccess?.(created);
+        const tasksPayload = parsedTasks.map((task) => ({
+          type: values.type || 'TASK',
+          title: task.title || 'Untitled',
+          description: task.description || '',
+          ...(parentIds.length > 0 && { parents: parentIds }),
+        }));
+        await TaskService.bulkCreate(projectId, tasksPayload);
+        onSuccess?.([]);
         if (modal && onClose) {
           setTextareaValue('');
           form.reset({ project: values.project, type: values.type, parents: values.parents });
