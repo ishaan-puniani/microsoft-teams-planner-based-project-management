@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import Board from 'react-trello';
 import ContentWrapper from 'src/view/layout/styles/ContentWrapper';
@@ -8,6 +8,12 @@ import Spinner from 'src/view/shared/Spinner';
 import MsPlannerService from 'src/modules/msPlanner/msPlannerService';
 import MsPlannerTaskDetail from './components/MsPlannerTaskDetail';
 import type { PlannerTask } from './components/MsPlannerTaskListItem';
+import {
+  PlannerBoardCard,
+  PlannerBoardCardProvider,
+  DefaultBoardCard,
+  type PlannerBoardCardContextValue,
+} from './components/PlannerBoardCard';
 import moment from 'moment';
 
 interface Bucket {
@@ -129,11 +135,14 @@ const MSPlannerBoardPage = () => {
   const [tasks, setTasks] = useState<PlannerTask[]>([]);
   const [planTitle, setPlanTitle] = useState<string | null>(null);
   const [buckets, setBuckets] = useState<Bucket[]>([]);
+  const [categories, setCategories] = useState<Record<string, string>>({});
+  const [users, setUsers] = useState<Array<{ id: string; displayName?: string | null; mail?: string | null; userPrincipalName?: string | null }>>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [movingCardId, setMovingCardId] = useState<string | null>(null);
   const [taskDetailId, setTaskDetailId] = useState<string | null>(null);
   const [taskDetailVisible, setTaskDetailVisible] = useState(false);
+  const [quickEditMode, setQuickEditMode] = useState(false);
 
   useEffect(() => {
     if (!planId) return;
@@ -141,13 +150,16 @@ const MSPlannerBoardPage = () => {
       try {
         setLoading(true);
         setError(null);
-        const [tasksData, planData] = await Promise.all([
+        const [tasksData, planData, usersData] = await Promise.all([
           MsPlannerService.getTasks(planId),
           MsPlannerService.getPlan(planId).catch(() => null),
+          MsPlannerService.getUsers().catch(() => []),
         ]);
         setTasks(tasksData || []);
         setPlanTitle(planData?.title ?? planData?.name ?? null);
         setBuckets(Array.isArray(planData?.buckets) ? planData.buckets : []);
+        setCategories(planData?.categories || {});
+        setUsers(usersData || []);
       } catch (e: any) {
         setError(
           e?.response?.data?.message || e?.message || 'Failed to load board',
@@ -158,6 +170,24 @@ const MSPlannerBoardPage = () => {
     };
     doFetch();
   }, [planId]);
+
+  const handleTaskUpdate = useCallback((updated: PlannerTask) => {
+    if (!updated.id) return;
+    setTasks((prev) =>
+      prev.map((t) => (t.id === updated.id ? { ...t, ...updated } : t)),
+    );
+  }, []);
+
+  const boardCardContextValue: PlannerBoardCardContextValue = useMemo(
+    () => ({
+      categories,
+      buckets,
+      users,
+      onTaskUpdate: handleTaskUpdate,
+      onCardClick: setTaskDetailId,
+    }),
+    [categories, buckets, users, handleTaskUpdate],
+  );
 
   const boardData = useMemo(
     () => buildBoardData(buckets, tasks),
@@ -309,6 +339,13 @@ const MSPlannerBoardPage = () => {
           >
             Add Task
           </Link>
+          <button
+            type="button"
+            className={`btn btn-sm ms-2 ${quickEditMode ? 'btn-primary' : 'btn-outline-secondary'}`}
+            onClick={() => setQuickEditMode((v) => !v)}
+          >
+            Quick Edit mode
+          </button>
         </PageTitle>
 
         {error && (
@@ -327,19 +364,40 @@ const MSPlannerBoardPage = () => {
             className="react-trello-board-wrapper"
             style={{ minHeight: 400 }}
           >
-            <Board
-              data={boardData}
-              draggable
-              laneDraggable={false}
-              editable={false}
-              onCardMoveAcrossLanes={handleCardMoveAcrossLanes}
-              onDataChange={handleDataChange}
-              onCardClick={handleCardClick}
-              style={{
-                backgroundColor: 'transparent',
-                padding: 0,
-              }}
-            />
+            {quickEditMode ? (
+              <PlannerBoardCardProvider value={boardCardContextValue}>
+                <Board
+                  data={boardData}
+                  draggable
+                  laneDraggable={false}
+                  editable={true}
+                  onCardMoveAcrossLanes={handleCardMoveAcrossLanes}
+                  onDataChange={handleDataChange}
+                  onCardClick={handleCardClick}
+                  components={{ Card: PlannerBoardCard }}
+                  hideCardDeleteIcon={true}
+                  style={{
+                    backgroundColor: 'transparent',
+                    padding: 0,
+                  }}
+                />
+              </PlannerBoardCardProvider>
+            ) : (
+              <Board
+                data={boardData}
+                draggable
+                laneDraggable={false}
+                editable={false}
+                onCardMoveAcrossLanes={handleCardMoveAcrossLanes}
+                onDataChange={handleDataChange}
+                onCardClick={handleCardClick}
+                components={{ Card: DefaultBoardCard }}
+                style={{
+                  backgroundColor: 'transparent',
+                  padding: 0,
+                }}
+              />
+            )}
           </div>
         )}
 
