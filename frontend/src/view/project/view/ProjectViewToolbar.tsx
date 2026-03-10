@@ -6,6 +6,7 @@ import auditLogSelectors from 'src/modules/auditLog/auditLogSelectors';
 import destroyActions from 'src/modules/project/destroy/projectDestroyActions';
 import destroySelectors from 'src/modules/project/destroy/projectDestroySelectors';
 import projectSelectors from 'src/modules/project/projectSelectors';
+import AiAgentService from 'src/modules/aiAgent/aiAgentService';
 import ProjectService from 'src/modules/project/projectService';
 import { AppDispatch } from 'src/modules/store';
 import ButtonIcon from 'src/view/shared/ButtonIcon';
@@ -17,6 +18,7 @@ const ProjectViewToolbar = (props) => {
   const [destroyConfirmVisible, setDestroyConfirmVisible] =
     useState(false);
   const [syncLoading, setSyncLoading] = useState(false);
+  const [organizeLoading, setOrganizeLoading] = useState(false);
 
   const dispatch = useDispatch<AppDispatch>();
   const id = props.id;
@@ -59,6 +61,18 @@ const ProjectViewToolbar = (props) => {
       Message.error((e as Error)?.message ?? i18n('errors.default'));
     } finally {
       setSyncLoading(false);
+    }
+  };
+
+  const doOrganizeTasks = async () => {
+    try {
+      setOrganizeLoading(true);
+      const data = await AiAgentService.organizeProjectTasks(id);
+      Message.success(data.message ?? `Organized: ${data.updated} linked, ${data.skipped} skipped.`);
+    } catch (e) {
+      Message.error((e as Error)?.message ?? i18n('errors.default'));
+    } finally {
+      setOrganizeLoading(false);
     }
   };
 
@@ -112,6 +126,19 @@ const ProjectViewToolbar = (props) => {
           iconClass="fas fa-sync-alt"
         />{' '}
         Sync with MS Planner
+      </button>
+
+      <button
+        className="btn btn-primary"
+        type="button"
+        disabled={organizeLoading}
+        onClick={doOrganizeTasks}
+      >
+        <ButtonIcon
+          loading={organizeLoading}
+          iconClass="fas fa-magic"
+        />{' '}
+        AI Agent Organize Tasks
       </button>
 
       {destroyConfirmVisible && (

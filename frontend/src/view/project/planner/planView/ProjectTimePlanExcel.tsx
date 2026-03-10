@@ -28,6 +28,7 @@ import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognitio
 const ADD_COLUMN_ID = 'add';
 const AI_COLUMN_ID = 'ai';
 const DELETE_COLUMN_ID = 'delete';
+const ROW_NUM_COLUMN_ID = 'rowNum';
 
 type AiTarget = 'userstory' | 'task' | 'todo';
 
@@ -66,6 +67,54 @@ function createDeleteButtonTemplate(
                 >
                     <i className={cell.isDeleted ? 'fas fa-undo' : 'fas fa-trash-alt'} />
                 </button>
+            );
+        },
+    };
+}
+
+type RowNumberCell = {
+    type: 'rowNumber';
+    rowIndex: number;
+    taskId: string;
+    isDirty: boolean;
+    style?: CellStyle;
+};
+
+function createRowNumberTemplate(
+    onUndoRowRef: React.MutableRefObject<((taskId: string) => void) | null>,
+): CellTemplate<RowNumberCell> {
+    return {
+        getCompatibleCell(uncertain: Uncertain<RowNumberCell>): Compatible<RowNumberCell> {
+            return {
+                ...uncertain,
+                text: '',
+                value: 0,
+                rowIndex: uncertain.rowIndex ?? 0,
+                taskId: uncertain.taskId ?? '',
+                isDirty: uncertain.isDirty === true,
+            } as Compatible<RowNumberCell>;
+        },
+        isFocusable: () => false,
+        render(cell: Compatible<RowNumberCell>) {
+            return (
+                <div className="d-flex align-items-center justify-content-center gap-1 w-100 h-100">
+                    <span className="text-muted small">{cell.rowIndex}</span>
+                    {cell.isDirty && (
+                        <button
+                            type="button"
+                            className="btn btn-sm btn-link p-0 border-0 text-danger"
+                            style={{ minWidth: 18 }}
+                            title="Undo row changes"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                                onUndoRowRef.current?.(cell.taskId);
+                            }}
+                        >
+                            <i className="fas fa-exclamation" />
+                        </button>
+                    )}
+                </div>
             );
         },
     };
@@ -181,6 +230,8 @@ function createTitleWithSpeechTemplate(
                         onChange={(e) => onTitleChangeRef.current?.(cell.taskId, e.target.value)}
                         onClick={(e) => e.stopPropagation()}
                         onPointerDown={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => e.stopPropagation()}
+                        onKeyUp={(e) => e.stopPropagation()}
                         title="Title"
                     />
                     {showMic && (
@@ -341,6 +392,7 @@ const COLUMN_IDS = [
 ] as const;
 
 const DEFAULT_COLUMN_WIDTHS: Record<string, number> = {
+    [ROW_NUM_COLUMN_ID]: 44,
     [ADD_COLUMN_ID]: 36,
     [AI_COLUMN_ID]: 36,
     [DELETE_COLUMN_ID]: 36,
@@ -642,6 +694,8 @@ const ProjectTimePlanExcel = ({ projectId }: { projectId: string | undefined }) 
     const onRemoveRef = useRef<((taskId: string) => void) | null>(null);
     const onAiStarRef = useRef<((taskId: string, target: AiTarget) => void) | null>(null);
     const onToggleDeleteRef = useRef<((taskId: string) => void) | null>(null);
+    const onUndoRowRef = useRef<((taskId: string) => void) | null>(null);
+    const lastSavedTasksRef = useRef<Map<string, TaskRecord>>(new Map());
     const getSpeechStateRef = useRef<() => { listening: boolean; dictatingForTaskId: string | null }>(() => ({
         listening: false,
         dictatingForTaskId: null,
@@ -719,6 +773,7 @@ const ProjectTimePlanExcel = ({ projectId }: { projectId: string | undefined }) 
                 const merged = mergeEstimatesIntoTasks(rows, stored);
                 const pending = loadPendingFromStorage(projectId);
                 const allTasks = [...merged, ...pending];
+                lastSavedTasksRef.current = new Map(allTasks.map((t) => [t.id, { ...t }]));
                 setTasks(allTasks);
                 setDirtyTaskIds(new Set());
                 setDeletedTaskIds(new Set());
@@ -750,6 +805,7 @@ const ProjectTimePlanExcel = ({ projectId }: { projectId: string | undefined }) 
                     const merged = mergeEstimatesIntoTasks(rows, stored);
                     const pending = loadPendingFromStorage(projectId);
                     const allTasks = [...merged, ...pending];
+                    lastSavedTasksRef.current = new Map(allTasks.map((t) => [t.id, { ...t }]));
                     setTasks(allTasks);
                     setDirtyTaskIds(new Set());
                     setDeletedTaskIds(new Set());
@@ -776,6 +832,28 @@ const ProjectTimePlanExcel = ({ projectId }: { projectId: string | undefined }) 
         };
     }, [projectId]);
 
+    const handleUndoRow = useCallback(
+        (taskId: string) => {
+            const saved = lastSavedTasksRef.current.get(taskId);
+            if (saved == null) return;
+            setTasks((prev) => {
+                const next = prev.map((t) => (t.id === taskId ? { ...saved } : t));
+                if (projectId) {
+                    saveEstimatesToStorage(projectId, next);
+                    const pending = next.filter((t) => isPendingId(t.id));
+                    if (pending.length > 0) savePendingToStorage(projectId, pending);
+                }
+                return next;
+            });
+            setDirtyTaskIds((prev) => {
+                const next = new Set(prev);
+                next.delete(taskId);
+                return next;
+            });
+        },
+        [projectId],
+    );
+
     const handleAddEpic = useCallback(() => {
         if (!projectId) return;
         const newTask: TaskRecord = {
@@ -783,6 +861,7 @@ const ProjectTimePlanExcel = ({ projectId }: { projectId: string | undefined }) 
             type: 'EPIC',
             title: 'New Epic',
         };
+        lastSavedTasksRef.current.set(newTask.id, { ...newTask });
         setTasks((prev) => {
             const next = [...prev, newTask];
             savePendingToStorage(projectId, next.filter((t) => isPendingId(t.id)));
@@ -801,6 +880,7 @@ const ProjectTimePlanExcel = ({ projectId }: { projectId: string | undefined }) 
                 title,
                 parents: [parentId],
             };
+            lastSavedTasksRef.current.set(newTask.id, { ...newTask });
             setExpandedIds((prev) => new Set(prev).add(parentId));
             setTasks((prev) => {
                 const next = [...prev, newTask];
@@ -924,6 +1004,10 @@ const ProjectTimePlanExcel = ({ projectId }: { projectId: string | undefined }) 
         onToggleDeleteRef.current = handleToggleDelete;
     }, [handleToggleDelete]);
 
+    useEffect(() => {
+        onUndoRowRef.current = handleUndoRow;
+    }, [handleUndoRow]);
+
     const addButtonTemplate = useMemo(
         () => createAddButtonTemplate(onAddChildRef, onRemoveRef),
         [],
@@ -936,6 +1020,7 @@ const ProjectTimePlanExcel = ({ projectId }: { projectId: string | undefined }) 
         () => createDeleteButtonTemplate(onToggleDeleteRef),
         [],
     );
+    const rowNumberTemplate = useMemo(() => createRowNumberTemplate(onUndoRowRef), []);
     const titleWithSpeechTemplate = useMemo(
         () =>
             createTitleWithSpeechTemplate(
@@ -950,6 +1035,7 @@ const ProjectTimePlanExcel = ({ projectId }: { projectId: string | undefined }) 
 
     const columns = useMemo<Column[]>(
         () => [
+            { columnId: ROW_NUM_COLUMN_ID, width: columnWidths[ROW_NUM_COLUMN_ID] ?? 44, resizable: false },
             { columnId: ADD_COLUMN_ID, width: columnWidths[ADD_COLUMN_ID] ?? 36, resizable: false },
             { columnId: AI_COLUMN_ID, width: columnWidths[AI_COLUMN_ID] ?? 36, resizable: false },
             { columnId: DELETE_COLUMN_ID, width: columnWidths[DELETE_COLUMN_ID] ?? 36, resizable: false },
@@ -977,6 +1063,7 @@ const ProjectTimePlanExcel = ({ projectId }: { projectId: string | undefined }) 
         const headerRow: Row = {
             rowId: 'header',
             cells: [
+                { type: 'header', text: '#' } as HeaderCell,
                 { type: 'header', text: '' } as HeaderCell,
                 { type: 'header', text: '' } as HeaderCell,
                 { type: 'header', text: '' } as HeaderCell,
@@ -999,9 +1086,10 @@ const ProjectTimePlanExcel = ({ projectId }: { projectId: string | undefined }) 
             return base;
         };
 
-        const dataRows = visibleRowsData.map(({ node, depth }) => {
+        const dataRows = visibleRowsData.map(({ node, depth }, rowIndex) => {
             const { task } = node;
             const isDeleted = deletedTaskIds.has(task.id);
+            const isDirty = dirtyTaskIds.has(task.id);
             const isParentType = isEpicOrUserStory(task.type);
             const descendantTotals = isParentType ? sumDescendantEstimates(node) : null;
             const et = isParentType && descendantTotals
@@ -1017,6 +1105,12 @@ const ProjectTimePlanExcel = ({ projectId }: { projectId: string | undefined }) 
             const normalizedType = normalizeTaskType(task.type).replace(/\s/g, '_');
             const isPending = isPendingId(task.id);
             const aiLoading = aiLoadingTaskId === task.id;
+            const rowNumCell: RowNumberCell = {
+                type: 'rowNumber',
+                rowIndex: rowIndex + 1,
+                taskId: task.id,
+                isDirty,
+            };
       const addCell: AddButtonCell | TextCell =
         normalizedType === 'epic'
           ? ({ type: 'addButton', taskId: task.id, addTarget: 'userstory' as const, showRemove: isPending } as AddButtonCell)
@@ -1043,6 +1137,7 @@ const ProjectTimePlanExcel = ({ projectId }: { projectId: string | undefined }) 
       return {
         rowId: task.id,
         cells: [
+          rowNumCell,
           addCell,
           aiCell,
           deleteCell,
@@ -1114,7 +1209,7 @@ const ProjectTimePlanExcel = ({ projectId }: { projectId: string | undefined }) 
         });
 
         return [headerRow, ...dataRows] as Row[];
-    }, [visibleRowsData, expandedIds, aiLoadingTaskId, deletedTaskIds]);
+    }, [visibleRowsData, expandedIds, aiLoadingTaskId, deletedTaskIds, dirtyTaskIds]);
 
     const handleCellsChanged = useCallback(
         (changes: CellChange[]) => {
@@ -1288,7 +1383,7 @@ const ProjectTimePlanExcel = ({ projectId }: { projectId: string | undefined }) 
                         onClick={handleSave}
                     >
                         {saving ? <i className="fas fa-spinner fa-spin me-1" /> : <i className="fas fa-save me-1" />}
-                        {saving ? 'Saving…' : 'Save changes'}
+                        {saving ? 'Saving…' : `Save changes${dirtyTaskIds.size > 0 ? ` (${dirtyTaskIds.size})` : ''}`}
                     </button>
                 </div>
             </div>
@@ -1310,6 +1405,7 @@ const ProjectTimePlanExcel = ({ projectId }: { projectId: string | undefined }) 
                     enableColumnResizeOnAllHeaders
                     stickyTopRows={1}
                     customCellTemplates={{
+                        rowNumber: rowNumberTemplate,
                         addButton: addButtonTemplate,
                         aiButton: aiButtonTemplate,
                         deleteButton: deleteButtonTemplate,
@@ -1337,7 +1433,7 @@ const ProjectTimePlanExcel = ({ projectId }: { projectId: string | undefined }) 
                         onClick={handleSave}
                     >
                         {saving ? <i className="fas fa-spinner fa-spin me-1" /> : <i className="fas fa-save me-1" />}
-                        {saving ? 'Saving…' : 'Save changes'}
+                        {saving ? 'Saving…' : `Save changes${dirtyTaskIds.size > 0 ? ` (${dirtyTaskIds.size})` : ''}`}
                     </button>
                 </div>
             </div>

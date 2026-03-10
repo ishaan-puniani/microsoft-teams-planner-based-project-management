@@ -100,4 +100,12 @@ export default class AiAgentService {
       testCases: Array<{ title?: string; steps?: string; expectedResult?: string }>;
     };
   }
+
+  static async organizeProjectTasks(projectId: string) {
+    const tenantId = AuthCurrentTenant.get();
+    const response = await authAxios.get(
+      `/tenant/${tenantId}/ai-agent/organize-project-tasks/${projectId}`,
+    );
+    return response.data as { message: string; updated: number; skipped: number };
+  }
 }

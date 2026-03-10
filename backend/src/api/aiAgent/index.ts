@@ -1,5 +1,6 @@
 import createTasksFromTranscript from './createTasksFromTranscript';
 import refinePlannerContent from './refinePlannerContent';
+import organizeTasksInPorject from './organizeTasksInPorject';
 import plannerSuggestEpics from './plannerSuggestEpics';
 import plannerSuggestUserStoriesForEpic from './plannerSuggestUserStoriesForEpic';
 import plannerSuggestTasksForUserStory from './plannerSuggestTasksForUserStory';
@@ -7,6 +8,8 @@ import plannerSuggestTodosForTask from './plannerSuggestTodosForTask';
 import suggestTestCasesForTask from './suggestTestCasesForTask';
 
 export default (app) => {
+  app.get('/tenant/:tenantId/ai-agent/organize-project-tasks/:projectId', organizeTasksInPorject);
+  
   app.post('/tenant/:tenantId/ai-agent/tasks-from-transcript', createTasksFromTranscript);
   app.post('/tenant/:tenantId/ai-agent/planner-refine', refinePlannerContent);
   app.post('/tenant/:tenantId/ai-agent/planner-suggest-epics', plannerSuggestEpics);

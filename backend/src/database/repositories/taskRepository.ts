@@ -643,6 +643,105 @@ class TaskRepository {
     }));
   }
 
+  /**
+   * Returns epics and user stories for a project: list of user stories with id, title, and epic title
+   * (for AI to suggest which user story a task belongs to).
+   */
+  static async getEpicsAndUserStories(
+    projectId: string,
+    options: IRepositoryOptions,
+  ): Promise<Array<{ id: string; title: string; epicTitle: string }>> {
+    const currentTenant =
+      MongooseRepository.getCurrentTenant(options);
+    const projectObjId = MongooseQueryUtils.uuid(projectId);
+    if (!projectObjId) return [];
+
+    const epics = await Task(options.database)
+      .find({
+        tenant: currentTenant.id,
+        project: projectObjId,
+        $or: [
+          { type: 'EPIC' },
+          { type: { $regex: /^EPIC$/i } },
+        ],
+      })
+      .select('_id title')
+      .lean();
+
+    const epicIds = epics.map((e) => e._id);
+    if (epicIds.length === 0) return [];
+
+    const epicTitleById: Record<string, string> = {};
+    for (const e of epics) {
+      epicTitleById[e._id.toString()] = e.title || '';
+    }
+
+    const userStories = await Task(options.database)
+      .find({
+        tenant: currentTenant.id,
+        project: projectObjId,
+        parents: { $in: epicIds },
+        $or: [
+          { type: 'USER_STORY' },
+          { type: { $regex: /^USER_STORY$/i } },
+        ],
+      })
+      .select('_id title parents')
+      .lean();
+
+    const result: Array<{ id: string; title: string; epicTitle: string }> = [];
+    for (const us of userStories) {
+      const parentId = Array.isArray(us.parents) && us.parents[0] ? us.parents[0].toString() : null;
+      const epicTitle = parentId ? epicTitleById[parentId] ?? '' : '';
+      result.push({
+        id: us._id.toString(),
+        title: us.title || '',
+        epicTitle,
+      });
+    }
+    return result;
+  }
+
+  /**
+   * Returns tasks that have no parent (or no type) and are not epics or user stories (candidates for organizing).
+   * Includes tasks with type TASK, BUG, or missing type so the AI can suggest parent and type.
+   */
+  static async getTasksWithoutParentOrTypeAndNotEpicOrUserStory(
+    projectId: string,
+    options: IRepositoryOptions,
+  ): Promise<Array<{ id: string; title: string; description?: string; categories?: string[]; type?: string }>> {
+    const currentTenant =
+      MongooseRepository.getCurrentTenant(options);
+    const projectObjId = MongooseQueryUtils.uuid(projectId);
+    if (!projectObjId) return [];
+
+    const criteria = {
+      tenant: currentTenant.id,
+      project: projectObjId,
+      type: { $nin: ['EPIC', 'USER_STORY'] },
+      $or: [
+        { parents: { $exists: false } },
+        { parents: { $size: 0 } },
+        { type: { $exists: false } },
+        { type: null },
+        { type: '' },
+      ],
+    };
+
+    const rows = await Task(options.database)
+      .find(criteria)
+      .select('_id title description categories type')
+      .lean();
+
+    return rows.map((r) => ({
+      id: r._id.toString(),
+      title: r.title || '',
+      description: r.description,
+      categories: r.categories || [],
+      type: r.type,
+    }));
+  }
+
   static async aggregateEstimatesByProject(
     projectId: string,
     options: IRepositoryOptions,
