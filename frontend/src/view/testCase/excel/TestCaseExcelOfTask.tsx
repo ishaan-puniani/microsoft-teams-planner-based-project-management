@@ -54,6 +54,7 @@ function getStorageKey(taskId: string): string {
 type StoredDraft = {
   pending: TestCaseRow[];
   overrides: Record<string, { title?: string; preconditions?: string; steps?: string; expectedResult?: string; testType?: string }>;
+  dirtyIds?: string[];
 };
 
 function loadDraftFromStorage(taskId: string): StoredDraft {
@@ -64,9 +65,10 @@ function loadDraftFromStorage(taskId: string): StoredDraft {
     return {
       pending: Array.isArray(parsed?.pending) ? parsed.pending : [],
       overrides: parsed?.overrides && typeof parsed.overrides === 'object' ? parsed.overrides : {},
+      dirtyIds: Array.isArray(parsed?.dirtyIds) ? parsed.dirtyIds : undefined,
     };
   } catch {
-    return { pending: [], overrides: {} };
+    return { pending: [], overrides: {}, dirtyIds: undefined };
   }
 }
 
@@ -78,6 +80,7 @@ function saveDraftToStorage(taskId: string, draft: StoredDraft): void {
   }
 }
 
+const ROW_NUM_COLUMN_ID = 'rowNum';
 const DELETE_COLUMN_ID = 'delete';
 const TITLE_COLUMN_ID = 'title';
 const PRECONDITIONS_COLUMN_ID = 'preconditions';
@@ -139,6 +142,54 @@ function createDeleteButtonTemplate(
             <i className={cell.isDeleted ? 'fas fa-undo' : 'fas fa-trash-alt'} />
           </button>
         </span>
+      );
+    },
+  };
+}
+
+type RowNumberCell = {
+  type: 'rowNumber';
+  rowIndex: number;
+  rowId: string;
+  isDirty: boolean;
+  style?: CellStyle;
+};
+
+function createRowNumberTemplate(
+  onUndoRowRef: React.MutableRefObject<((rowId: string) => void) | null>,
+): CellTemplate<RowNumberCell> {
+  return {
+    getCompatibleCell(uncertain: Uncertain<RowNumberCell>): Compatible<RowNumberCell> {
+      return {
+        ...uncertain,
+        text: '',
+        value: 0,
+        rowIndex: uncertain.rowIndex ?? 0,
+        rowId: uncertain.rowId ?? '',
+        isDirty: uncertain.isDirty === true,
+      } as Compatible<RowNumberCell>;
+    },
+    isFocusable: () => false,
+    render(cell: Compatible<RowNumberCell>) {
+      return (
+        <div className="d-flex align-items-center justify-content-center gap-1 w-100 h-100">
+          <span className="text-muted small">{cell.rowIndex}</span>
+          {cell.isDirty && (
+            <button
+              type="button"
+              className="btn btn-sm btn-link p-0 border-0 text-danger"
+              style={{ minWidth: 18 }}
+              title="Undo row changes"
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                onUndoRowRef.current?.(cell.rowId);
+              }}
+            >
+              <i className="fas fa-exclamation" />
+            </button>
+          )}
+        </div>
       );
     },
   };
@@ -232,6 +283,22 @@ function createTextWithSpeechTemplate(
       const rowH = cell.rowHeight ?? DEFAULT_ROW_HEIGHT;
       const textareaMinHeight = rowH - 12;
 
+      const handlePaste = (e: React.ClipboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+        e.stopPropagation();
+        const text = e.clipboardData?.getData?.('text/plain');
+        if (text == null) return;
+        e.preventDefault();
+        const target = e.currentTarget;
+        const start = target.selectionStart ?? 0;
+        const end = target.selectionEnd ?? 0;
+        const value = target.value;
+        const newValue = value.slice(0, start) + text + value.slice(end);
+        onChangeRef.current?.(cell.rowId, cell.field, newValue);
+        setTimeout(() => {
+          target.setSelectionRange(start + text.length, start + text.length);
+        }, 0);
+      };
+
       return (
         <div
           className="d-flex align-items-start gap-1 w-100 h-100"
@@ -240,26 +307,43 @@ function createTextWithSpeechTemplate(
           {multiline ? (
             <textarea
               className="form-control form-control-sm border-0 bg-transparent flex-grow-1"
-              style={{ minWidth: 0, resize: 'none', minHeight: textareaMinHeight }}
+              style={{
+                minWidth: 0,
+                resize: 'none',
+                minHeight: textareaMinHeight,
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
+                overflowWrap: 'break-word',
+              }}
               value={cell.text}
               onChange={(e) =>
                 onChangeRef.current?.(cell.rowId, cell.field, e.target.value)
               }
               onClick={(e) => e.stopPropagation()}
               onPointerDown={(e) => e.stopPropagation()}
+              onKeyDown={(e) => e.stopPropagation()}
+              onKeyUp={(e) => e.stopPropagation()}
+              onCopy={(e) => e.stopPropagation()}
+              onPaste={handlePaste}
+              onCut={(e) => e.stopPropagation()}
               rows={3}
             />
           ) : (
             <input
               type="text"
               className="form-control form-control-sm border-0 bg-transparent h-100 flex-grow-1"
-              style={{ minWidth: 0 }}
+              style={{ minWidth: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
               value={cell.text}
               onChange={(e) =>
                 onChangeRef.current?.(cell.rowId, cell.field, e.target.value)
               }
               onClick={(e) => e.stopPropagation()}
               onPointerDown={(e) => e.stopPropagation()}
+              onKeyDown={(e) => e.stopPropagation()}
+              onKeyUp={(e) => e.stopPropagation()}
+              onCopy={(e) => e.stopPropagation()}
+              onPaste={handlePaste}
+              onCut={(e) => e.stopPropagation()}
             />
           )}
           {showMic && (
@@ -289,6 +373,7 @@ function createTextWithSpeechTemplate(
 
 const DEFAULT_ROW_HEIGHT = 88;
 const DEFAULT_COLUMN_WIDTHS: Record<string, number> = {
+  [ROW_NUM_COLUMN_ID]: 44,
   [DELETE_COLUMN_ID]: 80,
   [TITLE_COLUMN_ID]: 200,
   [PRECONDITIONS_COLUMN_ID]: 200,
@@ -298,6 +383,7 @@ const DEFAULT_COLUMN_WIDTHS: Record<string, number> = {
 };
 
 const COLUMN_IDS = [
+  ROW_NUM_COLUMN_ID,
   DELETE_COLUMN_ID,
   TITLE_COLUMN_ID,
   PRECONDITIONS_COLUMN_ID,
@@ -344,6 +430,10 @@ const TestCaseExcelOfTask = ({
 
   const onToggleDeleteRef = useRef<((rowId: string) => void) | null>(null);
   const onRemoveRef = useRef<((rowId: string) => void) | null>(null);
+  const onUndoRowRef = useRef<((rowId: string) => void) | null>(null);
+  const lastSavedRowsRef = useRef<Map<string, TestCaseRow>>(new Map());
+  const dirtyIdsRef = useRef<Set<string>>(new Set());
+  dirtyIdsRef.current = dirtyIds;
   const getSpeechStateRef = useRef<
     () => { listening: boolean; dictatingFor: { rowId: string; field: string } | null }
   >(() => ({ listening: false, dictatingFor: null }));
@@ -366,8 +456,10 @@ const TestCaseExcelOfTask = ({
       if (!tid) return;
       const pending = currentRows.filter((r) => isPendingId(r.id));
       const saved = currentRows.filter((r) => !isPendingId(r.id));
+      const dirty = dirtyIdsRef.current ?? new Set<string>();
       const overrides: Record<string, { title?: string; preconditions?: string; steps?: string; expectedResult?: string; testType?: string }> = {};
       saved.forEach((r) => {
+        if (!dirty.has(r.id)) return;
         overrides[r.id] = {
           title: r.title,
           preconditions: r.preconditions,
@@ -376,7 +468,8 @@ const TestCaseExcelOfTask = ({
           testType: r.testType,
         };
       });
-      saveDraftToStorage(tid, { pending, overrides });
+      const dirtyIdsList = Array.from(dirty);
+      saveDraftToStorage(tid, { pending, overrides, dirtyIds: dirtyIdsList });
     },
     [],
   );
@@ -475,8 +568,9 @@ const TestCaseExcelOfTask = ({
           testType: draft.overrides[r.id]?.testType ?? r.testType,
         }));
         const merged = [...overridden, ...draft.pending];
+        lastSavedRowsRef.current = new Map(merged.map((r) => [r.id, { ...r }]));
         setRows(merged);
-        setDirtyIds(new Set());
+        setDirtyIds(new Set(draft.dirtyIds ?? Object.keys(draft.overrides ?? {})));
         setDeletedIds(new Set());
       })
       .catch((e) => setError((e as Error)?.message ?? 'Failed to load test cases'))
@@ -511,8 +605,10 @@ const TestCaseExcelOfTask = ({
             expectedResult: draft.overrides[r.id]?.expectedResult ?? r.expectedResult,
             testType: draft.overrides[r.id]?.testType ?? r.testType,
           }));
-          setRows([...overridden, ...draft.pending]);
-          setDirtyIds(new Set());
+          const merged = [...overridden, ...draft.pending];
+          lastSavedRowsRef.current = new Map(merged.map((r) => [r.id, { ...r }]));
+          setRows(merged);
+          setDirtyIds(new Set(draft.dirtyIds ?? Object.keys(draft.overrides ?? {})));
           setDeletedIds(new Set());
         }
       })
@@ -527,6 +623,24 @@ const TestCaseExcelOfTask = ({
     };
   }, [taskId]);
 
+  const handleUndoRow = useCallback(
+    (rowId: string) => {
+      const saved = lastSavedRowsRef.current.get(rowId);
+      if (saved == null) return;
+      setRows((prev) => {
+        const next = prev.map((r) => (r.id === rowId ? { ...saved } : r));
+        persistDraft(taskId, next);
+        return next;
+      });
+      setDirtyIds((prev) => {
+        const next = new Set(prev);
+        next.delete(rowId);
+        return next;
+      });
+    },
+    [taskId, persistDraft],
+  );
+
   const handleAddRow = useCallback(() => {
     if (!taskId) return;
     const newRow: TestCaseRow = {
@@ -538,6 +652,7 @@ const TestCaseExcelOfTask = ({
       expectedResult: '',
       testType: 'Functional',
     };
+    lastSavedRowsRef.current.set(newRow.id, { ...newRow });
     setRows((prev) => {
       const next = [...prev, newRow];
       persistDraft(taskId, next);
@@ -571,6 +686,10 @@ const TestCaseExcelOfTask = ({
     onRemoveRef.current = handleRemovePending;
   }, [handleToggleDelete, handleRemovePending]);
 
+  useEffect(() => {
+    onUndoRowRef.current = handleUndoRow;
+  }, [handleUndoRow]);
+
   const handleAiGenerate = useCallback(async () => {
     if (!taskId || !taskTitle?.trim()) return;
     setAiLoading(true);
@@ -590,6 +709,7 @@ const TestCaseExcelOfTask = ({
         testType: 'Functional',
       }));
       if (newRows.length > 0) {
+        newRows.forEach((row) => lastSavedRowsRef.current.set(row.id, { ...row }));
         setRows((prev) => {
           const next = [...prev, ...newRows];
           persistDraft(taskId, next);
@@ -689,12 +809,14 @@ const TestCaseExcelOfTask = ({
     [],
   );
 
+  const rowNumberTemplate = useMemo(() => createRowNumberTemplate(onUndoRowRef), []);
+
   const columns = useMemo<Column[]>(
     () =>
       COLUMN_IDS.map((id) => ({
         columnId: id,
         width: columnWidths[id] ?? DEFAULT_COLUMN_WIDTHS[id],
-        resizable: id !== DELETE_COLUMN_ID,
+        resizable: id !== DELETE_COLUMN_ID && id !== ROW_NUM_COLUMN_ID,
       })),
     [columnWidths],
   );
@@ -705,6 +827,7 @@ const TestCaseExcelOfTask = ({
       height: 36,
       resizable: false,
       cells: [
+        { type: 'header', text: '#' } as HeaderCell,
         { type: 'header', text: '' } as HeaderCell,
         { type: 'header', text: i18n('entities.testCase.fields.title') } as HeaderCell,
         { type: 'header', text: 'Preconditions' } as HeaderCell,
@@ -714,9 +837,10 @@ const TestCaseExcelOfTask = ({
       ],
     };
 
-    const dataRows = rows.map((r) => {
+    const dataRows = rows.map((r, rowIndex) => {
       const isDeleted = deletedIds.has(r.id);
       const isPending = isPendingId(r.id);
+      const isDirty = dirtyIds.has(r.id);
       const style: React.CSSProperties = isDeleted
         ? { textDecoration: 'line-through', opacity: 0.65 }
         : {};
@@ -732,6 +856,12 @@ const TestCaseExcelOfTask = ({
         resizable: true,
         cells: [
           {
+            type: 'rowNumber',
+            rowIndex: rowIndex + 1,
+            rowId: r.id,
+            isDirty,
+          } as RowNumberCell,
+          {
             type: 'deleteButton',
             rowId: r.id,
             isDeleted,
@@ -743,7 +873,8 @@ const TestCaseExcelOfTask = ({
             field: 'title',
             text: r.title ?? '',
             style,
-            multiline: false,
+            multiline: true,
+            rowHeight,
           } as TextWithSpeechCell,
           {
             type: 'textWithSpeech',
@@ -783,7 +914,7 @@ const TestCaseExcelOfTask = ({
     });
 
     return [headerRow, ...dataRows];
-  }, [rows, deletedIds, rowHeights]);
+  }, [rows, deletedIds, dirtyIds, rowHeights]);
 
   const handleCellsChanged = useCallback(
     (changes: CellChange[]) => {
@@ -866,7 +997,7 @@ const TestCaseExcelOfTask = ({
             ) : (
               <i className="fas fa-save me-1" />
             )}
-            {saving ? 'Saving…' : 'Save changes'}
+            {saving ? 'Saving…' : `Save changes${dirtyIds.size > 0 ? ` (${dirtyIds.size})` : ''}`}
           </button>
         </div>
       </div>
@@ -890,6 +1021,7 @@ const TestCaseExcelOfTask = ({
           enableColumnResizeOnAllHeaders
           stickyTopRows={1}
           customCellTemplates={{
+            rowNumber: rowNumberTemplate,
             deleteButton: deleteButtonTemplate,
             textWithSpeech: textWithSpeechTemplate,
             testTypeDropdown: testTypeDropdownTemplate,

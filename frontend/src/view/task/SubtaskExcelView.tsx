@@ -85,6 +85,7 @@ function saveDraftToStorage(taskId: string, draft: StoredDraft): void {
   }
 }
 
+const ROW_NUM_COLUMN_ID = 'rowNum';
 const DELETE_COLUMN_ID = 'delete';
 const TITLE_COLUMN_ID = 'title';
 const ACCEPTANCE_CRITERIA_COLUMN_ID = 'acceptanceCriteria';
@@ -148,6 +149,54 @@ function createDeleteButtonTemplate(
             <i className={cell.isDeleted ? 'fas fa-undo' : 'fas fa-trash-alt'} />
           </button>
         </span>
+      );
+    },
+  };
+}
+
+type RowNumberCell = {
+  type: 'rowNumber';
+  rowIndex: number;
+  rowId: string;
+  isDirty: boolean;
+  style?: CellStyle;
+};
+
+function createRowNumberTemplate(
+  onUndoRowRef: React.MutableRefObject<((rowId: string) => void) | null>,
+): CellTemplate<RowNumberCell> {
+  return {
+    getCompatibleCell(uncertain: Uncertain<RowNumberCell>): Compatible<RowNumberCell> {
+      return {
+        ...uncertain,
+        text: '',
+        value: 0,
+        rowIndex: uncertain.rowIndex ?? 0,
+        rowId: uncertain.rowId ?? '',
+        isDirty: uncertain.isDirty === true,
+      } as Compatible<RowNumberCell>;
+    },
+    isFocusable: () => false,
+    render(cell: Compatible<RowNumberCell>) {
+      return (
+        <div className="d-flex align-items-center justify-content-center gap-1 w-100 h-100">
+          <span className="text-muted small">{cell.rowIndex}</span>
+          {cell.isDirty && (
+            <button
+              type="button"
+              className="btn btn-sm btn-link p-0 border-0 text-danger"
+              style={{ minWidth: 18 }}
+              title="Undo row changes"
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                onUndoRowRef.current?.(cell.rowId);
+              }}
+            >
+              <i className="fas fa-exclamation" />
+            </button>
+          )}
+        </div>
       );
     },
   };
@@ -289,6 +338,23 @@ function createTextWithSpeechTemplate(
       const rowH = cell.rowHeight ?? DEFAULT_ROW_HEIGHT;
       const textareaMinHeight = rowH - 12;
 
+      const handlePaste = (e: React.ClipboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+        e.stopPropagation();
+        const text = e.clipboardData?.getData?.('text/plain');
+        if (text == null) return;
+        e.preventDefault();
+        const target = e.currentTarget;
+        const start = target.selectionStart ?? 0;
+        const end = target.selectionEnd ?? 0;
+        const value = target.value;
+        const newValue = value.slice(0, start) + text + value.slice(end);
+        onChangeRef.current?.(cell.rowId, cell.field, newValue);
+        setTimeout(() => {
+          const newCursor = start + text.length;
+          target.setSelectionRange(newCursor, newCursor);
+        }, 0);
+      };
+
       return (
         <div
           className="d-flex align-items-start gap-1 w-100 h-100"
@@ -297,26 +363,43 @@ function createTextWithSpeechTemplate(
           {multiline ? (
             <textarea
               className="form-control form-control-sm border-0 bg-transparent flex-grow-1"
-              style={{ minWidth: 0, resize: 'none', minHeight: textareaMinHeight }}
+              style={{
+                minWidth: 0,
+                resize: 'none',
+                minHeight: textareaMinHeight,
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
+                overflowWrap: 'break-word',
+              }}
               value={cell.text}
               onChange={(e) =>
                 onChangeRef.current?.(cell.rowId, cell.field, e.target.value)
               }
               onClick={(e) => e.stopPropagation()}
               onPointerDown={(e) => e.stopPropagation()}
+              onKeyDown={(e) => e.stopPropagation()}
+              onKeyUp={(e) => e.stopPropagation()}
+              onCopy={(e) => e.stopPropagation()}
+              onPaste={handlePaste}
+              onCut={(e) => e.stopPropagation()}
               rows={3}
             />
           ) : (
             <input
               type="text"
               className="form-control form-control-sm border-0 bg-transparent h-100 flex-grow-1"
-              style={{ minWidth: 0 }}
+              style={{ minWidth: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
               value={cell.text}
               onChange={(e) =>
                 onChangeRef.current?.(cell.rowId, cell.field, e.target.value)
               }
               onClick={(e) => e.stopPropagation()}
               onPointerDown={(e) => e.stopPropagation()}
+              onKeyDown={(e) => e.stopPropagation()}
+              onKeyUp={(e) => e.stopPropagation()}
+              onCopy={(e) => e.stopPropagation()}
+              onPaste={handlePaste}
+              onCut={(e) => e.stopPropagation()}
             />
           )}
           {showMic && (
@@ -347,6 +430,7 @@ function createTextWithSpeechTemplate(
 const DEFAULT_ROW_HEIGHT = 88;
 const DEFAULT_COLUMN_WIDTH = 180;
 const LEGACY_DEFAULT_COLUMN_WIDTHS: Record<string, number> = {
+  [ROW_NUM_COLUMN_ID]: 44,
   [DELETE_COLUMN_ID]: 80,
   [TITLE_COLUMN_ID]: 200,
   [ACCEPTANCE_CRITERIA_COLUMN_ID]: 220,
@@ -375,6 +459,7 @@ const LEGACY_COLUMN_IDS = [
 function getDefaultColumnWidths(templateFields: TaskTemplateField[] | null): Record<string, number> {
   if (!templateFields?.length) return { ...LEGACY_DEFAULT_COLUMN_WIDTHS };
   const out: Record<string, number> = {
+    [ROW_NUM_COLUMN_ID]: 44,
     [DELETE_COLUMN_ID]: 80,
     [TITLE_COLUMN_ID]: 200,
     [ACCEPTANCE_CRITERIA_COLUMN_ID]: 220,
@@ -389,11 +474,11 @@ function getDefaultColumnWidths(templateFields: TaskTemplateField[] | null): Rec
 }
 
 function getColumnIds(templateFields: TaskTemplateField[] | null): string[] {
-  if (!templateFields?.length) return [...LEGACY_COLUMN_IDS];
+  if (!templateFields?.length) return [ROW_NUM_COLUMN_ID, ...LEGACY_COLUMN_IDS];
   const rest = templateFields
     .filter((f) => f.id !== ACCEPTANCE_CRITERIA_COLUMN_ID && f.id !== CHECKLIST_COLUMN_ID)
     .map((f) => f.id);
-  return [...ROOT_COLUMN_IDS, ...rest];
+  return [ROW_NUM_COLUMN_ID, ...ROOT_COLUMN_IDS, ...rest];
 }
 
 function formatCellValue(v: any): string {
@@ -447,6 +532,10 @@ const SubtaskExcelView = ({
 
   const onToggleDeleteRef = useRef<((rowId: string) => void) | null>(null);
   const onRemoveRef = useRef<((rowId: string) => void) | null>(null);
+  const onUndoRowRef = useRef<((rowId: string) => void) | null>(null);
+  const lastSavedRowsRef = useRef<Map<string, TestCaseRow>>(new Map());
+  const dirtyIdsRef = useRef<Set<string>>(new Set());
+  dirtyIdsRef.current = dirtyIds;
   const getSpeechStateRef = useRef<
     () => { listening: boolean; dictatingFor: { rowId: string; field: string } | null }
   >(() => ({ listening: false, dictatingFor: null }));
@@ -504,8 +593,10 @@ const SubtaskExcelView = ({
       if (!tid) return;
       const pending = currentRows.filter((r) => isPendingId(r.id));
       const saved = currentRows.filter((r) => !isPendingId(r.id));
+      const dirty = dirtyIdsRef.current ?? new Set<string>();
       const overrides: Record<string, Record<string, any>> = {};
       saved.forEach((r) => {
+        if (!dirty.has(r.id)) return;
         if (templateFields?.length) {
           overrides[r.id] = {
             title: r.title,
@@ -661,8 +752,10 @@ const SubtaskExcelView = ({
           ...r,
           ...(draft.overrides[r.id] ?? {}),
         }));
-        setRows([...overridden, ...draft.pending]);
-        setDirtyIds(new Set());
+        const allRows = [...overridden, ...draft.pending];
+        lastSavedRowsRef.current = new Map(allRows.map((r) => [r.id, { ...r }]));
+        setRows(allRows);
+        setDirtyIds(new Set(Object.keys(draft.overrides ?? {})));
         setDeletedIds(new Set());
       })
       .catch((e) => setError((e as Error)?.message ?? 'Failed to load test cases'))
@@ -711,8 +804,10 @@ const SubtaskExcelView = ({
             ...r,
             ...(draft.overrides[r.id] ?? {}),
           }));
-          setRows([...overridden, ...draft.pending]);
-          setDirtyIds(new Set());
+          const allRows = [...overridden, ...draft.pending];
+          lastSavedRowsRef.current = new Map(allRows.map((r) => [r.id, { ...r }]));
+          setRows(allRows);
+          setDirtyIds(new Set(Object.keys(draft.overrides ?? {})));
           setDeletedIds(new Set());
         }
       })
@@ -726,6 +821,24 @@ const SubtaskExcelView = ({
       cancelled = true;
     };
   }, [taskId, templateFields, templateId, templateLoading, childType]);
+
+  const handleUndoRow = useCallback(
+    (rowId: string) => {
+      const saved = lastSavedRowsRef.current.get(rowId);
+      if (saved == null) return;
+      setRows((prev) => {
+        const next = prev.map((r) => (r.id === rowId ? { ...saved } : r));
+        persistDraft(taskId, next);
+        return next;
+      });
+      setDirtyIds((prev) => {
+        const next = new Set(prev);
+        next.delete(rowId);
+        return next;
+      });
+    },
+    [taskId, persistDraft],
+  );
 
   const handleAddRow = useCallback(() => {
     if (!taskId) return;
@@ -757,6 +870,7 @@ const SubtaskExcelView = ({
           expectedResult: '',
           testType: 'Functional',
         };
+    lastSavedRowsRef.current.set(newRow.id, { ...newRow });
     setRows((prev) => {
       const next = [...prev, newRow];
       persistDraft(taskId, next);
@@ -790,6 +904,10 @@ const SubtaskExcelView = ({
     onRemoveRef.current = handleRemovePending;
   }, [handleToggleDelete, handleRemovePending]);
 
+  useEffect(() => {
+    onUndoRowRef.current = handleUndoRow;
+  }, [handleUndoRow]);
+
   const handleAiGenerate = useCallback(async () => {
     if (!taskId || !taskTitle?.trim()) return;
     setAiLoading(true);
@@ -821,6 +939,7 @@ const SubtaskExcelView = ({
             : {}),
         }));
         if (newRows.length > 0) {
+          newRows.forEach((row) => lastSavedRowsRef.current.set(row.id, { ...row }));
           setRows((prev) => {
             const next = [...prev, ...newRows];
             persistDraft(taskId, next);
@@ -851,6 +970,7 @@ const SubtaskExcelView = ({
             : {}),
         }));
         if (newRows.length > 0) {
+          newRows.forEach((row) => lastSavedRowsRef.current.set(row.id, { ...row }));
           setRows((prev) => {
             const next = [...prev, ...newRows];
             persistDraft(taskId, next);
@@ -892,6 +1012,7 @@ const SubtaskExcelView = ({
           };
         });
         if (newRows.length > 0) {
+          newRows.forEach((row) => lastSavedRowsRef.current.set(row.id, { ...row }));
           setRows((prev) => {
             const next = [...prev, ...newRows];
             persistDraft(taskId, next);
@@ -1023,13 +1144,16 @@ const SubtaskExcelView = ({
       columnIds.map((id) => ({
         columnId: id,
         width: columnWidths[id] ?? defaultWidths[id] ?? DEFAULT_COLUMN_WIDTH,
-        resizable: id !== DELETE_COLUMN_ID,
+        resizable: id !== DELETE_COLUMN_ID && id !== ROW_NUM_COLUMN_ID,
       })),
     [columnWidths, columnIds, defaultWidths],
   );
 
+  const rowNumberTemplate = useMemo(() => createRowNumberTemplate(onUndoRowRef), []);
+
   const gridRows = useMemo((): Row[] => {
     const headerCells: HeaderCell[] = [
+      { type: 'header', text: '#' },
       { type: 'header', text: '' },
       { type: 'header', text: i18n('entities.testCase.fields.title') },
       { type: 'header', text: i18n('entities.requirement.fields.acceptanceCriteria') },
@@ -1056,15 +1180,22 @@ const SubtaskExcelView = ({
       cells: headerCells as any,
     };
 
-    const dataRows = rows.map((r) => {
+    const dataRows = rows.map((r, rowIndex) => {
       const isDeleted = deletedIds.has(r.id);
       const isPending = isPendingId(r.id);
+      const isDirty = dirtyIds.has(r.id);
       const style: React.CSSProperties = isDeleted
         ? { textDecoration: 'line-through', opacity: 0.65 }
         : {};
       const rowHeight = rowHeights[r.id] ?? DEFAULT_ROW_HEIGHT;
 
       const cells: any[] = [
+        {
+          type: 'rowNumber',
+          rowIndex: rowIndex + 1,
+          rowId: r.id,
+          isDirty,
+        } as RowNumberCell,
         {
           type: 'deleteButton',
           rowId: r.id,
@@ -1077,7 +1208,8 @@ const SubtaskExcelView = ({
           field: 'title',
           text: r.title ?? '',
           style,
-          multiline: false,
+          multiline: true,
+          rowHeight,
         } as TextWithSpeechCell,
         {
           type: 'textWithSpeech',
@@ -1177,7 +1309,7 @@ const SubtaskExcelView = ({
     });
 
     return [headerRow, ...dataRows];
-  }, [rows, deletedIds, rowHeights, templateFields]);
+  }, [rows, deletedIds, dirtyIds, rowHeights, templateFields]);
 
   const handleCellsChanged = useCallback(
     (changes: CellChange[]) => {
@@ -1285,7 +1417,7 @@ const SubtaskExcelView = ({
             ) : (
               <i className="fas fa-save me-1" />
             )}
-            {saving ? 'Saving…' : 'Save changes'}
+            {saving ? 'Saving…' : `Save changes${dirtyIds.size > 0 ? ` (${dirtyIds.size})` : ''}`}
           </button>
         </div>
       </div>
@@ -1309,6 +1441,7 @@ const SubtaskExcelView = ({
           enableColumnResizeOnAllHeaders
           stickyTopRows={1}
           customCellTemplates={{
+            rowNumber: rowNumberTemplate,
             deleteButton: deleteButtonTemplate,
             textWithSpeech: textWithSpeechTemplate,
             testTypeDropdown: testTypeDropdownTemplate,
