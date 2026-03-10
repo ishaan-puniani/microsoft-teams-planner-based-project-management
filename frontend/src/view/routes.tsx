@@ -508,6 +508,12 @@ const privateRoutes = [
     permissionRequired: permissions.tagRead,
     exact: true,
   },
+  {
+    path: '/msplanner/board/:planId',
+    loader: () => import('src/integrations/MS_Planner/MSPlannerBoardPage'),
+    permissionRequired: permissions.tagRead,
+    exact: true,
+  },
 ].filter(Boolean);
 
 const publicRoutes = [

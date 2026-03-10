@@ -17,6 +17,7 @@ export interface PlannerTask {
   priority?: number;
   planId?: string;
   bucketId?: string;
+  orderHint?: string;
   appliedCategories?: Record<string, boolean>;
   assignments?: Record<string, { '@odata.type'?: string; orderHint?: string }>;
   createdBy?: { user?: { displayName?: string | null; id?: string } };

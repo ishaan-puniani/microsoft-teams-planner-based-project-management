@@ -6,7 +6,7 @@ export default async (req, res, next) => {
   try {
     const msPlannerAuth = getMsPlannerAuth(req);
     const taskId = req.params.taskId;
-    const { etag, appliedCategories, assignments, title, priority, startDateTime, dueDateTime, bucketId } = req.body;
+    const { etag, appliedCategories, assignments, title, priority, startDateTime, dueDateTime, bucketId, orderHint } = req.body;
 
     if (!etag) {
       return ApiResponseHandler.error(req, res, new Error('etag is required'));
@@ -20,6 +20,7 @@ export default async (req, res, next) => {
       startDateTime,
       dueDateTime,
       bucketId,
+      orderHint,
     }, msPlannerAuth);
 
     await ApiResponseHandler.success(req, res, payload);

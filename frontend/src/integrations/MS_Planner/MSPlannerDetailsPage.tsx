@@ -130,10 +130,16 @@ const MSPlannerDetailsPage = () => {
         <PageTitle>
           {title}
           <Link
-            className="btn btn-sm btn-primary ml-2"
+            className="btn btn-sm btn-primary ms-2"
             to={`/msplanner/tasks/${planId}`}
           >
             View tasks
+          </Link>
+          <Link
+            className="btn btn-sm btn-outline-primary ms-2"
+            to={`/msplanner/board/${planId}`}
+          >
+            Board
           </Link>
         </PageTitle>
 

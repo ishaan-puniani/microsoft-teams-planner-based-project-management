@@ -221,7 +221,13 @@ export default class MsTaskService {
             }
 
             const bucketsResponse = await response.json();
-            return bucketsResponse.value || [];
+            const buckets = bucketsResponse.value || [];
+            buckets.sort((a: any, b: any) => {
+                const ha = a.orderHint ?? '';
+                const hb = b.orderHint ?? '';
+                return ha > hb ? -1 : ha < hb ? 1 : 0;
+            });
+            return buckets;
         } catch (error: any) {
             throw new Error(`Failed to get buckets for plan ${planId}: ${error.message}`);
         }
@@ -355,6 +361,7 @@ export default class MsTaskService {
             startDateTime?: string | null;
             dueDateTime?: string | null;
             bucketId?: string | null;
+            orderHint?: string;
         },
         credentials?: MsPlannerCredentials
     ): Promise<any> {
@@ -370,8 +377,9 @@ export default class MsTaskService {
             if (patch.startDateTime !== undefined) body.startDateTime = patch.startDateTime;
             if (patch.dueDateTime !== undefined) body.dueDateTime = patch.dueDateTime;
             if (patch.bucketId !== undefined) body.bucketId = patch.bucketId;
+            if (patch.orderHint !== undefined) body.orderHint = patch.orderHint;
 
-            const response = await fetch(url, {
+            let response = await fetch(url, {
                 method: 'PATCH',
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -381,6 +389,35 @@ export default class MsTaskService {
                 },
                 body: JSON.stringify(body),
             });
+
+            if (response.status === 409) {
+                const getResponse = await fetch(url, {
+                    method: 'GET',
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                if (!getResponse.ok) {
+                    const errText = await getResponse.text();
+                    throw new Error(`Failed to update planner task: 409 Conflict. Could not read latest task: ${getResponse.status} - ${errText}`);
+                }
+                let freshEtag = getResponse.headers.get('ETag') || getResponse.headers.get('etag');
+                if (!freshEtag) {
+                    const taskBody = await getResponse.json();
+                    freshEtag = taskBody?.['@odata.etag'];
+                }
+                if (!freshEtag) {
+                    throw new Error(`Failed to update planner task: 409 Conflict. Could not get fresh etag from task.`);
+                }
+                response = await fetch(url, {
+                    method: 'PATCH',
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                        'If-Match': freshEtag,
+                        'Prefer': 'return=representation',
+                    },
+                    body: JSON.stringify(body),
+                });
+            }
 
             if (!response.ok) {
                 const errorText = await response.text();

@@ -102,10 +102,16 @@ const MsPlannerTasksListPage = () => {
         <PageTitle>
           {planTitle ? `${planTitle} – Tasks` : 'MS Planner Tasks'}
           <Link
-            className="btn btn-sm btn-secondary ml-2"
+            className="btn btn-sm btn-secondary ms-2"
             to={`/msplanner/plan/${planId}`}
           >
             Back to plan
+          </Link>
+          <Link
+            className="btn btn-sm btn-outline-primary ms-2"
+            to={`/msplanner/board/${planId}`}
+          >
+            Board view
           </Link>
           <button
             type="button"
