@@ -24,7 +24,7 @@ export default async (req, res, next) => {
     const typeFilter =
       type != null && typeof type === 'string' && type.trim() !== ''
         ? type.trim()
-        : undefined;
+        : "EPIC";
 
     const payload = await new TaskService(req).getAggregateEstimates(
       projectId,

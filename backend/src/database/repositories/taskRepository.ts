@@ -157,20 +157,25 @@ class TaskRepository {
     const currentUser =
       MongooseRepository.getCurrentUser(options);
 
-    const msPlannerTaskIds = tasksData.map((t) => t.msPlannerTaskId);
-    const existingMsPlannerTaskIds = await MongooseRepository.wrapWithSessionIfExists(
-      Task(options.database)
-        .find({
-          msPlannerTaskId: { $in: msPlannerTaskIds },
-          tenant: currentTenant.id,
-        })
-        .distinct('msPlannerTaskId'),
-      options,
+    const msPlannerTaskIds = tasksData.map(
+      (t) => t.msPlannerTaskId,
     );
+    const existingMsPlannerTaskIds =
+      await MongooseRepository.wrapWithSessionIfExists(
+        Task(options.database)
+          .find({
+            msPlannerTaskId: { $in: msPlannerTaskIds },
+            tenant: currentTenant.id,
+          })
+          .distinct('msPlannerTaskId'),
+        options,
+      );
     const existingSet = new Set(
       (existingMsPlannerTaskIds || []).map(String),
     );
-    const toInsert = tasksData.filter((t) => !existingSet.has(t.msPlannerTaskId));
+    const toInsert = tasksData.filter(
+      (t) => !existingSet.has(t.msPlannerTaskId),
+    );
     if (toInsert.length === 0) {
       return 0;
     }
@@ -191,7 +196,9 @@ class TaskRepository {
         tenant: currentTenant.id,
         createdBy: currentUser.id,
         updatedBy: currentUser.id,
-        ...(item.description != null && { description: item.description }),
+        ...(item.description != null && {
+          description: item.description,
+        }),
         ...(item.estimatedStart != null && {
           estimatedStart: item.estimatedStart,
         }),
@@ -199,8 +206,11 @@ class TaskRepository {
           estimatedEnd: item.estimatedEnd,
         }),
         ...(item.assignedTo != null &&
-          item.assignedTo.length > 0 && { assignedTo: item.assignedTo }),
-        ...(item.bucket != null && item.bucket !== '' && { bucket: item.bucket }),
+          item.assignedTo.length > 0 && {
+            assignedTo: item.assignedTo,
+          }),
+        ...(item.bucket != null &&
+          item.bucket !== '' && { bucket: item.bucket }),
       });
     }
 
@@ -286,7 +296,8 @@ class TaskRepository {
       MongooseRepository.getCurrentTenant(options);
     const tenantCriteria = { tenant: currentTenant.id };
     const isObjectId =
-      typeof id === 'string' && /^[a-fA-F0-9]{24}$/.test(id);
+      typeof id === 'string' &&
+      /^[a-fA-F0-9]{24}$/.test(id);
     const orConditions: any[] = [{ key: id }];
     if (isObjectId) {
       orConditions.unshift({ _id: id });
@@ -331,7 +342,7 @@ class TaskRepository {
       tenant: currentTenant.id,
     };
 
-    if(filter?.project){
+    if (filter?.project) {
       defaultFilter.project = MongooseQueryUtils.uuid(
         filter?.project,
       );
@@ -649,7 +660,9 @@ class TaskRepository {
   static async getEpicsAndUserStories(
     projectId: string,
     options: IRepositoryOptions,
-  ): Promise<Array<{ id: string; title: string; epicTitle: string }>> {
+  ): Promise<
+    Array<{ id: string; title: string; epicTitle: string }>
+  > {
     const currentTenant =
       MongooseRepository.getCurrentTenant(options);
     const projectObjId = MongooseQueryUtils.uuid(projectId);
@@ -688,10 +701,19 @@ class TaskRepository {
       .select('_id title parents')
       .lean();
 
-    const result: Array<{ id: string; title: string; epicTitle: string }> = [];
+    const result: Array<{
+      id: string;
+      title: string;
+      epicTitle: string;
+    }> = [];
     for (const us of userStories) {
-      const parentId = Array.isArray(us.parents) && us.parents[0] ? us.parents[0].toString() : null;
-      const epicTitle = parentId ? epicTitleById[parentId] ?? '' : '';
+      const parentId =
+        Array.isArray(us.parents) && us.parents[0]
+          ? us.parents[0].toString()
+          : null;
+      const epicTitle = parentId
+        ? (epicTitleById[parentId] ?? '')
+        : '';
       result.push({
         id: us._id.toString(),
         title: us.title || '',
@@ -708,7 +730,15 @@ class TaskRepository {
   static async getTasksWithoutParentOrTypeAndNotEpicOrUserStory(
     projectId: string,
     options: IRepositoryOptions,
-  ): Promise<Array<{ id: string; title: string; description?: string; categories?: string[]; type?: string }>> {
+  ): Promise<
+    Array<{
+      id: string;
+      title: string;
+      description?: string;
+      categories?: string[];
+      type?: string;
+    }>
+  > {
     const currentTenant =
       MongooseRepository.getCurrentTenant(options);
     const projectObjId = MongooseQueryUtils.uuid(projectId);
@@ -751,7 +781,7 @@ class TaskRepository {
     const criteria = {
       tenant: currentTenant.id,
       project: MongooseQueryUtils.uuid(projectId),
-      type: type
+      type: type,
     };
     const rows = await Task(options.database)
       .find(criteria)
