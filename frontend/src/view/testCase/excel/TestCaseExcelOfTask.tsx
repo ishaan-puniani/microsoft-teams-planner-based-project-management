@@ -258,6 +258,8 @@ function createTextWithSpeechTemplate(
   onMicClickRef: React.MutableRefObject<
     ((rowId: string, field: 'title' | 'preconditions' | 'steps' | 'expectedResult') => void) | null
   >,
+  onStarClickRef: React.MutableRefObject<((rowId: string) => void) | null>,
+  starLoadingRowIdRef: React.MutableRefObject<string | null>,
   browserSupportsSpeechRef: React.MutableRefObject<boolean>,
 ): CellTemplate<TextWithSpeechCell> {
   return {
@@ -346,25 +348,45 @@ function createTextWithSpeechTemplate(
               onCut={(e) => e.stopPropagation()}
             />
           )}
-          {showMic && (
+          <div className="d-flex flex-column align-items-center gap-1">
+            {showMic && (
+              <button
+                type="button"
+                className={`btn btn-sm btn-link p-0 border-0 flex-shrink-0 ${isDictatingThis && listening ? 'text-danger' : 'text-secondary'}`}
+                style={{ minWidth: 22 }}
+                title={
+                  listening && isDictatingThis
+                    ? 'Stop listening'
+                    : `Dictate ${cell.field} (speech to text)`
+                }
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  onMicClickRef.current?.(cell.rowId, cell.field);
+                }}
+              >
+                <i className={`fas fa-microphone${listening && isDictatingThis ? '-slash' : ''}`} />
+              </button>
+            )}
             <button
               type="button"
-              className={`btn btn-sm btn-link p-0 border-0 flex-shrink-0 ${isDictatingThis && listening ? 'text-danger' : 'text-secondary'}`}
+              className="btn btn-sm btn-link p-0 border-0 flex-shrink-0 text-warning"
               style={{ minWidth: 22 }}
-              title={
-                listening && isDictatingThis
-                  ? 'Stop listening'
-                  : `Dictate ${cell.field} (speech to text)`
-              }
+              title="Refine with AI"
+              disabled={starLoadingRowIdRef.current === cell.rowId}
               onClick={(e) => {
                 e.stopPropagation();
                 e.preventDefault();
-                onMicClickRef.current?.(cell.rowId, cell.field);
+                onStarClickRef.current?.(cell.rowId);
               }}
             >
-              <i className={`fas fa-microphone${listening && isDictatingThis ? '-slash' : ''}`} />
+              {starLoadingRowIdRef.current === cell.rowId ? (
+                <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" />
+              ) : (
+                <i className="far fa-star" />
+              )}
             </button>
-          )}
+          </div>
         </div>
       );
     },
@@ -415,6 +437,7 @@ const TestCaseExcelOfTask = ({
   const [dirtyIds, setDirtyIds] = useState<Set<string>>(() => new Set());
   const [deletedIds, setDeletedIds] = useState<Set<string>>(() => new Set());
   const [aiLoading, setAiLoading] = useState(false);
+  const [aiLoadingRowId, setAiLoadingRowId] = useState<string | null>(null);
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>(() => ({
     ...DEFAULT_COLUMN_WIDTHS,
   }));
@@ -443,6 +466,8 @@ const TestCaseExcelOfTask = ({
   const onMicClickRef = useRef<
     ((rowId: string, field: 'title' | 'preconditions' | 'steps' | 'expectedResult') => void) | null
   >(null);
+  const onStarClickRef = useRef<((rowId: string) => void) | null>(null);
+  const starLoadingRowIdRef = useRef<string | null>(null);
   const onTestTypeChangeRef = useRef<((rowId: string, value: string) => void) | null>(null);
   const browserSupportsSpeechRef = useRef(false);
   browserSupportsSpeechRef.current = browserSupportsSpeechRecognition;
@@ -450,6 +475,7 @@ const TestCaseExcelOfTask = ({
   rowsRef.current = rows;
 
   getSpeechStateRef.current = () => ({ listening, dictatingFor });
+  starLoadingRowIdRef.current = aiLoadingRowId;
 
   const persistDraft = useCallback(
     (tid: string | undefined, currentRows: TestCaseRow[]) => {
@@ -535,9 +561,49 @@ const TestCaseExcelOfTask = ({
     [listening, dictatingFor, resetTranscript],
   );
 
+  const handleStarClick = useCallback(
+    async (rowId: string) => {
+      if (!taskId || !taskTitle?.trim()) return;
+      const row = rows.find((r) => r.id === rowId);
+      if (!row) return;
+      setAiLoadingRowId(rowId);
+      setError(null);
+      try {
+        const data = await AiAgentService.suggestTestCasesForTask(taskTitle.trim(), {
+          taskDescription: taskDescription?.trim() || undefined,
+        });
+        const list = data?.testCases ?? [];
+        const first = list[0];
+        if (first) {
+          const updated: TestCaseRow = {
+            ...row,
+            title: first.title ?? row.title ?? 'Test case',
+            preconditions: row.preconditions ?? '',
+            steps: first.steps ?? row.steps ?? '',
+            expectedResult: first.expectedResult ?? row.expectedResult ?? '',
+            testType: row.testType ?? 'Functional',
+          };
+          setRows((prev) => {
+            const next = prev.map((r) => (r.id === rowId ? updated : r));
+            persistDraft(taskId, next);
+            return next;
+          });
+          setDirtyIds((prev) => new Set(prev).add(rowId));
+        }
+      } catch (e) {
+        Errors.handle(e);
+        setError((e as Error)?.message ?? 'AI refine failed');
+      } finally {
+        setAiLoadingRowId(null);
+      }
+    },
+    [taskId, taskTitle, taskDescription, rows, persistDraft],
+  );
+
   useEffect(() => {
     onChangeRef.current = handleFieldChange;
     onMicClickRef.current = handleMicClick;
+    onStarClickRef.current = handleStarClick;
     onTestTypeChangeRef.current = handleTestTypeChange;
   });
 
@@ -800,6 +866,8 @@ const TestCaseExcelOfTask = ({
         getSpeechStateRef,
         onChangeRef,
         onMicClickRef,
+        onStarClickRef,
+        starLoadingRowIdRef,
         browserSupportsSpeechRef,
       ),
     [],
@@ -914,7 +982,8 @@ const TestCaseExcelOfTask = ({
     });
 
     return [headerRow, ...dataRows];
-  }, [rows, deletedIds, dirtyIds, rowHeights]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- aiLoadingRowId needed so star spinner re-renders
+  }, [rows, deletedIds, dirtyIds, rowHeights, aiLoadingRowId]);
 
   const handleCellsChanged = useCallback(
     (changes: CellChange[]) => {

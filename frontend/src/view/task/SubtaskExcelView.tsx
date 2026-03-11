@@ -313,6 +313,8 @@ function createTextWithSpeechTemplate(
   onMicClickRef: React.MutableRefObject<
     ((rowId: string, field: string) => void) | null
   >,
+  onStarClickRef: React.MutableRefObject<((rowId: string) => void) | null>,
+  starLoadingRowIdRef: React.MutableRefObject<string | null>,
   browserSupportsSpeechRef: React.MutableRefObject<boolean>,
 ): CellTemplate<TextWithSpeechCell> {
   return {
@@ -402,25 +404,45 @@ function createTextWithSpeechTemplate(
               onCut={(e) => e.stopPropagation()}
             />
           )}
-          {showMic && (
+          <div className="d-flex flex-column align-items-center gap-1">
+            {showMic && (
+              <button
+                type="button"
+                className={`btn btn-sm btn-link p-0 border-0 flex-shrink-0 ${isDictatingThis && listening ? 'text-danger' : 'text-secondary'}`}
+                style={{ minWidth: 22 }}
+                title={
+                  listening && isDictatingThis
+                    ? 'Stop listening'
+                    : `Dictate ${cell.field} (speech to text)`
+                }
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  onMicClickRef.current?.(cell.rowId, cell.field);
+                }}
+              >
+                <i className={`fas fa-microphone${listening && isDictatingThis ? '-slash' : ''}`} />
+              </button>
+            )}
             <button
               type="button"
-              className={`btn btn-sm btn-link p-0 border-0 flex-shrink-0 ${isDictatingThis && listening ? 'text-danger' : 'text-secondary'}`}
+              className="btn btn-sm btn-link p-0 border-0 flex-shrink-0 text-warning"
               style={{ minWidth: 22 }}
-              title={
-                listening && isDictatingThis
-                  ? 'Stop listening'
-                  : `Dictate ${cell.field} (speech to text)`
-              }
+              title="Refine with AI"
+              disabled={starLoadingRowIdRef.current === cell.rowId}
               onClick={(e) => {
                 e.stopPropagation();
                 e.preventDefault();
-                onMicClickRef.current?.(cell.rowId, cell.field);
+                onStarClickRef.current?.(cell.rowId);
               }}
             >
-              <i className={`fas fa-microphone${listening && isDictatingThis ? '-slash' : ''}`} />
+              {starLoadingRowIdRef.current === cell.rowId ? (
+                <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" />
+              ) : (
+                <i className="far fa-star" />
+              )}
             </button>
-          )}
+          </div>
         </div>
       );
     },
@@ -518,6 +540,7 @@ const SubtaskExcelView = ({
   const [dirtyIds, setDirtyIds] = useState<Set<string>>(() => new Set());
   const [deletedIds, setDeletedIds] = useState<Set<string>>(() => new Set());
   const [aiLoading, setAiLoading] = useState(false);
+  const [aiLoadingRowId, setAiLoadingRowId] = useState<string | null>(null);
   const defaultWidths = useMemo(() => getDefaultColumnWidths(templateFields), [templateFields]);
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>(() => defaultWidths);
   const [rowHeights, setRowHeights] = useState<Record<string, number>>(() => ({}));
@@ -545,6 +568,8 @@ const SubtaskExcelView = ({
   const onMicClickRef = useRef<
     ((rowId: string, field: string) => void) | null
   >(null);
+  const onStarClickRef = useRef<((rowId: string) => void) | null>(null);
+  const starLoadingRowIdRef = useRef<string | null>(null);
   const onTestTypeChangeRef = useRef<((rowId: string, value: string) => void) | null>(null);
   const onDropdownChangeRef = useRef<((rowId: string, fieldId: string, value: string) => void) | null>(null);
   const browserSupportsSpeechRef = useRef(false);
@@ -553,6 +578,7 @@ const SubtaskExcelView = ({
   rowsRef.current = rows;
 
   getSpeechStateRef.current = () => ({ listening, dictatingFor });
+  starLoadingRowIdRef.current = aiLoadingRowId;
 
   // Load task template from project (test case template) to drive columns
   useEffect(() => {
@@ -709,6 +735,7 @@ const SubtaskExcelView = ({
   useEffect(() => {
     onChangeRef.current = handleFieldChange;
     onMicClickRef.current = handleMicClick;
+    onStarClickRef.current = handleStarClick;
     onTestTypeChangeRef.current = handleTestTypeChange;
     onDropdownChangeRef.current = handleTemplateFieldChange;
   });
@@ -1028,6 +1055,106 @@ const SubtaskExcelView = ({
     }
   }, [taskId, taskTitle, taskDescription, childType, templateFields, persistDraft]);
 
+  const handleStarClick = useCallback(
+    async (rowId: string) => {
+      if (!taskId || !taskTitle?.trim()) return;
+      const row = rows.find((r) => r.id === rowId);
+      if (!row) return;
+      setAiLoadingRowId(rowId);
+      setError(null);
+      try {
+        if (childType === 'USER_STORY') {
+          const data = await AiAgentService.plannerSuggestUserStoriesForEpic(taskTitle.trim(), {
+            epicDescription: taskDescription?.trim() || undefined,
+          });
+          const text = typeof data?.userStoriesText === 'string' ? data.userStoriesText : '';
+          const parsed = parseStructuredBulk(text);
+          const items = Array.isArray(parsed) ? parsed.filter((p) => p && p.level === 1) : [];
+          const first = items[0];
+          if (first) {
+            const updated: TestCaseRow = {
+              ...row,
+              title: String(first?.title ?? row.title ?? 'User Story').trim() || 'User Story',
+              acceptanceCriteria: first?.acceptanceCriteria?.join?.('\n') ?? row.acceptanceCriteria ?? '',
+              checklist: (first?.todoChecklist ?? []).map((label: string) => ({ label, done: false })),
+            };
+            setRows((prev) => {
+              const next = prev.map((r) => (r.id === rowId ? updated : r));
+              persistDraft(taskId, next);
+              return next;
+            });
+            setDirtyIds((prev) => new Set(prev).add(rowId));
+          }
+        } else if (childType === 'TASK') {
+          const data = await AiAgentService.plannerSuggestTasksForUserStory(taskTitle.trim(), {});
+          const text = typeof data?.tasksText === 'string' ? data.tasksText : '';
+          const parsed = parseStructuredBulk(text);
+          const items = Array.isArray(parsed) ? parsed.filter((p) => p && p.level === 2) : [];
+          const first = items[0];
+          if (first) {
+            const updated: TestCaseRow = {
+              ...row,
+              title: String(first?.title ?? row.title ?? 'Task').trim() || 'Task',
+              acceptanceCriteria: first?.acceptanceCriteria?.join?.('\n') ?? row.acceptanceCriteria ?? '',
+              checklist: (first?.todoChecklist ?? []).map((label: string) => ({ label, done: false })),
+            };
+            setRows((prev) => {
+              const next = prev.map((r) => (r.id === rowId ? updated : r));
+              persistDraft(taskId, next);
+              return next;
+            });
+            setDirtyIds((prev) => new Set(prev).add(rowId));
+          }
+        } else {
+          const data = await AiAgentService.suggestTestCasesForTask(taskTitle.trim(), {
+            taskDescription: taskDescription?.trim() || undefined,
+          });
+          const list = data?.testCases ?? [];
+          const first = list[0];
+          if (first) {
+            const updated: TestCaseRow = {
+              ...row,
+              title: first.title ?? row.title ?? 'Test case',
+              ...(templateFields?.length
+                ? templateFields
+                    .filter((f) => f.id !== ACCEPTANCE_CRITERIA_COLUMN_ID && f.id !== CHECKLIST_COLUMN_ID)
+                    .reduce(
+                      (acc, f) => ({
+                        ...acc,
+                        [f.id]:
+                          f.id === 'steps' || f.id === 'testSteps'
+                            ? (first.steps ?? '')
+                            : f.id === 'expectedResult'
+                              ? (first.expectedResult ?? '')
+                              : row[f.id] ?? (f.defaultValue ?? (f.type === 'CHECKLIST' ? [] : '')),
+                      }),
+                      {} as Record<string, any>,
+                    )
+                : {
+                    preconditions: row.preconditions ?? '',
+                    steps: first.steps ?? row.steps ?? '',
+                    expectedResult: first.expectedResult ?? row.expectedResult ?? '',
+                    testType: row.testType ?? 'Functional',
+                  }),
+            };
+            setRows((prev) => {
+              const next = prev.map((r) => (r.id === rowId ? updated : r));
+              persistDraft(taskId, next);
+              return next;
+            });
+            setDirtyIds((prev) => new Set(prev).add(rowId));
+          }
+        }
+      } catch (e) {
+        Errors.handle(e);
+        setError((e as Error)?.message ?? 'AI refine failed');
+      } finally {
+        setAiLoadingRowId(null);
+      }
+    },
+    [taskId, taskTitle, taskDescription, childType, rows, templateFields, persistDraft],
+  );
+
   const buildTemplateData = useCallback(
     (r: TestCaseRow) => {
       if (templateFields?.length) {
@@ -1125,6 +1252,8 @@ const SubtaskExcelView = ({
         getSpeechStateRef,
         onChangeRef,
         onMicClickRef,
+        onStarClickRef,
+        starLoadingRowIdRef,
         browserSupportsSpeechRef,
       ),
     [],
@@ -1309,7 +1438,8 @@ const SubtaskExcelView = ({
     });
 
     return [headerRow, ...dataRows];
-  }, [rows, deletedIds, dirtyIds, rowHeights, templateFields]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- aiLoadingRowId needed so star spinner re-renders
+  }, [rows, deletedIds, dirtyIds, rowHeights, templateFields, aiLoadingRowId]);
 
   const handleCellsChanged = useCallback(
     (changes: CellChange[]) => {
