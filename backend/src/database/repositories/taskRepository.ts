@@ -331,7 +331,11 @@ class TaskRepository {
       tenant: currentTenant.id,
     };
 
-    if (options.projectId) {
+    if(filter?.project){
+      defaultFilter.project = MongooseQueryUtils.uuid(
+        filter?.project,
+      );
+    } else if (options.projectId) {
       defaultFilter.project = MongooseQueryUtils.uuid(
         options.projectId,
       );
@@ -343,11 +347,6 @@ class TaskRepository {
       if (filter.id) {
         criteriaAnd.push({
           ['_id']: MongooseQueryUtils.uuid(filter.id),
-        });
-      }
-      if (filter.project) {
-        criteriaAnd.push({
-          project: MongooseQueryUtils.uuid(filter.project),
         });
       }
       if (filter.title) {

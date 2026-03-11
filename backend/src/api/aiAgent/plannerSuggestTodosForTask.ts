@@ -2,6 +2,7 @@ import https from 'https';
 import axios from 'axios';
 import { getConfig } from '../../config';
 import ApiResponseHandler from '../apiResponseHandler';
+import ProjectRepository from '../../database/repositories/projectRepository';
 
 const geminiHttpsAgent = new https.Agent({ rejectUnauthorized: false });
 
@@ -16,6 +17,12 @@ Your task: Output a short TODO checklist for this task. Rules:
 export default async function plannerSuggestTodosForTask(req, res, next) {
   try {
     const body = req.body || {};
+    const projectId = body.projectId || req.projectId;
+    let projectDescription;
+    if (projectId) {
+      const project = await ProjectRepository.findById(projectId, req);
+      projectDescription = project?.description;
+    }
     const taskTitle =
       typeof body.taskTitle === 'string' ? body.taskTitle.trim() : '';
     const taskDescription =
@@ -44,7 +51,8 @@ export default async function plannerSuggestTodosForTask(req, res, next) {
 
     const model = getConfig().GEMINI_MODEL || 'gemini-2.0-flash';
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-    const context = projectBrief ? `Project: ${projectBrief.slice(0, 200)}\n\n` : '';
+    const projectContext = [projectDescription, projectBrief].filter(Boolean).join('\n\n');
+    const context = projectContext ? `Project: ${projectContext.slice(0, 500)}\n\n` : '';
     const storyContext = userStoryTitle ? `User story: ${userStoryTitle}\n\n` : '';
     const taskBlock = taskDescription
       ? `Task: ${taskTitle}\n${taskDescription}`

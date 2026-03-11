@@ -2,6 +2,7 @@ import https from 'https';
 import axios from 'axios';
 import { getConfig } from '../../config';
 import ApiResponseHandler from '../apiResponseHandler';
+import ProjectRepository from '../../database/repositories/projectRepository';
 
 const geminiHttpsAgent = new https.Agent({ rejectUnauthorized: false });
 
@@ -102,11 +103,18 @@ function getSystemPromptForStep(step: PlannerStep): string {
 export default async function refinePlannerContent(req, res, next) {
   try {
     const body = req.body || {};
+    const projectId = body.projectId || req.projectId;
+    let projectDescription;
+    if (projectId) {
+      const project = await ProjectRepository.findById(projectId, req);
+      projectDescription = project?.description;
+    }
     const step = ['epics', 'user_stories', 'tasks'].includes(body.step)
       ? body.step
       : 'epics';
     const projectBrief =
       typeof body.projectBrief === 'string' ? body.projectBrief.trim() : '';
+    const projectContext = [projectDescription, projectBrief].filter(Boolean).join('\n\n');
     const currentStructuredText =
       typeof body.currentStructuredText === 'string'
         ? body.currentStructuredText
@@ -114,11 +122,11 @@ export default async function refinePlannerContent(req, res, next) {
     const userFeedback =
       typeof body.userFeedback === 'string' ? body.userFeedback.trim() : undefined;
 
-    if (!projectBrief && step === 'epics') {
+    if (!projectContext && step === 'epics') {
       return ApiResponseHandler.error(
         req,
         res,
-        new Error('projectBrief (string) is required for step epics'),
+        new Error('projectBrief (string) or project description (via projectId) is required for step epics'),
       );
     }
 
@@ -146,7 +154,7 @@ export default async function refinePlannerContent(req, res, next) {
     const systemPrompt = getSystemPromptForStep(step);
     const userPrompt = buildPromptForStep(
       step,
-      projectBrief,
+      projectContext,
       currentStructuredText,
       userFeedback,
     );

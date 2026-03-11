@@ -2,6 +2,7 @@ import https from 'https';
 import axios from 'axios';
 import { getConfig } from '../../config';
 import ApiResponseHandler from '../apiResponseHandler';
+import ProjectRepository from '../../database/repositories/projectRepository';
 
 const geminiHttpsAgent = new https.Agent({ rejectUnauthorized: false });
 
@@ -32,6 +33,12 @@ Rules:
 export default async function plannerSuggestUserStoriesForEpic(req, res, next) {
   try {
     const body = req.body || {};
+    const projectId = body.projectId || req.projectId;
+    let projectDescription;
+    if (projectId) {
+      const project = await ProjectRepository.findById(projectId, req);
+      projectDescription = project?.description;
+    }
     const projectBrief =
       typeof body.projectBrief === 'string' ? body.projectBrief.trim() : '';
     const epicName =
@@ -58,8 +65,9 @@ export default async function plannerSuggestUserStoriesForEpic(req, res, next) {
 
     const model = getConfig().GEMINI_MODEL || 'gemini-2.0-flash';
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-    const context = projectBrief
-      ? `Project description:\n\n${projectBrief}\n\n`
+    const projectContext = [projectDescription, projectBrief].filter(Boolean).join('\n\n');
+    const context = projectContext
+      ? `Project description:\n\n${projectContext}\n\n`
       : '';
     const epicBlock = epicDescription
       ? `Epic: ${epicName}\n${epicDescription}`

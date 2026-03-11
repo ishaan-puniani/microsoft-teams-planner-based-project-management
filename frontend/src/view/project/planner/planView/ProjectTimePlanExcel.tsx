@@ -766,7 +766,7 @@ const ProjectTimePlanExcel = ({ projectId }: { projectId: string | undefined }) 
         if (!projectId) return;
         setLoading(true);
         setError(null);
-        TaskService.list({ filter: { project: projectId } }, undefined, 500, 0)
+        TaskService.list({ project: projectId } , undefined, 500, 0)
             .then((res: { rows?: TaskRecord[] }) => {
                 const rows = res.rows ?? [];
                 const stored = loadEstimatesFromStorage(projectId);
@@ -797,7 +797,7 @@ const ProjectTimePlanExcel = ({ projectId }: { projectId: string | undefined }) 
         let cancelled = false;
         setLoading(true);
         setError(null);
-        TaskService.list({ filter: { project: projectId } }, undefined, 500, 0)
+        TaskService.list({ project: projectId }, undefined, 500, 0)
             .then((res: { rows?: TaskRecord[] }) => {
                 if (!cancelled) {
                     const rows = res.rows ?? [];

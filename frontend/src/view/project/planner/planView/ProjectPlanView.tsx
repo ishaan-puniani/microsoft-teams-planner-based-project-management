@@ -114,7 +114,7 @@ const ProjectPlanView = ({ projectId }: { projectId: string | undefined }) => {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    TaskService.list({ filter: { project: projectId } }, undefined, 500, 0)
+    TaskService.list({ project: projectId }, undefined, 500, 0)
       .then((res: { rows?: TaskRecord[] }) => {
         if (!cancelled) setTasks(res.rows ?? []);
       })

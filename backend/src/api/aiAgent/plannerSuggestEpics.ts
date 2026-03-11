@@ -2,6 +2,7 @@ import https from 'https';
 import axios from 'axios';
 import { getConfig } from '../../config';
 import ApiResponseHandler from '../apiResponseHandler';
+import ProjectRepository from '../../database/repositories/projectRepository';
 
 const geminiHttpsAgent = new https.Agent({ rejectUnauthorized: false });
 
@@ -15,16 +16,25 @@ Rules:
 - Epic titles should be module/area names (2-4 words).`;
 
 export default async function plannerSuggestEpics(req, res, next) {
+
+  const projectId = req.body.projectId || req.projectId;
+  let projectDescription;
+  if(projectId){
+    const project = await ProjectRepository.findById(projectId, req);
+    projectDescription = project.description;
+  }
+
   try {
     const body = req.body || {};
     const projectBrief =
       typeof body.projectBrief === 'string' ? body.projectBrief.trim() : '';
 
-    if (!projectBrief) {
+    const projectContext = [projectDescription, projectBrief].filter(Boolean).join('\n\n');
+    if (!projectContext) {
       return ApiResponseHandler.error(
         req,
         res,
-        new Error('projectBrief (string) is required'),
+        new Error('projectBrief (string) or project description (via projectId) is required'),
       );
     }
 
@@ -39,7 +49,7 @@ export default async function plannerSuggestEpics(req, res, next) {
 
     const model = getConfig().GEMINI_MODEL || 'gemini-2.0-flash';
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-    const userPrompt = `Project description:\n\n${projectBrief}\n\nOutput the list of epics only (one per line, no leading dash, optional description line under each).`;
+    const userPrompt = `Project description:\n\n${projectContext}\n\nOutput the list of epics only (one per line, no leading dash, optional description line under each).`;
     const fullPrompt = `${SYSTEM}\n\n---\n\n${userPrompt}`;
 
     const response = await axios.post(
