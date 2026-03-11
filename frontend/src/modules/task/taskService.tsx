@@ -172,11 +172,11 @@ export default class TaskService {
     return response.data;
   }
 
-  static async getAggregateEstimates(projectId: string) {
+  static async getAggregateEstimates(projectId: string, type: string) {
     const tenantId = AuthCurrentTenant.get();
     const response = await authAxios.get(
       `/tenant/${tenantId}/task/reports/aggregate-estimates`,
-      { params: { projectId } },
+      { params: { projectId, type } },
     );
     return response.data;
   }

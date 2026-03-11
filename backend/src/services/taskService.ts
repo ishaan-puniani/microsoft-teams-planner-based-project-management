@@ -268,9 +268,10 @@ export default class TaskService {
     );
   }
 
-  async getAggregateEstimates(projectId: string) {
+  async getAggregateEstimates(projectId: string, type?: string) {
     return TaskRepository.aggregateEstimatesByProject(
       projectId,
+      type,
       this.options,
     );
   }

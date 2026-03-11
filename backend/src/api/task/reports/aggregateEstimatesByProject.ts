@@ -19,8 +19,16 @@ export default async (req, res, next) => {
       );
     }
 
+    const type =
+      req.query.type ?? req.body?.type;
+    const typeFilter =
+      type != null && typeof type === 'string' && type.trim() !== ''
+        ? type.trim()
+        : undefined;
+
     const payload = await new TaskService(req).getAggregateEstimates(
       projectId,
+      typeFilter,
     );
 
     await ApiResponseHandler.success(req, res, payload);

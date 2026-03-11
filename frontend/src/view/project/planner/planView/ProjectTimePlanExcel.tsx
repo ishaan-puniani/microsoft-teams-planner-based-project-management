@@ -566,6 +566,14 @@ function sumDescendantEstimates(node: TaskNode): {
     return { storyPoints, estimatedTime };
 }
 
+type EstimatesLevel = 'tasks' | 'epics_and_stories' | 'all';
+
+const ESTIMATES_LEVEL_OPTIONS: { value: EstimatesLevel; label: string }[] = [
+    { value: 'tasks', label: 'Estimates On Tasks' },
+    { value: 'epics_and_stories', label: 'Estimates On Epics and Stories' },
+    { value: 'all', label: 'Estimates On Epics, Stories and Tasks' },
+];
+
 const ESTIMATES_STORAGE_KEY_PREFIX = 'projectTimePlanEstimates:';
 const PENDING_TASKS_STORAGE_KEY_PREFIX = 'projectTimePlanPendingTasks:';
 
@@ -682,6 +690,7 @@ const ProjectTimePlanExcel = ({ projectId }: { projectId: string | undefined }) 
     const [columnWidths, setColumnWidths] = useState<Record<string, number>>(() => ({ ...DEFAULT_COLUMN_WIDTHS }));
     const [aiLoadingTaskId, setAiLoadingTaskId] = useState<string | null>(null);
     const [dictatingForTaskId, setDictatingForTaskId] = useState<string | null>(null);
+    const [estimatesLevel, setEstimatesLevel] = useState<EstimatesLevel>('tasks');
 
     const {
         transcript,
@@ -1086,22 +1095,29 @@ const ProjectTimePlanExcel = ({ projectId }: { projectId: string | undefined }) 
             return base;
         };
 
+        const showDescendantTotalsForParent = estimatesLevel === 'tasks';
+        const estimateEditableForParent = estimatesLevel === 'epics_and_stories' || estimatesLevel === 'all';
+        const estimateEditableForTask = estimatesLevel === 'tasks' || estimatesLevel === 'all';
+
         const dataRows = visibleRowsData.map(({ node, depth }, rowIndex) => {
             const { task } = node;
             const isDeleted = deletedTaskIds.has(task.id);
             const isDirty = dirtyTaskIds.has(task.id);
             const isParentType = isEpicOrUserStory(task.type);
             const descendantTotals = isParentType ? sumDescendantEstimates(node) : null;
-            const et = isParentType && descendantTotals
-                ? descendantTotals.estimatedTime
-                : (task.estimatedTime || {});
-            const storyPointsDisplay = isParentType && descendantTotals
-                ? (descendantTotals.storyPoints > 0 ? String(descendantTotals.storyPoints) : '')
-                : (task.storyPoints ?? '');
+            const useOwnEstimates = !isParentType || !showDescendantTotalsForParent;
+            const et = useOwnEstimates
+                ? (task.estimatedTime || {})
+                : (descendantTotals?.estimatedTime ?? {});
+            const storyPointsDisplay = useOwnEstimates
+                ? (task.storyPoints ?? '')
+                : (descendantTotals && descendantTotals.storyPoints > 0 ? String(descendantTotals.storyPoints) : '');
             const hasChildren = node.children.length > 0;
             const isExpanded = expandedIds.has(task.id);
             const parentId = getParentIds(task)[0] as Id | undefined;
-            const estimateCellProps = isParentType ? { nonEditable: true as const } : {};
+            const estimateCellProps = isParentType
+                ? (estimateEditableForParent ? {} : { nonEditable: true as const })
+                : (estimateEditableForTask ? {} : { nonEditable: true as const });
             const normalizedType = normalizeTaskType(task.type).replace(/\s/g, '_');
             const isPending = isPendingId(task.id);
             const aiLoading = aiLoadingTaskId === task.id;
@@ -1209,7 +1225,7 @@ const ProjectTimePlanExcel = ({ projectId }: { projectId: string | undefined }) 
         });
 
         return [headerRow, ...dataRows] as Row[];
-    }, [visibleRowsData, expandedIds, aiLoadingTaskId, deletedTaskIds, dirtyTaskIds]);
+    }, [visibleRowsData, expandedIds, aiLoadingTaskId, deletedTaskIds, dirtyTaskIds, estimatesLevel]);
 
     const handleCellsChanged = useCallback(
         (changes: CellChange[]) => {
@@ -1242,17 +1258,21 @@ const ProjectTimePlanExcel = ({ projectId }: { projectId: string | undefined }) 
                 for (const ch of taskChanges) {
                     const task = byId.get(ch.rowId as string);
                     if (!task) continue;
+                    const isParentType = isEpicOrUserStory(task.type);
+                    const allowEstimateEdit = estimatesLevel === 'all'
+                        || (estimatesLevel === 'tasks' && !isParentType)
+                        || (estimatesLevel === 'epics_and_stories' && isParentType);
                     if (ch.type === 'text' && 'text' in ch.newCell) {
                         const text = ch.newCell.text?.trim() ?? '';
                         if (ch.columnId === 'title') {
                             task.title = text || undefined;
                         } else if (ch.columnId === 'key') {
                             task.key = text || undefined;
-                        } else if (ch.columnId === 'storyPoints' && !isEpicOrUserStory(task.type)) {
+                        } else if (ch.columnId === 'storyPoints' && allowEstimateEdit) {
                             task.storyPoints = text || undefined;
                         }
                     }
-                    if (ch.type === 'number' && 'value' in ch.newCell && !isEpicOrUserStory(task.type)) {
+                    if (ch.type === 'number' && 'value' in ch.newCell && allowEstimateEdit) {
                         const idx = COLUMN_IDS.indexOf(ch.columnId as (typeof COLUMN_IDS)[number]);
                         if (idx >= 4 && idx <= 9) {
                             const key = ESTIMATED_KEYS[idx - 4];
@@ -1278,7 +1298,7 @@ const ProjectTimePlanExcel = ({ projectId }: { projectId: string | undefined }) 
                 return next;
             });
         },
-        [projectId],
+        [projectId, estimatesLevel],
     );
 
     const handleSave = useCallback(async () => {
@@ -1319,12 +1339,16 @@ const ProjectTimePlanExcel = ({ projectId }: { projectId: string | undefined }) 
             const dirtyExisting = existingTasks.filter(
                 (task) => dirtyTaskIds.has(task.id) && !deletedTaskIds.has(task.id),
             );
+            const includeEstimatesForTask = (t: TaskRecord) =>
+                estimatesLevel === 'all'
+                || (estimatesLevel === 'tasks' && !isEpicOrUserStory(t.type))
+                || (estimatesLevel === 'epics_and_stories' && isEpicOrUserStory(t.type));
             const updates = dirtyExisting.map((task) => {
                 const base: { id: string; title?: string; storyPoints?: string; estimatedTime?: Record<string, number> } = {
                     id: task.id,
                     title: task.title,
                 };
-                if (!isEpicOrUserStory(task.type)) {
+                if (includeEstimatesForTask(task)) {
                     base.storyPoints = task.storyPoints;
                     base.estimatedTime =
                         task.estimatedTime && Object.keys(task.estimatedTime).length > 0
@@ -1352,7 +1376,7 @@ const ProjectTimePlanExcel = ({ projectId }: { projectId: string | undefined }) 
         } finally {
             setSaving(false);
         }
-    }, [projectId, taskOrderForSave, dirtyTaskIds, deletedTaskIds, loadTasks]);
+    }, [projectId, taskOrderForSave, dirtyTaskIds, deletedTaskIds, loadTasks, estimatesLevel]);
 
     if (!projectId) return null;
     if (loading) return <Spinner />;
@@ -1365,6 +1389,19 @@ const ProjectTimePlanExcel = ({ projectId }: { projectId: string | undefined }) 
                     <i className="fas fa-table me-2" />
                     {i18n('common.planner')} — Time plan (Epic / User Story / Task)
                 </h5>
+                <div>
+                    <select
+                        className="form-select form-select-sm"
+                        value={estimatesLevel}
+                        onChange={(e) => setEstimatesLevel(e.target.value as EstimatesLevel)}
+                    >
+                        {ESTIMATES_LEVEL_OPTIONS.map(({ value, label }) => (
+                            <option key={value} value={value}>
+                                {label}
+                            </option>
+                        ))}
+                    </select>
+                </div>
                 <div className="d-flex align-items-center gap-2">
                     <button
                         type="button"

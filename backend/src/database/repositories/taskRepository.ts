@@ -743,6 +743,7 @@ class TaskRepository {
 
   static async aggregateEstimatesByProject(
     projectId: string,
+    type: string,
     options: IRepositoryOptions,
   ) {
     const currentTenant =
@@ -750,6 +751,7 @@ class TaskRepository {
     const criteria = {
       tenant: currentTenant.id,
       project: MongooseQueryUtils.uuid(projectId),
+      type: type
     };
     const rows = await Task(options.database)
       .find(criteria)
