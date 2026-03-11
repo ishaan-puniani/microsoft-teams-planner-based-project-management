@@ -785,37 +785,62 @@ class TaskRepository {
     };
     const rows = await Task(options.database)
       .find(criteria)
-      .select('estimatedTime')
+      .select('estimatedTime suggestedEstimatedTime')
       .lean();
-    const totals = {
+
+    const emptyTotals = () => ({
       architect: 0,
       developer: 0,
       tester: 0,
       businessAnalyst: 0,
       ux: 0,
       pm: 0,
-    };
-    const keyMap: Record<string, keyof typeof totals> = {
-      atchitect: 'architect',
+    });
+    const estimated = emptyTotals();
+    const suggestedLow = emptyTotals();
+    const suggestedIdeal = emptyTotals();
+    const suggestedHigh = emptyTotals();
+
+    const keyMap: Record<string, keyof typeof estimated> = {
+      architect: 'architect',
       developer: 'developer',
       tester: 'tester',
       businessAnalyst: 'businessAnalyst',
+      ux: 'ux',
+      pm: 'pm',
       UX: 'ux',
       PM: 'pm',
     };
-    for (const row of rows) {
-      const et = row.estimatedTime;
-      if (!et || typeof et !== 'object') continue;
-      for (const [dbKey, outKey] of Object.entries(
-        keyMap,
-      )) {
-        const v = et[dbKey];
+
+    function addToTotals(
+      totals: typeof estimated,
+      obj: Record<string, unknown> | null | undefined,
+    ) {
+      if (!obj || typeof obj !== 'object') return;
+      for (const [dbKey, outKey] of Object.entries(keyMap)) {
+        const v = obj[dbKey];
         if (typeof v === 'number' && !Number.isNaN(v)) {
           totals[outKey] += v;
         }
       }
     }
-    return totals;
+
+    for (const row of rows) {
+      addToTotals(estimated, row.estimatedTime as Record<string, unknown>);
+      const suggested = row.suggestedEstimatedTime as
+        | {
+            low?: Record<string, unknown>;
+            ideal?: Record<string, unknown>;
+            high?: Record<string, unknown>;
+          }
+        | null
+        | undefined;
+      addToTotals(suggestedLow, suggested?.low);
+      addToTotals(suggestedIdeal, suggested?.ideal);
+      addToTotals(suggestedHigh, suggested?.high);
+    }
+
+    return { estimated, suggestedLow, suggestedIdeal, suggestedHigh };
   }
 
   static async _createAuditLog(

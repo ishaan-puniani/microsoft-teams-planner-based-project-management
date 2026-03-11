@@ -117,6 +117,10 @@ const en = {
         endDateRange: 'End Date',
         status: 'Status',
         priority: 'Priority',
+        teamSkillLevelUnallocated: 'Unallocated',
+        teamSkillLevelLow: 'Low',
+        teamSkillLevelMedium: 'Medium',
+        teamSkillLevelHigh: 'High',
         createdAt: 'Created at',
         updatedAt: 'Updated at',
         updatedAtRange: 'Updated at',
@@ -125,6 +129,9 @@ const en = {
       enumerators: {},
       placeholders: {},
       hints: {},
+      sections: {
+        teamSkillLevel: 'Team skill level',
+      },
       new: {
         title: 'New Project',
       },

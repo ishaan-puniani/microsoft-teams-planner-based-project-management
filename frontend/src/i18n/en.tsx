@@ -128,6 +128,10 @@ const en = {
         subtaskTemplate: 'Subtask Template',
         testPlanTemplate: 'Test Plan Template',
         testCaseTemplate: 'Test Case Template',
+        teamSkillLevelUnallocated: 'Unallocated',
+        teamSkillLevelLow: 'Low',
+        teamSkillLevelMedium: 'Medium',
+        teamSkillLevelHigh: 'High',
         createdAt: 'Created at',
         updatedAt: 'Updated at',
         updatedAtRange: 'Updated at',
@@ -145,6 +149,7 @@ const en = {
         testCaseTemplate: 'Select the template to use for creating test cases in this project',
       },
       sections: {
+        teamSkillLevel: 'Team skill level',
         templates: 'Template Configuration',
       },
       new: {

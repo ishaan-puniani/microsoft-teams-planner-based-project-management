@@ -108,4 +108,18 @@ export default class AiAgentService {
     );
     return response.data as { message: string; updated: number; skipped: number };
   }
+
+  static async suggestEstimationsForTask(projectId: string, taskId: string) {
+    const tenantId = AuthCurrentTenant.get();
+    const response = await authAxios.get(
+      `/tenant/${tenantId}/ai-agent/suggest-estimations-for-task/${projectId}/${taskId}`,
+    );
+    return response.data as {
+      suggestedEstimatedTime: {
+        low: Record<string, number>;
+        ideal: Record<string, number>;
+        high: Record<string, number>;
+      };
+    };
+  }
 }

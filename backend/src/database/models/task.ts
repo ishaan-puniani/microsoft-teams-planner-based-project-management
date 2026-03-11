@@ -90,6 +90,10 @@ export default (database) => {
         type: Schema.Types.Mixed,
         default: undefined,
       },
+      suggestedEstimatedTime: {
+        type: Schema.Types.Mixed,
+        default: undefined,
+      },
       template: {
         type: Schema.Types.ObjectId,
         ref: 'taskTemplate',

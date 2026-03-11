@@ -12,6 +12,14 @@ import TaskTemplateAutocompleteFormItem from 'src/view/taskTemplate/autocomplete
 import * as yup from 'yup';
 import MsPlanAutocompleteFormItem from 'src/view/msPlanner/autocomplete/MsPlanAutocomplete';
 import MsPGroupAutocompleteFormItem from 'src/view/msPlanner/autocomplete/MsPGroupAutocomplete';
+import { ESTIMATES_ROLES } from 'src/view/project/reports/components/estimatesConstants';
+
+const SKILL_LEVEL_OPTIONS = [
+  { value: '', label: i18n('entities.project.fields.teamSkillLevelUnallocated') },
+  { value: 'LOW', label: i18n('entities.project.fields.teamSkillLevelLow') },
+  { value: 'MEDIUM', label: i18n('entities.project.fields.teamSkillLevelMedium') },
+  { value: 'HIGH', label: i18n('entities.project.fields.teamSkillLevelHigh') },
+];
 
 const schema = yup.object().shape({
   name: yupFormSchemas.string(
@@ -72,7 +80,17 @@ const schema = yup.object().shape({
   testCaseTemplate: yupFormSchemas.relationToOne(
     i18n('entities.project.fields.testCaseTemplate'),
   ),
-
+  teamSkillLevel: yup.object().shape(
+    Object.fromEntries(
+      ESTIMATES_ROLES.map(({ key }) => [
+        key,
+        yup
+          .string()
+          .nullable()
+          .oneOf(['', 'LOW', 'MEDIUM', 'HIGH']),
+      ]),
+    ),
+  ),
 });
 
 function normalizeRelationToOne(value: any): { id: string; label: string } | null {
@@ -91,7 +109,7 @@ function normalizeRelationToOne(value: any): { id: string; label: string } | nul
 const ProjectForm = (props) => {
   const [initialValues] = useState(() => {
     const record = props.record || {};
-
+    const tsl = record.teamSkillLevel || {};
     return {
       name: record.name,
       description: record.description,
@@ -109,6 +127,14 @@ const ProjectForm = (props) => {
       subtaskTemplate: normalizeRelationToOne(record.subtaskTemplate),
       testPlanTemplate: normalizeRelationToOne(record.testPlanTemplate),
       testCaseTemplate: normalizeRelationToOne(record.testCaseTemplate),
+      teamSkillLevel: {
+        architect: tsl.architect ?? '',
+        developer: tsl.developer ?? '',
+        tester: tsl.tester ?? '',
+        businessAnalyst: tsl.businessAnalyst ?? '',
+        ux: tsl.ux ?? '',
+        pm: tsl.pm ?? '',
+      },
     };
   });
 
@@ -125,7 +151,18 @@ const ProjectForm = (props) => {
   };
 
   const onSubmit = (values) => {
-    props.onSubmit(props?.record?.id, values);
+    const payload = { ...values };
+    if (payload.teamSkillLevel) {
+      payload.teamSkillLevel = Object.fromEntries(
+        Object.entries(payload.teamSkillLevel).filter(
+          ([_, v]) => v != null && v !== '',
+        ),
+      ) as typeof payload.teamSkillLevel;
+      if (Object.keys(payload.teamSkillLevel).length === 0) {
+        payload.teamSkillLevel = undefined;
+      }
+    }
+    props.onSubmit(props?.record?.id, payload);
   };
 
   const groupId = form.watch('msGroup')?.id;
@@ -215,6 +252,21 @@ const ProjectForm = (props) => {
                 ]}
               />
             </div>
+          </div>
+
+          <div className="row">
+            <div className="col-12">
+              <h5 className="mb-3">{i18n('entities.project.sections.teamSkillLevel')}</h5>
+            </div>
+            {ESTIMATES_ROLES.map(({ key, label }) => (
+              <div key={key} className="col-lg-6 col-md-8 col-12">
+                <SelectFormItem
+                  name={`teamSkillLevel.${key}`}
+                  label={label}
+                  options={SKILL_LEVEL_OPTIONS}
+                />
+              </div>
+            ))}
           </div>
 
           <div className="row">

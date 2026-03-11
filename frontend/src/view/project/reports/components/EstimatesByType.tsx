@@ -21,7 +21,7 @@ const EstimatesByType = ({
   title,
   layout = 'side-by-side',
 }: Props) => {
-  const { estimates, loading, error } = useAggregateEstimates(projectId, type);
+  const { estimates, suggestedLow, suggestedIdeal, suggestedHigh, loading, error } = useAggregateEstimates(projectId, type);
 
   if (loading || !projectId) {
     return (
@@ -43,7 +43,7 @@ const EstimatesByType = ({
     return (
       <div className="col-md-6">
         <ReportSection card cardHeader={title}>
-          <EstimatesGrid estimates={estimates} />
+          <EstimatesGrid estimates={estimates} suggestedLow={suggestedLow} suggestedIdeal={suggestedIdeal} suggestedHigh={suggestedHigh} />
         </ReportSection>
       </div>
     );
@@ -67,7 +67,7 @@ const EstimatesByType = ({
       <div className="row g-3">
         <div className="col-md-6">
           <ReportSection card cardHeader="Hours by role">
-            <EstimatesGrid estimates={estimates} />
+            <EstimatesGrid estimates={estimates} suggestedLow={suggestedLow} suggestedIdeal={suggestedIdeal} suggestedHigh={suggestedHigh} />
           </ReportSection>
         </div>
         <div className="col-md-6">

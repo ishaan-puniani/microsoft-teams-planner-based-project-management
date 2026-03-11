@@ -21,6 +21,15 @@ export default (database) => {
         type: String,
       },
 
+      teamSkillLevel: {
+        architect: { type: String, enum: ['LOW', 'MEDIUM', 'HIGH'] },
+        developer: { type: String, enum: ['LOW', 'MEDIUM', 'HIGH'] },
+        tester: { type: String, enum: ['LOW', 'MEDIUM', 'HIGH'] },
+        businessAnalyst: { type: String, enum: ['LOW', 'MEDIUM', 'HIGH'] },
+        ux: { type: String, enum: ['LOW', 'MEDIUM', 'HIGH'] },
+        pm: { type: String, enum: ['LOW', 'MEDIUM', 'HIGH'] },
+      },
+
       code: {
         type: String,
         required: true,
@@ -92,7 +101,7 @@ export default (database) => {
         type: String,
         // ref: 'msPlan',
       },
-      
+
       tenant: {
         type: Schema.Types.ObjectId,
         ref: 'tenant',
