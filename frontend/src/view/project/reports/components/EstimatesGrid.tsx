@@ -134,8 +134,9 @@ const EstimatesGrid = ({
       <ReactGrid
         columns={columns}
         rows={rows}
-        enableRangeSelection={false}
+        enableRangeSelection={true}
         enableColumnResizeOnAllHeaders
+        
       />
     </div>
   );

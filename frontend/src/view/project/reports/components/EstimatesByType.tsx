@@ -65,12 +65,10 @@ const EstimatesByType = ({
     <div className="col-12 mb-4">
       {title && <h5 className="mb-2">{title}</h5>}
       <div className="row g-3">
-        <div className="col-md-6">
-          <ReportSection card cardHeader="Hours by role">
-            <EstimatesGrid estimates={estimates} suggestedLow={suggestedLow} suggestedIdeal={suggestedIdeal} suggestedHigh={suggestedHigh} />
-          </ReportSection>
+        <div className="col-md-8">
+          <EstimatesGrid estimates={estimates} suggestedLow={suggestedLow} suggestedIdeal={suggestedIdeal} suggestedHigh={suggestedHigh} />
         </div>
-        <div className="col-md-6">
+        <div className="col-md-4">
           <ReportSection card cardHeader="Distribution">
             <div className="d-flex align-items-center justify-content-center">
               <EstimatesDoughnutChart estimates={estimates} />
