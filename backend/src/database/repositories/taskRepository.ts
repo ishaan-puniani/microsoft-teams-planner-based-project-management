@@ -1,5 +1,6 @@
 /// File is generated from https://studio.fabbuilder.com - task
 
+import mongoose from 'mongoose';
 import MongooseRepository from './mongooseRepository';
 import MongooseQueryUtils from '../utils/mongooseQueryUtils';
 import AuditLogRepository from './auditLogRepository';
@@ -778,15 +779,6 @@ class TaskRepository {
   ) {
     const currentTenant =
       MongooseRepository.getCurrentTenant(options);
-    const criteria = {
-      tenant: currentTenant.id,
-      project: MongooseQueryUtils.uuid(projectId),
-      type: type,
-    };
-    const rows = await Task(options.database)
-      .find(criteria)
-      .select('estimatedTime suggestedEstimatedTime')
-      .lean();
 
     const emptyTotals = () => ({
       architect: 0,
@@ -796,51 +788,71 @@ class TaskRepository {
       ux: 0,
       pm: 0,
     });
-    const estimated = emptyTotals();
-    const suggestedLow = emptyTotals();
-    const suggestedIdeal = emptyTotals();
-    const suggestedHigh = emptyTotals();
 
-    const keyMap: Record<string, keyof typeof estimated> = {
-      architect: 'architect',
-      developer: 'developer',
-      tester: 'tester',
-      businessAnalyst: 'businessAnalyst',
-      ux: 'ux',
-      pm: 'pm',
-      UX: 'ux',
-      PM: 'pm',
+    const roles = ['architect', 'developer', 'tester', 'businessAnalyst', 'ux', 'pm'] as const;
+
+    const sumField = (field: string) => ({
+      $sum: {
+        $cond: [
+          { $isNumber: `$${field}` },
+          `$${field}`,
+          0,
+        ],
+      },
+    });
+
+    const buildGroupAccum = (prefix: string) => {
+      const acc: Record<string, unknown> = {};
+      const safeKey = prefix.replace(/\./g, '_');
+      for (const role of roles) {
+        acc[`${safeKey}_${role}`] = sumField(`${prefix}.${role}`);
+      }
+      return acc;
     };
 
-    function addToTotals(
-      totals: typeof estimated,
-      obj: Record<string, unknown> | null | undefined,
-    ) {
-      if (!obj || typeof obj !== 'object') return;
-      for (const [dbKey, outKey] of Object.entries(keyMap)) {
-        const v = obj[dbKey];
-        if (typeof v === 'number' && !Number.isNaN(v)) {
-          totals[outKey] += v;
-        }
+    const [result] = await Task(options.database).aggregate([
+      {
+        $match: {
+          tenant: new mongoose.Types.ObjectId(currentTenant.id),
+          project: new mongoose.Types.ObjectId(projectId),
+          type,
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          ...buildGroupAccum('estimatedTime'),
+          ...buildGroupAccum('suggestedEstimatedTime.low'),
+          ...buildGroupAccum('suggestedEstimatedTime.ideal'),
+          ...buildGroupAccum('suggestedEstimatedTime.high'),
+        },
+      },
+    ]);
+
+    if (!result) {
+      return {
+        estimated: emptyTotals(),
+        suggestedLow: emptyTotals(),
+        suggestedIdeal: emptyTotals(),
+        suggestedHigh: emptyTotals(),
+      };
+    }
+
+    const pickTotals = (prefix: string) => {
+      const totals = emptyTotals();
+      const safeKey = prefix.replace(/\./g, '_');
+      for (const role of roles) {
+        totals[role] = result[`${safeKey}_${role}`] ?? 0;
       }
-    }
+      return totals;
+    };
 
-    for (const row of rows) {
-      addToTotals(estimated, row.estimatedTime as Record<string, unknown>);
-      const suggested = row.suggestedEstimatedTime as
-        | {
-            low?: Record<string, unknown>;
-            ideal?: Record<string, unknown>;
-            high?: Record<string, unknown>;
-          }
-        | null
-        | undefined;
-      addToTotals(suggestedLow, suggested?.low);
-      addToTotals(suggestedIdeal, suggested?.ideal);
-      addToTotals(suggestedHigh, suggested?.high);
-    }
-
-    return { estimated, suggestedLow, suggestedIdeal, suggestedHigh };
+    return {
+      estimated: pickTotals('estimatedTime'),
+      suggestedLow: pickTotals('suggestedEstimatedTime.low'),
+      suggestedIdeal: pickTotals('suggestedEstimatedTime.ideal'),
+      suggestedHigh: pickTotals('suggestedEstimatedTime.high'),
+    };
   }
 
   static async _createAuditLog(
