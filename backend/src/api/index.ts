@@ -35,6 +35,7 @@ import tagRoutes from './tag';
 import taskTemplateRoutes from './taskTemplate';
 import msPlannerRoutes from './msPlanner';
 import aiAgentRoutes from './aiAgent';
+import eventSchedule from './eventSchedule';
 
 const app = express();
 
@@ -116,6 +117,8 @@ tagRoutes(routes);
 taskTemplateRoutes(routes);
 msPlannerRoutes(routes);
 aiAgentRoutes(routes);
+
+eventSchedule(routes);
 
 planRoutes(routes);
 

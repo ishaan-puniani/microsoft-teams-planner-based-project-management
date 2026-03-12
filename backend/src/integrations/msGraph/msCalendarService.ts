@@ -1,4 +1,5 @@
 import { getConfig } from "../../config";
+import { MsPlannerCredentials } from "./msTaskService";
 
 /**
  * Fetches scheduled meetings/events from Microsoft 365 group (Teams) calendars
@@ -11,11 +12,11 @@ import { getConfig } from "../../config";
  */
 export default class MsCalendarService {
 
-    static async _getServiceToken(): Promise<string> {
-        const tenantId = getConfig().MS_TENANT_ID;
-        const clientId = getConfig().MS_CLIENT_ID;
-        const clientSecret = getConfig().MS_CLIENT_SECRET;
-        const scope = getConfig().MS_SCOPE;
+    static async _getServiceToken(credentials): Promise<string> {
+        const tenantId = credentials?.MS_TENANT_ID || getConfig().MS_TENANT_ID;
+        const clientId = credentials?.MS_CLIENT_ID || getConfig().MS_CLIENT_ID;
+        const clientSecret = credentials?.MS_CLIENT_SECRET || getConfig().MS_CLIENT_SECRET;
+        const scope = credentials?.MS_SCOPE || getConfig().MS_SCOPE;
 
         const tokenUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`;
 
@@ -49,9 +50,11 @@ export default class MsCalendarService {
     static async getGroupCalendarEvents(
         groupId: string,
         startDateTime?: string,
-        endDateTime?: string
+        endDateTime?: string,
+        credentials?: MsPlannerCredentials,
+
     ): Promise<any[]> {
-        const token = await this._getServiceToken();
+        const token = await this._getServiceToken(credentials);
 
         // calendarView expands recurring events in the range; events returns list with optional filter
         // $select=...,body,bodyPreview ensures description is returned (list sometimes omits it)
@@ -85,9 +88,11 @@ export default class MsCalendarService {
     static async getUserCalendarEvents(
         userIdOrEmail: string,
         startDateTime?: string,
-        endDateTime?: string
+        endDateTime?: string,
+        credentials?: MsPlannerCredentials,
+
     ): Promise<any[]> {
-        const token = await this._getServiceToken();
+        const token = await this._getServiceToken(credentials);
         const encoded = encodeURIComponent(userIdOrEmail);
 
         const bodySelect = "&$select=id,iCalUId,subject,body,bodyPreview,start,end,isOnlineMeeting,onlineMeeting,location";
