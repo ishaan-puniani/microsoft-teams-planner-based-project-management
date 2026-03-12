@@ -91,6 +91,17 @@ export default class ScheduledEventService {
     }
   }
 
+  async findUpcoming(hours: number = 12) {
+    return ScheduledEventRepository.findUpcoming(
+      hours,
+      this.options,
+    );
+  }
+
+  async findCurrentlyRunning() {
+    return ScheduledEventRepository.findCurrentlyRunning(this.options);
+  }
+
   async findById(id) {
     return ScheduledEventRepository.findById(
       id,

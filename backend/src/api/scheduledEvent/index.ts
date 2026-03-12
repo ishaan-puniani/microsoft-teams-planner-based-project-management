@@ -7,10 +7,11 @@ import scheduledEventAutocomplete from "./scheduledEventAutocomplete";
 import scheduledEventCount from "./scheduledEventCount";
 import scheduledEventList from "./scheduledEventList";
 import scheduledEventFind from "./scheduledEventFind";
+import scheduledEventUpcoming from "./scheduledEventUpcoming";
+import scheduledEventCurrentlyRunning from "./scheduledEventCurrentlyRunning";
 
 export default (app) => {
-    // app.get('/tenant/:tenantId/scheduled-event-schedule/get-upcoming-scheduledEvent', fromTeamsCalendar);
-  app.post(
+   app.post(
     `/tenant/:tenantId/scheduled-event`,
     scheduledEventCreate,
   );
@@ -34,6 +35,15 @@ export default (app) => {
   app.get(
     `/tenant/:tenantId/scheduled-event/count`,
     scheduledEventCount,
+  );
+  // Must be before /:id to avoid routing conflict
+  app.get(
+    `/tenant/:tenantId/scheduled-event/upcoming`,
+    scheduledEventUpcoming,
+  );
+  app.get(
+    `/tenant/:tenantId/scheduled-event/currently-running`,
+    scheduledEventCurrentlyRunning,
   );
   app.get(
     `/tenant/:tenantId/scheduled-event`,
