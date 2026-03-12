@@ -7,6 +7,16 @@ export type MsPlannerCredentials = {
     MS_SCOPE?: string;
 };
 
+export interface TaskFilterParams {
+    buckets?: string[];
+    statuses?: ('notStarted' | 'inProgress' | 'completed')[];
+    categories?: string[];
+    priorities?: ('urgent' | 'important' | 'medium' | 'low')[];
+    assignedTos?: string[];
+    startDateFrom?: string;
+    startDateTo?: string;
+}
+
 export default class MsTaskService {
 
     static async _getServiceToken(credentials?: MsPlannerCredentials): Promise<string> {
@@ -113,6 +123,87 @@ export default class MsTaskService {
         } catch (error: any) {
             throw new Error(`Failed to get tasks of plan ${planId}: ${error.message}`);
         }
+    }
+
+    static async getTasksOfBucket(bucketId: string, credentials?: MsPlannerCredentials): Promise<any> {
+        const token = await this._getServiceToken(credentials);
+        const url = `https://graph.microsoft.com/v1.0/planner/buckets/${bucketId}/tasks`;
+        try {
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (!response.ok) {
+                throw new Error(`Failed to fetch tasks for bucket ${bucketId}: ${response.status} ${response.statusText}`);
+            }
+            const data = await response.json();
+            return data.value || [];
+        } catch (error: any) {
+            throw new Error(`Failed to get tasks of bucket ${bucketId}: ${error.message}`);
+        }
+    }
+
+    static async getFilteredTasksOfBoard(
+        planId: string,
+        filter: TaskFilterParams,
+        credentials?: MsPlannerCredentials,
+    ): Promise<any> {
+        // If specific buckets are requested, use the bucket-scoped Graph endpoint
+        // so we only pull those buckets' tasks from the API (native reduction).
+        // For all other filter dimensions the Graph Planner API has no $filter support,
+        // so we apply them server-side after the targeted fetch.
+        let tasks: any[];
+        if (filter.buckets?.length) {
+            const perBucket = await Promise.all(
+                filter.buckets.map((bucketId) => this.getTasksOfBucket(bucketId, credentials)),
+            );
+            tasks = perBucket.flat();
+        } else {
+            tasks = await this.getTasksOfBoard(planId, credentials);
+        }
+
+        return tasks.filter((task: any) => {
+            // Status
+            if (filter.statuses?.length) {
+                const pct: number = task.percentComplete ?? 0;
+                const status = pct >= 100 ? 'completed' : pct > 0 ? 'inProgress' : 'notStarted';
+                if (!filter.statuses.includes(status)) return false;
+            }
+            // Categories
+            if (filter.categories?.length) {
+                const applied = Object.keys(task.appliedCategories ?? {}).filter(
+                    (k: string) => task.appliedCategories[k],
+                );
+                if (!filter.categories.some((c) => applied.includes(c))) return false;
+            }
+            // Priority
+            if (filter.priorities?.length) {
+                const p: number | undefined = task.priority;
+                const group: 'urgent' | 'important' | 'medium' | 'low' | null =
+                    p == null ? null
+                    : p <= 1 ? 'urgent'
+                    : p <= 4 ? 'important'
+                    : p <= 8 ? 'medium'
+                    : 'low';
+                if (!group || !filter.priorities.includes(group)) return false;
+            }
+            // Assigned To
+            if (filter.assignedTos?.length) {
+                const assigned = Object.keys(task.assignments ?? {});
+                if (!filter.assignedTos.some((u) => assigned.includes(u))) return false;
+            }
+            // Start Date From
+            if (filter.startDateFrom) {
+                const taskDate: string = task.startDateTime?.slice(0, 10) ?? '';
+                if (!taskDate || taskDate < filter.startDateFrom) return false;
+            }
+            // Start Date To
+            if (filter.startDateTo) {
+                const taskDate: string = task.startDateTime?.slice(0, 10) ?? '';
+                if (!taskDate || taskDate > filter.startDateTo) return false;
+            }
+            return true;
+        });
     }
 
     static async getTask(taskId: string, credentials?: MsPlannerCredentials): Promise<any> {

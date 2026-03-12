@@ -281,6 +281,41 @@ const privateRoutes = [
     exact: true,
   },
   {
+    path: '/scheduled-event',
+    loader: () =>
+      import('src/view/scheduledEvent/list/ScheduledEventListPage'),
+    permissionRequired: permissions.scheduledEventRead,
+    exact: true,
+  },
+  {
+    path: '/scheduled-event/new',
+    loader: () =>
+      import('src/view/scheduledEvent/form/ScheduledEventFormPage'),
+    permissionRequired: permissions.scheduledEventCreate,
+    exact: true,
+  },
+  {
+    path: '/scheduled-event/importer',
+    loader: () =>
+      import('src/view/scheduledEvent/importer/ScheduledEventImporterPage'),
+    permissionRequired: permissions.scheduledEventImport,
+    exact: true,
+  },
+  {
+    path: '/scheduled-event/:id/edit',
+    loader: () =>
+      import('src/view/scheduledEvent/form/ScheduledEventFormPage'),
+    permissionRequired: permissions.scheduledEventEdit,
+    exact: true,
+  },
+  {
+    path: '/scheduled-event/:id',
+    loader: () =>
+      import('src/view/scheduledEvent/view/ScheduledEventViewPage'),
+    permissionRequired: permissions.scheduledEventRead,
+    exact: true,
+  },
+  {
     path: '/test-plan',
     loader: () =>
       import('src/view/testPlan/list/TestPlanListPage'),

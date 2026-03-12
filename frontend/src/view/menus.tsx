@@ -106,4 +106,10 @@ export default [
     icon: 'fas fa-chevron-right',
     label: i18n('entities.tag.menu'),
   },
+  {
+    path: '/scheduled-event',
+    permissionRequired: permissions.scheduledEventRead,
+    icon: 'fas fa-calendar-alt',
+    label: i18n('entities.scheduledEvent.menu'),
+  },
 ].filter(Boolean);

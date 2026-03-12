@@ -17,3 +17,4 @@ export * from './testCase/ITestCase';
 export * from './testPlan/ITestPlan';
 export * from './testSuite/ITestSuite';
 export * from './settings/ISettings';
+export * from './scheduledEvent/IScheduledEvent';

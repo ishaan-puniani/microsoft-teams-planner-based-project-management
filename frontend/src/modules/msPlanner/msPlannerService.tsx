@@ -111,10 +111,27 @@ export default class MsPlannerService {
     return response.data;
   }
 
-  static async getTasks(planId) {
+  static async getTasks(planId, filter?: {
+    buckets?: string[];
+    statuses?: string[];
+    categories?: string[];
+    priorities?: string[];
+    assignedTos?: string[];
+    startDateFrom?: string;
+    startDateTo?: string;
+  }) {
     const tenantId = AuthCurrentTenant.get();
+    const params: Record<string, string> = {};
+    if (filter?.buckets?.length) params.buckets = filter.buckets.join(',');
+    if (filter?.statuses?.length) params.statuses = filter.statuses.join(',');
+    if (filter?.categories?.length) params.categories = filter.categories.join(',');
+    if (filter?.priorities?.length) params.priorities = filter.priorities.join(',');
+    if (filter?.assignedTos?.length) params.assignedTos = filter.assignedTos.join(',');
+    if (filter?.startDateFrom) params.startDateFrom = filter.startDateFrom;
+    if (filter?.startDateTo) params.startDateTo = filter.startDateTo;
     const response = await authAxios.get(
       `/tenant/${tenantId}/ms-planner/tasks/${planId}`,
+      { params },
     );
     return response.data;
   }

@@ -14,6 +14,7 @@ import taskTemplate from 'src/modules/taskTemplate/taskTemplateReducers';
 import tenant from 'src/modules/tenant/tenantReducers';
 import testCase from 'src/modules/testCase/testCaseReducers';
 import testCycle from 'src/modules/testCycle/testCycleReducers';
+import scheduledEvent from 'src/modules/scheduledEvent/scheduledEventReducers';
 import testPlan from 'src/modules/testPlan/testPlanReducers';
 import testSuite from 'src/modules/testSuite/testSuiteReducers';
 import user from 'src/modules/user/userReducers';
@@ -30,6 +31,7 @@ export default () =>
     module,
     project,
     requirement,
+    scheduledEvent,
     testPlan,
     testCycle,
     testSuite,

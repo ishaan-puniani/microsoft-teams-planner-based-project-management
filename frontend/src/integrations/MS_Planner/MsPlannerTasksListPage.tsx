@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import ContentWrapper from 'src/view/layout/styles/ContentWrapper';
 import Breadcrumb from 'src/view/shared/Breadcrumb';
@@ -10,6 +10,10 @@ import MsPlannerTaskListItem, {
 } from './components/MsPlannerTaskListItem';
 import CreateMsPlannerTaskWithDetail from './components/CreateMsPlannerTaskWithDetail';
 import QuickCreateMsPlannerTaskWithDetail from './components/QuickCreateMsPlannerTaskWithDetail';
+import MsPlannerFilter, {
+  type MsPlannerFilters,
+  EMPTY_FILTERS,
+} from './components/MsPlannerFilter';
 
 export interface PlanCategories {
   [key: string]: string;
@@ -28,6 +32,29 @@ const MsPlannerTasksListPage = () => {
   const [quickCreateVisible, setQuickCreateVisible] = useState(false);
   type LayoutMode = 'list' | 'grid2' | 'grid3';
   const [layout, setLayout] = useState<LayoutMode>('grid3');
+  const [filters, setFilters] = useState<MsPlannerFilters>(EMPTY_FILTERS);
+  const [tasksLoading, setTasksLoading] = useState(false);
+
+  const fetchFilteredTasks = useCallback(
+    async (currentFilters: MsPlannerFilters) => {
+      if (!planId) return;
+      setTasksLoading(true);
+      try {
+        const tasksData = await MsPlannerService.getTasks(planId, currentFilters);
+        setTasks(tasksData || []);
+      } catch (e: any) {
+        console.error('Failed to filter tasks:', e?.message);
+      } finally {
+        setTasksLoading(false);
+      }
+    },
+    [planId],
+  );
+
+  const handleFilterChange = (newFilters: MsPlannerFilters) => {
+    setFilters(newFilters);
+    fetchFilteredTasks(newFilters);
+  };
 
   useEffect(() => {
     if (!planId) return;
@@ -62,6 +89,15 @@ const MsPlannerTasksListPage = () => {
       prev.map((t) => (t.id === updated.id ? { ...t, ...updated } : t)),
     );
   };
+
+  const hasActiveFilters =
+    filters.buckets.length > 0 ||
+    filters.statuses.length > 0 ||
+    filters.categories.length > 0 ||
+    filters.priorities.length > 0 ||
+    filters.assignedTos.length > 0 ||
+    !!filters.startDateFrom ||
+    !!filters.startDateTo;
 
   if (loading) {
     return <Spinner />;
@@ -128,7 +164,12 @@ const MsPlannerTasksListPage = () => {
             Quick mode Add Tasks
           </button>
         </PageTitle>
-
+        <MsPlannerFilter
+          buckets={buckets}
+          categories={categories}
+          users={users}
+          onFilterChange={handleFilterChange}
+        />
         <CreateMsPlannerTaskWithDetail
           planId={planId ?? null}
           visible={createVisible}
@@ -187,9 +228,17 @@ const MsPlannerTasksListPage = () => {
             </button>
           </div>
         </div>
-        {tasks.length === 0 ? (
+        {tasksLoading ? (
+          <div className="d-flex justify-content-center py-4">
+            <div className="spinner-border spinner-border-sm text-primary" role="status">
+              <span className="visually-hidden">Filtering…</span>
+            </div>
+          </div>
+        ) : tasks.length === 0 ? (
           <div className="text-center text-muted py-5">
-            No tasks in this plan.
+            {hasActiveFilters
+              ? 'No tasks match the current filters.'
+              : 'No tasks in this plan.'}
           </div>
         ) : (
           <div

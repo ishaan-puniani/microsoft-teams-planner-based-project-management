@@ -806,6 +806,62 @@ class Permissions {
         ],
         allowedStorage: [storage.settingsBackgroundImages],
       },
+
+      scheduledEventImport: {
+        id: 'scheduledEventImport',
+        allowedRoles: [roles.admin],
+        allowedPlans: [
+          plans.free,
+          plans.growth,
+          plans.enterprise,
+        ],
+      },
+      scheduledEventCreate: {
+        id: 'scheduledEventCreate',
+        allowedRoles: [roles.admin],
+        allowedPlans: [
+          plans.free,
+          plans.growth,
+          plans.enterprise,
+        ],
+      },
+      scheduledEventEdit: {
+        id: 'scheduledEventEdit',
+        allowedRoles: [roles.admin],
+        allowedPlans: [
+          plans.free,
+          plans.growth,
+          plans.enterprise,
+        ],
+      },
+      scheduledEventDestroy: {
+        id: 'scheduledEventDestroy',
+        allowedRoles: [roles.admin],
+        allowedPlans: [
+          plans.free,
+          plans.growth,
+          plans.enterprise,
+        ],
+      },
+      scheduledEventRead: {
+        id: 'scheduledEventRead',
+        allowedRoles: [roles.admin, roles.custom],
+        allowedPlans: [
+          plans.free,
+          plans.growth,
+          plans.enterprise,
+        ],
+      },
+      scheduledEventAutocomplete: {
+        id: 'scheduledEventAutocomplete',
+        allowedRoles: [roles.admin, roles.custom],
+        allowedPlans: [
+          plans.free,
+          plans.growth,
+          plans.enterprise,
+        ],
+      },
+
       auditLogRead: {
         id: 'auditLogRead',
         allowedRoles: [roles.admin],

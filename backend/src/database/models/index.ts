@@ -15,6 +15,7 @@ const models = [
   require('./taskTemplate').default,
   require('./status').default,
   require('./tag').default,
+  require('./scheduledEvent').default,
 ];
 
 export default function init(database) {

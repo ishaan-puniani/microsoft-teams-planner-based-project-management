@@ -17,3 +17,4 @@ export * from './testCaseSchema';
 export * from './testPlanSchema';
 export * from './testSuiteSchema';
 export * from './settingsSchema';
+export * from './scheduledEventSchema';

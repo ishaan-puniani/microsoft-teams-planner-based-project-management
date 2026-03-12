@@ -12,5 +12,6 @@ export * from './testCase';
 export * from './task';
 export * from './status';
 export * from './tag';
+export * from './scheduledEvent';
 
 /// File is generated from https://studio.fabbuilder.com -
