@@ -27,6 +27,14 @@ export default [
     ),
   },
   {
+    name: 'durationMinutes',
+    label: i18n('entities.scheduledEvent.fields.durationMinutes'),
+    schema: schemas.integer(
+      i18n('entities.scheduledEvent.fields.durationMinutes'),
+      { min: 1 },
+    ),
+  },
+  {
     name: 'timezone',
     label: i18n('entities.scheduledEvent.fields.timezone'),
     schema: schemas.string(

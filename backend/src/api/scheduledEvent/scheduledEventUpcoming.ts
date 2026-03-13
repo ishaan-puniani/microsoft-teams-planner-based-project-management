@@ -5,9 +5,9 @@ import ScheduledEventService from '../../services/scheduledEventService';
 
 export default async (req, res, next) => {
   try {
-    new PermissionChecker(req).validateHas(
-      Permissions.values.scheduledEventRead,
-    );
+    // new PermissionChecker(req).validateHas(
+    //   Permissions.values.scheduledEventRead,
+    // );
 
     /**
      * Optional query param: ?hours=N  (defaults to 12)

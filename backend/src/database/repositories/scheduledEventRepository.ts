@@ -374,9 +374,10 @@ class ScheduledEventRepository {
 
   /**
    * Returns all events that are currently in progress at the moment this is called.
-   * - One-off events: startDate <= now <= endDate (or allDay events starting today).
-   * - Recurring events: the most recent occurrence started before now and its
-   *   computed end time (occurrenceStart + eventDuration) is still in the future.
+    * - One-off events: startDate <= now <= (endDate || startDate + durationMinutes)
+    *   (including allDay events starting today).
+    * - Recurring events: the most recent occurrence started before now and its
+    *   computed end time (occurrenceStart + durationMinutes) is still in the future.
    * Each result entry is: { event, occurrenceStart: Date, occurrenceEnd: Date | null }
    */
   static async findCurrentlyRunning(options: IRepositoryOptions) {
@@ -388,6 +389,38 @@ class ScheduledEventRepository {
     const todayStart = new Date(now);
     todayStart.setHours(0, 0, 0, 0);
 
+    const getEventDurationMs = (event: any): number => {
+      if (
+        typeof event?.durationMs === 'number' &&
+        Number.isFinite(event.durationMs) &&
+        event.durationMs > 0
+      ) {
+        return event.durationMs;
+      }
+
+      if (
+        typeof event?.duration === 'number' &&
+        Number.isFinite(event.duration) &&
+        event.duration > 0
+      ) {
+        return event.duration * 60 * 1000;
+      }
+
+      if (
+        typeof event?.durationMinutes === 'number' &&
+        Number.isFinite(event.durationMinutes) &&
+        event.durationMinutes > 0
+      ) {
+        return event.durationMinutes * 60 * 1000;
+      }
+
+      if (event?.allDay) {
+        return 24 * 60 * 60 * 1000;
+      }
+
+      return 0;
+    };
+
     // Broad DB pre-filter — we refine further in memory for recurring events.
     const candidates = await ScheduledEvent(options.database).find({
       tenant: currentTenant.id,
@@ -395,6 +428,11 @@ class ScheduledEventRepository {
       $or: [
         // One-off with explicit endDate still in the future
         { rruleString: { $in: [null, ''] }, endDate: { $gte: now } },
+        // One-off with explicit duration (minutes)
+        { rruleString: { $in: [null, ''] }, durationMinutes: { $gt: 0 } },
+        // Backward compatibility for existing numeric duration fields.
+        { rruleString: { $in: [null, ''] }, duration: { $gt: 0 } },
+        { rruleString: { $in: [null, ''] }, durationMs: { $gt: 0 } },
         // One-off allDay without endDate — started today
         { rruleString: { $in: [null, ''] }, allDay: true, startDate: { $gte: todayStart } },
         // Recurring — could have an active occurrence (started before now)
@@ -412,22 +450,41 @@ class ScheduledEventRepository {
       const plain = record.toObject ? record.toObject() : record;
 
       if (!plain.rruleString) {
-        // One-off — already satisfied by DB filter
+        // One-off — verify it's still active when duration is used instead of endDate.
+        const oneOffDurationMs = getEventDurationMs(plain);
+        const occurrenceStart = new Date(plain.startDate);
+        const derivedEndDate =
+          oneOffDurationMs > 0
+            ? new Date(occurrenceStart.getTime() + oneOffDurationMs)
+            : null;
+        const occurrenceEnd = plain.endDate
+          ? new Date(plain.endDate)
+          : derivedEndDate;
+
+        // Without an end boundary (endDate or duration), we cannot assert "currently running".
+        if (!occurrenceEnd) {
+          continue;
+        }
+
+        if (occurrenceEnd.getTime() < now.getTime()) {
+          continue;
+        }
+
         results.push({
           event: plain,
-          occurrenceStart: new Date(plain.startDate),
-          occurrenceEnd: plain.endDate ? new Date(plain.endDate) : null,
+          occurrenceStart,
+          occurrenceEnd,
         });
         continue;
       }
 
       // Recurring: compute duration, then look for an occurrence in [now - duration, now]
       try {
-        const durationMs =
-          plain.endDate && plain.startDate
-            ? new Date(plain.endDate).getTime() -
-              new Date(plain.startDate).getTime()
-            : 0;
+        const durationMs = getEventDurationMs(plain);
+
+        if (durationMs <= 0) {
+          continue;
+        }
 
         // An occurrence is "active" when: occurrence <= now <= occurrence + durationMs
         // i.e., occurrence must be in [now - durationMs, now]
@@ -455,10 +512,9 @@ class ScheduledEventRepository {
         // Walk from most recent backwards — first one that is still in progress wins
         for (let i = occurrences.length - 1; i >= 0; i--) {
           const occ = occurrences[i];
-          const occEnd =
-            durationMs > 0 ? new Date(occ.getTime() + durationMs) : null;
+          const occEnd = new Date(occ.getTime() + durationMs);
 
-          if (!occEnd || occEnd.getTime() >= now.getTime()) {
+          if (occEnd.getTime() >= now.getTime()) {
             results.push({
               event: plain,
               occurrenceStart: occ,

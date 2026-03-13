@@ -27,6 +27,7 @@ export const scheduledEventSchema = yup.object({
   description: yup.string().optional(),
   startDate: yup.date().required(),
   endDate: yup.date().optional(),
+  durationMinutes: yup.number().integer().min(1).optional(),
   allDay: yup.boolean().optional(),
   location: yup.string().optional(),
   timezone: yup.string().optional(),

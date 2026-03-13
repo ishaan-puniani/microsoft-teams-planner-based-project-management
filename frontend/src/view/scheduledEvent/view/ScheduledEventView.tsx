@@ -33,6 +33,11 @@ const ScheduledEventView = (props) => {
       />
 
       <TextViewItem
+        label={i18n('entities.scheduledEvent.fields.durationMinutes')}
+        value={record.durationMinutes}
+      />
+
+      <TextViewItem
         label={i18n('entities.scheduledEvent.fields.allDay')}
         value={record.allDay ? i18n('common.yes') : i18n('common.no')}
       />

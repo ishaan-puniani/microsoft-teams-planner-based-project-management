@@ -58,6 +58,12 @@ export default (database) => {
         type: Date,
       },
 
+      // Canonical event length used by recurring "currently running" checks.
+      durationMinutes: {
+        type: Number,
+        min: 1,
+      },
+
       allDay: {
         type: Boolean,
         default: false,

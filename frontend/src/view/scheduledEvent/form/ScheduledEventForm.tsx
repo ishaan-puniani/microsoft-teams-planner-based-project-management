@@ -64,6 +64,10 @@ const schema = yup.object().shape({
     i18n('entities.scheduledEvent.fields.endDate'),
     {},
   ),
+  durationMinutes: yupFormSchemas.integer(
+    i18n('entities.scheduledEvent.fields.durationMinutes'),
+    { min: 1 },
+  ),
   location: yupFormSchemas.string(
     i18n('entities.scheduledEvent.fields.location'),
     {},
@@ -336,6 +340,7 @@ const ScheduledEventForm = (props) => {
       description: record.description || '',
       startDate: record.startDate ? record.startDate.slice(0, 16) : '',
       endDate: record.endDate ? record.endDate.slice(0, 16) : '',
+      durationMinutes: record.durationMinutes ?? '',
       allDay: record.allDay || false,
       location: record.location || '',
       timezone: record.timezone || '',
@@ -358,6 +363,20 @@ const ScheduledEventForm = (props) => {
 
   const onSubmit = (values) => {
     const payload: any = { ...values };
+
+    if (!payload.durationMinutes && payload.startDate && payload.endDate) {
+      const startMs = new Date(payload.startDate).getTime();
+      const endMs = new Date(payload.endDate).getTime();
+
+      if (Number.isFinite(startMs) && Number.isFinite(endMs) && endMs > startMs) {
+        payload.durationMinutes = Math.round((endMs - startMs) / (60 * 1000));
+      }
+    }
+
+    if (payload.durationMinutes) {
+      payload.durationMinutes = Number(payload.durationMinutes);
+    }
+
     if (rruleString) {
       payload.rruleString = rruleString;
     }
@@ -402,6 +421,19 @@ const ScheduledEventForm = (props) => {
                   type="datetime-local"
                   className="form-control"
                   {...form.register('endDate')}
+                />
+              </div>
+            </div>
+            <div className="col-lg-2 col-md-6 col-12">
+              <div className="mb-3">
+                <label className="form-label">
+                  {i18n('entities.scheduledEvent.fields.durationMinutes')}
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  className="form-control"
+                  {...form.register('durationMinutes')}
                 />
               </div>
             </div>

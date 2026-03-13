@@ -15,6 +15,7 @@ export default [
     label: i18n('entities.scheduledEvent.fields.endDate'),
     render: exporterRenders.datetime(),
   },
+  { name: 'durationMinutes', label: i18n('entities.scheduledEvent.fields.durationMinutes') },
   { name: 'allDay', label: i18n('entities.scheduledEvent.fields.allDay') },
   { name: 'location', label: i18n('entities.scheduledEvent.fields.location') },
   { name: 'timezone', label: i18n('entities.scheduledEvent.fields.timezone') },

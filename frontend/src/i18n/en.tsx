@@ -684,6 +684,7 @@ const en = {
         description: 'Description',
         startDate: 'Start Date',
         endDate: 'End Date',
+        durationMinutes: 'Duration (Minutes)',
         allDay: 'All Day',
         location: 'Location',
         timezone: 'Timezone',

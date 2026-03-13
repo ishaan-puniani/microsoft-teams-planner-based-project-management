@@ -58,6 +58,8 @@ export interface IScheduledEvent {
   startDate: Date;
   /** Event end date/time */
   endDate?: Date;
+  /** Duration of each event occurrence in minutes */
+  durationMinutes?: number;
   /** Whether the event spans the whole day */
   allDay?: boolean;
   /** Optional location string */
@@ -88,6 +90,7 @@ export interface IScheduledEventCreate {
   description?: string;
   startDate: Date;
   endDate?: Date;
+  durationMinutes?: number;
   allDay?: boolean;
   location?: string;
   timezone?: string;
@@ -103,6 +106,7 @@ export interface IScheduledEventUpdate {
   description?: string;
   startDate?: Date;
   endDate?: Date;
+  durationMinutes?: number;
   allDay?: boolean;
   location?: string;
   timezone?: string;
