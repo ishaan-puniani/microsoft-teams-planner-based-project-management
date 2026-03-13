@@ -77,4 +77,28 @@ export default class ScheduledEventService {
     );
     return response.data;
   }
+
+  static async fetchUpcoming(inHours: number) {
+    const tenantId = AuthCurrentTenant.get();
+    const response = await authAxios.get(
+      `/tenant/${tenantId}/scheduled-event/upcoming`,
+      { params: { hours: inHours } },
+    );
+    return response.data as Array<{
+      event: Record<string, any>;
+      nextOccurrence: string;
+    }>;
+  }
+
+  static async fetchCurrentlyRunning() {
+    const tenantId = AuthCurrentTenant.get();
+    const response = await authAxios.get(
+      `/tenant/${tenantId}/scheduled-event/currently-running`,
+    );
+    return response.data as Array<{
+      event: Record<string, any>;
+      occurrenceStart: string;
+      occurrenceEnd: string | null;
+    }>;
+  }
 }
