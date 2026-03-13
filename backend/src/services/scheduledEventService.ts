@@ -102,6 +102,10 @@ export default class ScheduledEventService {
     return ScheduledEventRepository.findCurrentlyRunning(this.options);
   }
 
+  async updateNextOccurance() {
+    return ScheduledEventRepository.updateNextOccurance(this.options);
+  }
+
   async findById(id) {
     return ScheduledEventRepository.findById(
       id,

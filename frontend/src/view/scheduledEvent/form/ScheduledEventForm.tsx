@@ -2,7 +2,7 @@ import { yupResolver } from '@hookform/resolvers/yup';
 import { useEffect, useState } from 'react';
 import { FormProvider, useForm, useWatch } from 'react-hook-form';
 import { i18n } from 'src/i18n';
-import { RRule, Frequency } from 'rrule';
+import { RRule, Frequency, rrulestr } from 'rrule';
 import yupFormSchemas from 'src/modules/shared/yup/yupFormSchemas';
 import ButtonIcon from 'src/view/shared/ButtonIcon';
 import InputFormItem from 'src/view/shared/form/items/InputFormItem';
@@ -47,6 +47,54 @@ const BYDAY_MAP: Record<string, any> = {
   SU: RRule.SU,
 };
 
+const WEEKDAY_VALUES = WEEKDAYS.map((weekday) => weekday.value);
+
+const FREQ_MAP_REVERSE = Object.entries(FREQ_MAP).reduce(
+  (acc, [name, freq]) => {
+    acc[freq] = name;
+    return acc;
+  },
+  {} as Record<number, string>,
+);
+
+const toCsv = (value: number[] | number | null | undefined) => {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  return (Array.isArray(value) ? value : [value]).join(',');
+};
+
+const toDatetimeLocalValue = (dateLike: Date | string | number | null | undefined) => {
+  if (!dateLike) {
+    return '';
+  }
+
+  const date = new Date(dateLike);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  const pad = (value: number) => String(value).padStart(2, '0');
+
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+};
+
+const normalizeByweekday = (value: any): string[] => {
+  const days = Array.isArray(value)
+    ? value
+    : value
+      ? [value]
+      : [];
+
+  return days
+    .map((day) => {
+      const text = String(day).toUpperCase();
+      return text.slice(-2);
+    })
+    .filter((day) => WEEKDAY_VALUES.includes(day));
+};
+
 const schema = yup.object().shape({
   title: yupFormSchemas.string(
     i18n('entities.scheduledEvent.fields.title'),
@@ -89,6 +137,7 @@ const RRuleBuilder = ({ value, onChange, startDate }: { value: string; onChange:
   const [byminute, setByminute] = useState('');
   const [bysecond, setBysecond] = useState('');
   const [preview, setPreview] = useState('');
+  const [isHydratedFromValue, setIsHydratedFromValue] = useState(false);
 
   // Parse a comma-separated string like "9,12,18" into [9, 12, 18]
   const parseInts = (val: string): number[] =>
@@ -98,6 +147,55 @@ const RRuleBuilder = ({ value, onChange, startDate }: { value: string; onChange:
       .filter((n) => !isNaN(n));
 
   useEffect(() => {
+    if (isHydratedFromValue) {
+      return;
+    }
+
+    if (!value) {
+      setIsHydratedFromValue(true);
+      return;
+    }
+
+    try {
+      const parsedSet: any = rrulestr(value, { forceset: true });
+      const firstRule =
+        parsedSet?.rrules?.()[0] || parsedSet?._rrule?.[0] || null;
+      const opts = firstRule?.origOptions || firstRule?.options;
+
+      if (opts) {
+        setFreq(FREQ_MAP_REVERSE[opts.freq] || '');
+        setInterval(opts.interval || 1);
+        setBydays(normalizeByweekday(opts.byweekday));
+        setByhour(toCsv(opts.byhour));
+        setByminute(toCsv(opts.byminute));
+        setBysecond(toCsv(opts.bysecond));
+
+        if (opts.count) {
+          setEndType('count');
+          setCount(opts.count);
+          setUntil('');
+        } else if (opts.until) {
+          setEndType('until');
+          setUntil(toDatetimeLocalValue(opts.until));
+        } else {
+          setEndType('none');
+          setUntil('');
+        }
+
+        setPreview(firstRule?.toText?.() || '');
+      }
+    } catch (_) {
+      // Keep defaults when RRULE cannot be parsed.
+    } finally {
+      setIsHydratedFromValue(true);
+    }
+  }, [value, isHydratedFromValue]);
+
+  useEffect(() => {
+    if (!isHydratedFromValue) {
+      return;
+    }
+
     if (!freq) {
       onChange('');
       setPreview('');
@@ -137,7 +235,7 @@ const RRuleBuilder = ({ value, onChange, startDate }: { value: string; onChange:
       setPreview('');
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [freq, interval, endType, count, until, bydays, startDate, byhour, byminute, bysecond]);
+  }, [freq, interval, endType, count, until, bydays, startDate, byhour, byminute, bysecond, isHydratedFromValue]);
 
   const toggleDay = (day: string) => {
     setBydays((prev) =>
@@ -331,7 +429,9 @@ const RRuleBuilder = ({ value, onChange, startDate }: { value: string; onChange:
 };
 
 const ScheduledEventForm = (props) => {
-  const [rruleString, setRruleString] = useState('');
+  const [rruleString, setRruleString] = useState(
+    () => props.record?.rruleString || '',
+  );
 
   const [initialValues] = useState(() => {
     const record = props.record || {};
@@ -359,6 +459,7 @@ const ScheduledEventForm = (props) => {
     Object.keys(initialValues).forEach((key) => {
       form.setValue(key, initialValues[key]);
     });
+    setRruleString(props.record?.rruleString || '');
   };
 
   const onSubmit = (values) => {

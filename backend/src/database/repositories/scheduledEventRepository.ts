@@ -373,6 +373,138 @@ class ScheduledEventRepository {
   }
 
   /**
+   * Computes and stores the next occurrence window for all tenant scheduled events.
+   * Recurring events use the first occurrence >= now and explicit duration fields.
+   */
+  static async updateNextOccurance(
+    options: IRepositoryOptions,
+  ) {
+    const currentTenant =
+      MongooseRepository.getCurrentTenant(options);
+
+    const now = new Date();
+
+    const getEventDurationMs = (event: any): number => {
+      if (
+        typeof event?.durationMs === 'number' &&
+        Number.isFinite(event.durationMs) &&
+        event.durationMs > 0
+      ) {
+        return event.durationMs;
+      }
+
+      if (
+        typeof event?.duration === 'number' &&
+        Number.isFinite(event.duration) &&
+        event.duration > 0
+      ) {
+        return event.duration * 60 * 1000;
+      }
+
+      if (
+        typeof event?.durationMinutes === 'number' &&
+        Number.isFinite(event.durationMinutes) &&
+        event.durationMinutes > 0
+      ) {
+        return event.durationMinutes * 60 * 1000;
+      }
+
+      if (event?.allDay) {
+        return 24 * 60 * 60 * 1000;
+      }
+
+      return 0;
+    };
+
+    const records = await ScheduledEvent(options.database).find({
+      tenant: currentTenant.id,
+    });
+
+    const operations: Array<any> = [];
+
+    for (const record of records) {
+      const plain = record.toObject ? record.toObject() : record;
+
+      let nextStart: Date | null = null;
+      let nextEnd: Date | null = null;
+
+      const durationMs = getEventDurationMs(plain);
+
+      if (!plain.rruleString) {
+        if (plain.startDate) {
+          const oneOffStart = new Date(plain.startDate);
+
+          if (oneOffStart.getTime() >= now.getTime()) {
+            nextStart = oneOffStart;
+
+            if (plain.endDate) {
+              nextEnd = new Date(plain.endDate);
+            } else if (durationMs > 0) {
+              nextEnd = new Date(oneOffStart.getTime() + durationMs);
+            }
+          }
+        }
+      } else {
+        try {
+          const ruleSet = new RRuleSet();
+          const baseRule = rrulestr(plain.rruleString, {
+            dtstart: plain.startDate || now,
+          });
+          ruleSet.rrule(baseRule);
+
+          if (plain.exdates && plain.exdates.length) {
+            for (const exdate of plain.exdates) {
+              ruleSet.exdate(new Date(exdate));
+            }
+          }
+
+          if (plain.rdates && plain.rdates.length) {
+            for (const rdate of plain.rdates) {
+              ruleSet.rdate(new Date(rdate));
+            }
+          }
+
+          const occurrence = ruleSet.after(now, true);
+
+          if (occurrence) {
+            nextStart = occurrence;
+
+            if (durationMs > 0) {
+              nextEnd = new Date(occurrence.getTime() + durationMs);
+            }
+          }
+        } catch (_) {
+          // Malformed rruleString — clear cache for this record
+        }
+      }
+
+      operations.push({
+        updateOne: {
+          filter: { _id: record._id },
+          update: {
+            $set: {
+              nextStart,
+              nextEnd,
+            },
+          },
+        },
+      });
+    }
+
+    if (operations.length) {
+      await ScheduledEvent(options.database).bulkWrite(operations, {
+        ordered: false,
+      });
+    }
+
+    return {
+      total: records.length,
+      updated: operations.length,
+      updatedAt: now,
+    };
+  }
+
+  /**
    * Returns all events that are currently in progress at the moment this is called.
     * - One-off events: startDate <= now <= (endDate || startDate + durationMinutes)
     *   (including allDay events starting today).

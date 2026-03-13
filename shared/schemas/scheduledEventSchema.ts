@@ -35,6 +35,8 @@ export const scheduledEventSchema = yup.object({
   rruleString: yup.string().optional(),
   exdates: yup.array().of(yup.date()).optional(),
   rdates: yup.array().of(yup.date()).optional(),
+  nextStart: yup.date().optional(),
+  nextEnd: yup.date().optional(),
   tenant: yup.string().required(),
   createdBy: yup.string().optional(),
   updatedBy: yup.string().optional(),
@@ -45,11 +47,13 @@ export const scheduledEventCreateSchema = scheduledEventSchema.omit([
   'createdBy',
   'updatedBy',
   'importHash',
+  'nextStart',
+  'nextEnd',
 ]);
 
 export const scheduledEventUpdateSchema = scheduledEventSchema
   .partial()
-  .omit(['createdBy', 'updatedBy', 'importHash']);
+  .omit(['createdBy', 'updatedBy', 'importHash', 'nextStart', 'nextEnd']);
 
 export const scheduledEventFilterSchema = yup.object({
   title: yup.string().optional(),

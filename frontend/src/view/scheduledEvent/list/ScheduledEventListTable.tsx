@@ -93,6 +93,20 @@ const ScheduledEventListTable = (props) => {
                 onSort={doChangeSort}
                 hasRows={hasRows}
                 sorter={sorter}
+                name={'nextStart'}
+                label={i18n('entities.scheduledEvent.fields.nextStart')}
+              />
+              <TableColumnHeader
+                onSort={doChangeSort}
+                hasRows={hasRows}
+                sorter={sorter}
+                name={'nextEnd'}
+                label={i18n('entities.scheduledEvent.fields.nextEnd')}
+              />
+              <TableColumnHeader
+                onSort={doChangeSort}
+                hasRows={hasRows}
+                sorter={sorter}
                 name={'timezone'}
                 label={i18n('entities.scheduledEvent.fields.timezone')}
               />
@@ -143,6 +157,8 @@ const ScheduledEventListTable = (props) => {
                   </th>
                   <td>{row.title}</td>
                   <td>{row.startDate ? new Date(row.startDate).toLocaleString() : ''}</td>
+                  <td>{row.nextStart ? new Date(row.nextStart).toLocaleString() : ''}</td>
+                  <td>{row.nextEnd ? new Date(row.nextEnd).toLocaleString() : ''}</td>
                   <td>{row.timezone}</td>
                   <td>
                     <small className="text-muted">{row.rruleString}</small>

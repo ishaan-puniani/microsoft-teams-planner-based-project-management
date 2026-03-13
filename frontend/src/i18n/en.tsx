@@ -669,6 +669,10 @@ const en = {
       update: {
         success: 'Scheduled Event successfully saved',
       },
+      updateNextOccurance: {
+        button: 'Update Next Occurrence',
+        success: 'Next occurrence values updated successfully',
+      },
       destroy: {
         success: 'Scheduled Event successfully deleted',
       },
@@ -709,6 +713,8 @@ const en = {
         rrulePreview: 'Preview',
         exdates: 'Excluded Dates',
         rdates: 'Extra Dates',
+        nextStart: 'Next Start',
+        nextEnd: 'Next End',
         createdAt: 'Created at',
         updatedAt: 'Updated at',
         createdAtRange: 'Created at',

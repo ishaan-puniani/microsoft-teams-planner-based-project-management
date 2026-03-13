@@ -69,4 +69,12 @@ export default class ScheduledEventService {
     );
     return response.data;
   }
+
+  static async updateNextOccurance() {
+    const tenantId = AuthCurrentTenant.get();
+    const response = await authAxios.post(
+      `/tenant/${tenantId}/update-next-occurrence`,
+    );
+    return response.data;
+  }
 }

@@ -64,6 +64,15 @@ export default (database) => {
         min: 1,
       },
 
+      // Cached next occurrence window for quick reads.
+      nextStart: {
+        type: Date,
+      },
+
+      nextEnd: {
+        type: Date,
+      },
+
       allDay: {
         type: Boolean,
         default: false,

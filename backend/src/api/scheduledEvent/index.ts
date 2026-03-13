@@ -9,6 +9,7 @@ import scheduledEventList from "./scheduledEventList";
 import scheduledEventFind from "./scheduledEventFind";
 import scheduledEventUpcoming from "./scheduledEventUpcoming";
 import scheduledEventCurrentlyRunning from "./scheduledEventCurrentlyRunning";
+import scheduledEventUpdateNextOccurance from "./scheduledEventUpdateNextOccurance";
 
 export default (app) => {
    app.post(
@@ -44,6 +45,14 @@ export default (app) => {
   app.get(
     `/tenant/:tenantId/scheduled-event/currently-running`,
     scheduledEventCurrentlyRunning,
+  );
+  app.post(
+    `/tenant/:tenantId/update-next-occurance`,
+    scheduledEventUpdateNextOccurance,
+  );
+  app.post(
+    `/tenant/:tenantId/update-next-occurrence`,
+    scheduledEventUpdateNextOccurance,
   );
   app.get(
     `/tenant/:tenantId/scheduled-event`,

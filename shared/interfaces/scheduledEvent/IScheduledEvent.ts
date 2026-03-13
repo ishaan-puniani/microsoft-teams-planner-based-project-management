@@ -77,6 +77,10 @@ export interface IScheduledEvent {
   exdates?: Date[];
   /** ISO 8601 date-time strings for extra occurrence dates outside the rule */
   rdates?: Date[];
+  /** Cached next occurrence start timestamp */
+  nextStart?: Date;
+  /** Cached next occurrence end timestamp */
+  nextEnd?: Date;
   tenant: string;
   createdBy?: string;
   updatedBy?: string;

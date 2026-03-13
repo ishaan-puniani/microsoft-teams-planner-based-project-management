@@ -4,18 +4,22 @@ import { Link } from 'react-router-dom';
 import { Tooltip } from 'react-tooltip';
 import { i18n } from 'src/i18n';
 import auditLogSelectors from 'src/modules/auditLog/auditLogSelectors';
+import Errors from 'src/modules/shared/error/errors';
 import { AppDispatch } from 'src/modules/store';
 import destroyActions from 'src/modules/scheduledEvent/destroy/scheduledEventDestroyActions';
 import destroySelectors from 'src/modules/scheduledEvent/destroy/scheduledEventDestroySelectors';
 import actions from 'src/modules/scheduledEvent/list/scheduledEventListActions';
 import selectors from 'src/modules/scheduledEvent/list/scheduledEventListSelectors';
+import ScheduledEventService from 'src/modules/scheduledEvent/scheduledEventService';
 import scheduledEventSelectors from 'src/modules/scheduledEvent/scheduledEventSelectors';
+import Message from 'src/view/shared/message';
 import ButtonIcon from 'src/view/shared/ButtonIcon';
 import ConfirmModal from 'src/view/shared/modals/ConfirmModal';
 import Toolbar from 'src/view/shared/styles/Toolbar';
 
 const ScheduledEventListToolbar = (props) => {
   const [destroyAllConfirmVisible, setDestroyAllConfirmVisible] = useState(false);
+  const [updateNextLoading, setUpdateNextLoading] = useState(false);
   const dispatch = useDispatch<AppDispatch>();
 
   const selectedKeys = useSelector(selectors.selectSelectedKeys);
@@ -27,8 +31,22 @@ const ScheduledEventListToolbar = (props) => {
   const hasPermissionToDestroy = useSelector(scheduledEventSelectors.selectPermissionToDestroy);
   const hasPermissionToCreate = useSelector(scheduledEventSelectors.selectPermissionToCreate);
   const hasPermissionToImport = useSelector(scheduledEventSelectors.selectPermissionToImport);
+  const hasPermissionToEdit = useSelector(scheduledEventSelectors.selectPermissionToEdit);
 
   const doExport = () => dispatch(actions.doExport());
+  const doUpdateNextOccurance = async () => {
+    try {
+      setUpdateNextLoading(true);
+      await ScheduledEventService.updateNextOccurance();
+      Message.success(i18n('entities.scheduledEvent.updateNextOccurance.success'));
+      dispatch(actions.doFetchCurrentFilter());
+    } catch (error) {
+      Errors.handle(error);
+    } finally {
+      setUpdateNextLoading(false);
+    }
+  };
+
   const doDestroyAllSelected = () => {
     setDestroyAllConfirmVisible(false);
     dispatch(destroyActions.doDestroyAll(selectedKeys));
@@ -104,6 +122,18 @@ const ScheduledEventListToolbar = (props) => {
             {i18n('common.import')}
           </button>
         </Link>
+      )}
+
+      {hasPermissionToEdit && (
+        <button
+          className="btn btn-light"
+          type="button"
+          onClick={doUpdateNextOccurance}
+          disabled={updateNextLoading || loading}
+        >
+          <ButtonIcon loading={updateNextLoading} iconClass="fas fa-sync" />{' '}
+          {i18n('entities.scheduledEvent.updateNextOccurance.button')}
+        </button>
       )}
 
       {renderDestroyButton()}
