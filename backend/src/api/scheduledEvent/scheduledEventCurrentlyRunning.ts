@@ -11,9 +11,8 @@ export default async (req, res, next) => {
 
     /**
      * Returns all events that are currently in progress at the time of the request.
-      * For one-off events: startDate <= now <= (endDate || startDate + durationMinutes)
-     * For recurring events: the most recent occurrence started before now and its
-      *   computed end time (occurrenceStart + durationMinutes) is still in the future.
+      * Uses cached occurrence windows and returns rows where:
+      *   nextStart <= now <= nextEnd
      */
     const payload = await new ScheduledEventService(req).findCurrentlyRunning();
 

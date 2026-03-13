@@ -8,6 +8,177 @@ import ScheduledEvent from '../models/scheduledEvent';
 import { RRule, RRuleSet, rrulestr } from 'rrule';
 
 class ScheduledEventRepository {
+  static _getEventDurationMs(event: any): number {
+    if (
+      typeof event?.durationMs === 'number' &&
+      Number.isFinite(event.durationMs) &&
+      event.durationMs > 0
+    ) {
+      return event.durationMs;
+    }
+
+    if (
+      typeof event?.duration === 'number' &&
+      Number.isFinite(event.duration) &&
+      event.duration > 0
+    ) {
+      return event.duration * 60 * 1000;
+    }
+
+    if (
+      typeof event?.durationMinutes === 'number' &&
+      Number.isFinite(event.durationMinutes) &&
+      event.durationMinutes > 0
+    ) {
+      return event.durationMinutes * 60 * 1000;
+    }
+
+    if (event?.allDay) {
+      return 24 * 60 * 60 * 1000;
+    }
+
+    return 0;
+  }
+
+  static _computeCachedNextWindow(
+    event: any,
+    now: Date,
+  ): { nextStart: Date | null; nextEnd: Date | null } {
+    const plain = event?.toObject ? event.toObject() : event;
+
+    let nextStart: Date | null = null;
+    let nextEnd: Date | null = null;
+
+    const durationMs = this._getEventDurationMs(plain);
+
+    if (!plain?.rruleString) {
+      if (plain?.startDate) {
+        const oneOffStart = new Date(plain.startDate);
+        const oneOffEnd = plain.endDate
+          ? new Date(plain.endDate)
+          : durationMs > 0
+            ? new Date(oneOffStart.getTime() + durationMs)
+            : null;
+
+        if (
+          oneOffEnd &&
+          oneOffStart.getTime() <= now.getTime() &&
+          oneOffEnd.getTime() >= now.getTime()
+        ) {
+          nextStart = oneOffStart;
+          nextEnd = oneOffEnd;
+        } else if (oneOffStart.getTime() >= now.getTime()) {
+          nextStart = oneOffStart;
+          nextEnd = oneOffEnd;
+        }
+      }
+
+      return { nextStart, nextEnd };
+    }
+
+    try {
+      const ruleSet = new RRuleSet();
+      const baseRule = rrulestr(plain.rruleString, {
+        dtstart: plain.startDate || now,
+      });
+      ruleSet.rrule(baseRule);
+
+      if (plain.exdates && plain.exdates.length) {
+        for (const exdate of plain.exdates) {
+          ruleSet.exdate(new Date(exdate));
+        }
+      }
+
+      if (plain.rdates && plain.rdates.length) {
+        for (const rdate of plain.rdates) {
+          ruleSet.rdate(new Date(rdate));
+        }
+      }
+
+      if (durationMs > 0) {
+        const searchFrom = new Date(now.getTime() - durationMs);
+        const recentOccurrences = ruleSet.between(
+          searchFrom,
+          now,
+          true,
+        );
+
+        for (let i = recentOccurrences.length - 1; i >= 0; i--) {
+          const occ = recentOccurrences[i];
+          const occEnd = new Date(occ.getTime() + durationMs);
+
+          if (occEnd.getTime() >= now.getTime()) {
+            nextStart = occ;
+            nextEnd = occEnd;
+            break;
+          }
+        }
+      }
+
+      if (!nextStart) {
+        const occurrence = ruleSet.after(now, true);
+
+        if (occurrence) {
+          nextStart = occurrence;
+
+          if (durationMs > 0) {
+            nextEnd = new Date(occurrence.getTime() + durationMs);
+          }
+        }
+      }
+    } catch (_) {
+      // Malformed rruleString — clear cache for this record
+    }
+
+    return { nextStart, nextEnd };
+  }
+
+  static async _refreshStaleUpcomingCache(
+    options: IRepositoryOptions,
+    now: Date,
+  ) {
+    const currentTenant =
+      MongooseRepository.getCurrentTenant(options);
+
+    // Targeted refresh for stale recurring rows requested by user:
+    // endDate > now AND cached nextEnd already passed.
+    const staleRecords = await ScheduledEvent(options.database).find({
+      tenant: currentTenant.id,
+      rruleString: { $exists: true, $ne: '' },
+      endDate: { $gt: now },
+      nextEnd: { $lt: now },
+    });
+
+    if (!staleRecords.length) {
+      return 0;
+    }
+
+    const operations = staleRecords.map((record) => {
+      const { nextStart, nextEnd } = this._computeCachedNextWindow(
+        record,
+        now,
+      );
+
+      return {
+        updateOne: {
+          filter: { _id: record._id },
+          update: {
+            $set: {
+              nextStart,
+              nextEnd,
+            },
+          },
+        },
+      };
+    });
+
+    await ScheduledEvent(options.database).bulkWrite(operations, {
+      ordered: false,
+    });
+
+    return staleRecords.length;
+  }
+
   static async create(data, options: IRepositoryOptions) {
     const currentTenant =
       MongooseRepository.getCurrentTenant(options);
@@ -282,9 +453,7 @@ class ScheduledEventRepository {
   }
 
   /**
-   * Returns all events that have an occurrence in the window [now, now + hours].
-   * For recurring events the rrule string is expanded; for one-off events the
-   * startDate is compared directly.
+   * Returns all events whose cached nextStart is in the window [now, now + hours].
    * Each result entry is: { event, nextOccurrence: Date }
    */
   static async findUpcoming(
@@ -297,84 +466,28 @@ class ScheduledEventRepository {
     const now = new Date();
     const windowEnd = new Date(now.getTime() + hours * 60 * 60 * 1000);
 
-    // Fetch all events for this tenant that could possibly fire in the window.
-    // We do a broad DB pre-filter to avoid loading everything:
-    //  - one-off events whose startDate falls in the window, OR
-    //  - recurring events (have rruleString) whose startDate <= windowEnd
-    //    (recurrence may have started in the past and fire again soon)
-    const candidates = await ScheduledEvent(options.database).find({
+    await this._refreshStaleUpcomingCache(options, now);
+
+    const records = await ScheduledEvent(options.database)
+      .find({
       tenant: currentTenant.id,
-      $or: [
-        // One-off: startDate in window
-        {
-          rruleString: { $in: [null, ''] },
-          startDate: { $gte: now, $lte: windowEnd },
-        },
-        // Recurring: started at or before windowEnd (could fire again)
-        {
-          rruleString: { $exists: true, $ne: '' },
-          startDate: { $lte: windowEnd },
-        },
-      ],
-    });
+      nextStart: { $gte: now, $lte: windowEnd },
+    })
+      .sort({ nextStart: 1 });
 
-    const results: Array<{ event: any; nextOccurrence: Date }> = [];
-
-    for (const record of candidates) {
+    return records.map((record) => {
       const plain = record.toObject ? record.toObject() : record;
-
-      if (!plain.rruleString) {
-        // Simple one-off event
-        results.push({ event: plain, nextOccurrence: plain.startDate });
-        continue;
-      }
-
-      try {
-        // Build an RRuleSet so we can respect exdates / rdates
-        const ruleSet = new RRuleSet();
-
-        // Parse the base rule; rrulestr can handle full DTSTART+RRULE strings
-        const baseRule = rrulestr(plain.rruleString, {
-          // If DTSTART is not embedded in the string, fall back to startDate
-          dtstart: plain.startDate || now,
-        });
-        ruleSet.rrule(baseRule);
-
-        // Apply excluded dates
-        if (plain.exdates && plain.exdates.length) {
-          for (const exdate of plain.exdates) {
-            ruleSet.exdate(new Date(exdate));
-          }
-        }
-        // Apply extra (added) dates
-        if (plain.rdates && plain.rdates.length) {
-          for (const rdate of plain.rdates) {
-            ruleSet.rdate(new Date(rdate));
-          }
-        }
-
-        // Find the next occurrence in the window
-        const occurrences = ruleSet.between(now, windowEnd, true /* inclusive */);
-
-        if (occurrences.length > 0) {
-          results.push({ event: plain, nextOccurrence: occurrences[0] });
-        }
-      } catch (_) {
-        // Malformed rruleString — skip this record
-      }
-    }
-
-    // Sort by nextOccurrence ascending
-    results.sort(
-      (a, b) => a.nextOccurrence.getTime() - b.nextOccurrence.getTime(),
-    );
-
-    return results;
+      return {
+        event: plain,
+        nextOccurrence: new Date(plain.nextStart),
+      };
+    });
   }
 
   /**
    * Computes and stores the next occurrence window for all tenant scheduled events.
-   * Recurring events use the first occurrence >= now and explicit duration fields.
+   * If an occurrence is currently running, it is cached as [nextStart, nextEnd].
+   * Otherwise, the next future occurrence is cached.
    */
   static async updateNextOccurance(
     options: IRepositoryOptions,
@@ -384,38 +497,6 @@ class ScheduledEventRepository {
 
     const now = new Date();
 
-    const getEventDurationMs = (event: any): number => {
-      if (
-        typeof event?.durationMs === 'number' &&
-        Number.isFinite(event.durationMs) &&
-        event.durationMs > 0
-      ) {
-        return event.durationMs;
-      }
-
-      if (
-        typeof event?.duration === 'number' &&
-        Number.isFinite(event.duration) &&
-        event.duration > 0
-      ) {
-        return event.duration * 60 * 1000;
-      }
-
-      if (
-        typeof event?.durationMinutes === 'number' &&
-        Number.isFinite(event.durationMinutes) &&
-        event.durationMinutes > 0
-      ) {
-        return event.durationMinutes * 60 * 1000;
-      }
-
-      if (event?.allDay) {
-        return 24 * 60 * 60 * 1000;
-      }
-
-      return 0;
-    };
-
     const records = await ScheduledEvent(options.database).find({
       tenant: currentTenant.id,
     });
@@ -423,60 +504,10 @@ class ScheduledEventRepository {
     const operations: Array<any> = [];
 
     for (const record of records) {
-      const plain = record.toObject ? record.toObject() : record;
-
-      let nextStart: Date | null = null;
-      let nextEnd: Date | null = null;
-
-      const durationMs = getEventDurationMs(plain);
-
-      if (!plain.rruleString) {
-        if (plain.startDate) {
-          const oneOffStart = new Date(plain.startDate);
-
-          if (oneOffStart.getTime() >= now.getTime()) {
-            nextStart = oneOffStart;
-
-            if (plain.endDate) {
-              nextEnd = new Date(plain.endDate);
-            } else if (durationMs > 0) {
-              nextEnd = new Date(oneOffStart.getTime() + durationMs);
-            }
-          }
-        }
-      } else {
-        try {
-          const ruleSet = new RRuleSet();
-          const baseRule = rrulestr(plain.rruleString, {
-            dtstart: plain.startDate || now,
-          });
-          ruleSet.rrule(baseRule);
-
-          if (plain.exdates && plain.exdates.length) {
-            for (const exdate of plain.exdates) {
-              ruleSet.exdate(new Date(exdate));
-            }
-          }
-
-          if (plain.rdates && plain.rdates.length) {
-            for (const rdate of plain.rdates) {
-              ruleSet.rdate(new Date(rdate));
-            }
-          }
-
-          const occurrence = ruleSet.after(now, true);
-
-          if (occurrence) {
-            nextStart = occurrence;
-
-            if (durationMs > 0) {
-              nextEnd = new Date(occurrence.getTime() + durationMs);
-            }
-          }
-        } catch (_) {
-          // Malformed rruleString — clear cache for this record
-        }
-      }
+      const { nextStart, nextEnd } = this._computeCachedNextWindow(
+        record,
+        now,
+      );
 
       operations.push({
         updateOne: {
@@ -505,11 +536,7 @@ class ScheduledEventRepository {
   }
 
   /**
-   * Returns all events that are currently in progress at the moment this is called.
-    * - One-off events: startDate <= now <= (endDate || startDate + durationMinutes)
-    *   (including allDay events starting today).
-    * - Recurring events: the most recent occurrence started before now and its
-    *   computed end time (occurrenceStart + durationMinutes) is still in the future.
+   * Returns all events currently running based on cached nextStart/nextEnd window.
    * Each result entry is: { event, occurrenceStart: Date, occurrenceEnd: Date | null }
    */
   static async findCurrentlyRunning(options: IRepositoryOptions) {
@@ -517,155 +544,22 @@ class ScheduledEventRepository {
 
     const now = new Date();
 
-    // For allDay events without an endDate, treat them as spanning the whole day.
-    const todayStart = new Date(now);
-    todayStart.setHours(0, 0, 0, 0);
-
-    const getEventDurationMs = (event: any): number => {
-      if (
-        typeof event?.durationMs === 'number' &&
-        Number.isFinite(event.durationMs) &&
-        event.durationMs > 0
-      ) {
-        return event.durationMs;
-      }
-
-      if (
-        typeof event?.duration === 'number' &&
-        Number.isFinite(event.duration) &&
-        event.duration > 0
-      ) {
-        return event.duration * 60 * 1000;
-      }
-
-      if (
-        typeof event?.durationMinutes === 'number' &&
-        Number.isFinite(event.durationMinutes) &&
-        event.durationMinutes > 0
-      ) {
-        return event.durationMinutes * 60 * 1000;
-      }
-
-      if (event?.allDay) {
-        return 24 * 60 * 60 * 1000;
-      }
-
-      return 0;
-    };
-
-    // Broad DB pre-filter — we refine further in memory for recurring events.
-    const candidates = await ScheduledEvent(options.database).find({
+    const records = await ScheduledEvent(options.database)
+      .find({
       tenant: currentTenant.id,
-      startDate: { $lte: now },
-      $or: [
-        // One-off with explicit endDate still in the future
-        { rruleString: { $in: [null, ''] }, endDate: { $gte: now } },
-        // One-off with explicit duration (minutes)
-        { rruleString: { $in: [null, ''] }, durationMinutes: { $gt: 0 } },
-        // Backward compatibility for existing numeric duration fields.
-        { rruleString: { $in: [null, ''] }, duration: { $gt: 0 } },
-        { rruleString: { $in: [null, ''] }, durationMs: { $gt: 0 } },
-        // One-off allDay without endDate — started today
-        { rruleString: { $in: [null, ''] }, allDay: true, startDate: { $gte: todayStart } },
-        // Recurring — could have an active occurrence (started before now)
-        { rruleString: { $exists: true, $ne: '' } },
-      ],
-    });
+      nextStart: { $lte: now },
+      nextEnd: { $gte: now },
+    })
+      .sort({ nextStart: 1 });
 
-    const results: Array<{
-      event: any;
-      occurrenceStart: Date;
-      occurrenceEnd: Date | null;
-    }> = [];
-
-    for (const record of candidates) {
+    return records.map((record) => {
       const plain = record.toObject ? record.toObject() : record;
-
-      if (!plain.rruleString) {
-        // One-off — verify it's still active when duration is used instead of endDate.
-        const oneOffDurationMs = getEventDurationMs(plain);
-        const occurrenceStart = new Date(plain.startDate);
-        const derivedEndDate =
-          oneOffDurationMs > 0
-            ? new Date(occurrenceStart.getTime() + oneOffDurationMs)
-            : null;
-        const occurrenceEnd = plain.endDate
-          ? new Date(plain.endDate)
-          : derivedEndDate;
-
-        // Without an end boundary (endDate or duration), we cannot assert "currently running".
-        if (!occurrenceEnd) {
-          continue;
-        }
-
-        if (occurrenceEnd.getTime() < now.getTime()) {
-          continue;
-        }
-
-        results.push({
-          event: plain,
-          occurrenceStart,
-          occurrenceEnd,
-        });
-        continue;
-      }
-
-      // Recurring: compute duration, then look for an occurrence in [now - duration, now]
-      try {
-        const durationMs = getEventDurationMs(plain);
-
-        if (durationMs <= 0) {
-          continue;
-        }
-
-        // An occurrence is "active" when: occurrence <= now <= occurrence + durationMs
-        // i.e., occurrence must be in [now - durationMs, now]
-        const searchFrom = new Date(now.getTime() - Math.max(durationMs, 0));
-
-        const ruleSet = new RRuleSet();
-        const baseRule = rrulestr(plain.rruleString, {
-          dtstart: plain.startDate || now,
-        });
-        ruleSet.rrule(baseRule);
-
-        if (plain.exdates && plain.exdates.length) {
-          for (const exdate of plain.exdates) {
-            ruleSet.exdate(new Date(exdate));
-          }
-        }
-        if (plain.rdates && plain.rdates.length) {
-          for (const rdate of plain.rdates) {
-            ruleSet.rdate(new Date(rdate));
-          }
-        }
-
-        const occurrences = ruleSet.between(searchFrom, now, true /* inclusive */);
-
-        // Walk from most recent backwards — first one that is still in progress wins
-        for (let i = occurrences.length - 1; i >= 0; i--) {
-          const occ = occurrences[i];
-          const occEnd = new Date(occ.getTime() + durationMs);
-
-          if (occEnd.getTime() >= now.getTime()) {
-            results.push({
-              event: plain,
-              occurrenceStart: occ,
-              occurrenceEnd: occEnd,
-            });
-            break; // Only one active occurrence per event
-          }
-        }
-      } catch (_) {
-        // Malformed rruleString — skip
-      }
-    }
-
-    // Sort by occurrenceStart ascending
-    results.sort(
-      (a, b) => a.occurrenceStart.getTime() - b.occurrenceStart.getTime(),
-    );
-
-    return results;
+      return {
+        event: plain,
+        occurrenceStart: new Date(plain.nextStart),
+        occurrenceEnd: plain.nextEnd ? new Date(plain.nextEnd) : null,
+      };
+    });
   }
 
   static async findAllAutocomplete(

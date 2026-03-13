@@ -11,7 +11,8 @@ export default async (req, res, next) => {
 
     /**
      * Optional query param: ?hours=N  (defaults to 12)
-     * Returns all upcoming occurrences within the next N hours.
+      * Returns cached upcoming occurrences where:
+      *   nextStart is within [now, now + N hours].
      */
     const hours = Math.abs(Number(req.query.hours) || 12);
 
