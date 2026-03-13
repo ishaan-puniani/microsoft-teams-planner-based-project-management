@@ -75,10 +75,10 @@ const EstimatesGrid = ({
       cells: [
         { type: 'header', text: 'Role' } as HeaderCell,
         { type: 'header', text: 'Estimated (hrs)' } as HeaderCell,
-        { type: 'header', text: 'Suggested Low (hrs)' } as HeaderCell,
-        { type: 'header', text: 'Ideal (hrs)' } as HeaderCell,
-        { type: 'header', text: 'Suggested High (hrs)' } as HeaderCell,
         { type: 'header', text: 'Deviation' } as HeaderCell,
+        { type: 'header', text: 'Ideal (hrs)' } as HeaderCell,
+        { type: 'header', text: 'Suggested Low (hrs)' } as HeaderCell,
+        { type: 'header', text: 'Suggested High (hrs)' } as HeaderCell,
       ],
     };
 
