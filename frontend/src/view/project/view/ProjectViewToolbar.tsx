@@ -19,6 +19,7 @@ const ProjectViewToolbar = (props) => {
     useState(false);
   const [syncLoading, setSyncLoading] = useState(false);
   const [organizeLoading, setOrganizeLoading] = useState(false);
+  const [estimateLoading, setEstimateLoading] = useState(false);
 
   const dispatch = useDispatch<AppDispatch>();
   const id = props.id;
@@ -76,8 +77,32 @@ const ProjectViewToolbar = (props) => {
     }
   };
 
+  const doSuggestEstimations = async () => {
+    try {
+      setEstimateLoading(true);
+      const data = await AiAgentService.suggestEstimationsForProject(id);
+      Message.success(`Estimated ${data.processed} Epic(s)/User Story(ies) successfully.`);
+    } catch (e) {
+      Message.error((e as Error)?.message ?? i18n('errors.default'));
+    } finally {
+      setEstimateLoading(false);
+    }
+  };
+
   return (
     <Toolbar>
+      <button
+        className="btn btn-primary"
+        type="button"
+        disabled={estimateLoading}
+        onClick={doSuggestEstimations}
+      >
+        <ButtonIcon
+          loading={estimateLoading}
+          iconClass="fas fa-chart-line"
+        />{' '}
+        Suggest Estimations for Epics and User Stories
+      </button>
       {hasPermissionToEdit && (
         <Link to={`/project/${id}/edit`}>
           <button className="btn btn-primary" type="button">

@@ -772,6 +772,56 @@ class TaskRepository {
     }));
   }
 
+  /**
+   * Returns all Epics and User Stories for a project that do not yet have suggestedEstimatedTime.
+   * Used by the batch AI estimation handler.
+   */
+  static async getEpicsAndUserStoriesWithoutEstimates(
+    projectId: string,
+    options: IRepositoryOptions,
+  ): Promise<
+    Array<{
+      id: string;
+      title: string;
+      description?: string;
+      acceptanceCriteria?: string;
+      type: string;
+    }>
+  > {
+    const currentTenant = MongooseRepository.getCurrentTenant(options);
+    const projectObjId = MongooseQueryUtils.uuid(projectId);
+    if (!projectObjId) return [];
+
+    const rows = await Task(options.database)
+      .find({
+        tenant: currentTenant.id,
+        project: projectObjId,
+        $or: [
+          { type: 'EPIC' },
+          { type: 'USER_STORY' },
+          { type: { $regex: /^(EPIC|USER_STORY)$/i } },
+        ],
+        $and: [
+          {
+            $or: [
+              { suggestedEstimatedTime: { $exists: false } },
+              { suggestedEstimatedTime: null },
+            ],
+          },
+        ],
+      })
+      .select('_id title description acceptanceCriteria type')
+      .lean();
+
+    return rows.map((r) => ({
+      id: r._id.toString(),
+      title: r.title || '',
+      description: r.description,
+      acceptanceCriteria: r.acceptanceCriteria,
+      type: r.type || '',
+    }));
+  }
+
   static async aggregateEstimatesByProject(
     projectId: string,
     type: string,

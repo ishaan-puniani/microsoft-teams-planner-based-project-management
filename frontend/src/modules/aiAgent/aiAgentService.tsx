@@ -122,4 +122,12 @@ export default class AiAgentService {
       };
     };
   }
+
+  static async suggestEstimationsForProject(projectId: string) {
+    const tenantId = AuthCurrentTenant.get();
+    const response = await authAxios.get(
+      `/tenant/${tenantId}/ai-agent/suggest-estimations-for-project/${projectId}`,
+    );
+    return response.data as { processed: number; results: Array<{ taskId: string; title: string; type: string }> };
+  }
 }
