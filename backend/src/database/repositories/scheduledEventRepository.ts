@@ -8,6 +8,8 @@ import ScheduledEvent from '../models/scheduledEvent';
 import { RRule, RRuleSet, rrulestr } from 'rrule';
 
 class ScheduledEventRepository {
+  static readonly DEFAULT_STALE_REFRESH_LIMIT = 200;
+
   static _getEventDurationMs(event: any): number {
     if (
       typeof event?.durationMs === 'number' &&
@@ -136,18 +138,60 @@ class ScheduledEventRepository {
   static async _refreshStaleUpcomingCache(
     options: IRepositoryOptions,
     now: Date,
+    maxToRefresh: number = ScheduledEventRepository.DEFAULT_STALE_REFRESH_LIMIT,
   ) {
     const currentTenant =
       MongooseRepository.getCurrentTenant(options);
 
-    // Targeted refresh for stale recurring rows requested by user:
-    // endDate > now AND cached nextEnd already passed.
-    const staleRecords = await ScheduledEvent(options.database).find({
-      tenant: currentTenant.id,
-      rruleString: { $exists: true, $ne: '' },
-      endDate: { $gt: now },
-      nextEnd: { $lt: now },
-    });
+    const boundedLimit = Math.max(
+      1,
+      Math.min(
+        Number(maxToRefresh) ||
+          ScheduledEventRepository.DEFAULT_STALE_REFRESH_LIMIT,
+        2000,
+      ),
+    );
+
+    // Targeted refresh for stale recurring rows:
+    // 1) recurrence still relevant (endDate in future OR open-ended)
+    // 2) cached window is stale (nextEnd passed or not initialized)
+    const staleRecords = await ScheduledEvent(options.database)
+      .find({
+        tenant: currentTenant.id,
+        rruleString: { $exists: true, $ne: '' },
+        $and: [
+          {
+            $or: [
+              { endDate: { $gt: now } },
+              { endDate: { $exists: false } },
+              { endDate: null },
+            ],
+          },
+          {
+            $or: [
+              { nextEnd: { $lt: now } },
+              { nextEnd: { $exists: false } },
+              { nextEnd: null },
+            ],
+          },
+        ],
+      })
+      .select([
+        '_id',
+        'startDate',
+        'endDate',
+        'durationMinutes',
+        'duration',
+        'durationMs',
+        'allDay',
+        'rruleString',
+        'exdates',
+        'rdates',
+        'nextStart',
+        'nextEnd',
+      ])
+      .sort({ nextEnd: 1, _id: 1 })
+      .limit(boundedLimit);
 
     if (!staleRecords.length) {
       return 0;
@@ -177,6 +221,24 @@ class ScheduledEventRepository {
     });
 
     return staleRecords.length;
+  }
+
+  static async refreshUpcomingCache(
+    options: IRepositoryOptions,
+    maxToRefresh: number = ScheduledEventRepository.DEFAULT_STALE_REFRESH_LIMIT,
+  ) {
+    const now = new Date();
+    const refreshed = await this._refreshStaleUpcomingCache(
+      options,
+      now,
+      maxToRefresh,
+    );
+
+    return {
+      refreshed,
+      refreshedAt: now,
+      maxToRefresh,
+    };
   }
 
   static async create(data, options: IRepositoryOptions) {
@@ -466,7 +528,11 @@ class ScheduledEventRepository {
     const now = new Date();
     const windowEnd = new Date(now.getTime() + hours * 60 * 60 * 1000);
 
-    await this._refreshStaleUpcomingCache(options, now);
+    await this._refreshStaleUpcomingCache(
+      options,
+      now,
+      ScheduledEventRepository.DEFAULT_STALE_REFRESH_LIMIT,
+    );
 
     const records = await ScheduledEvent(options.database)
       .find({

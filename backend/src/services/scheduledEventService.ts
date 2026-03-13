@@ -106,6 +106,13 @@ export default class ScheduledEventService {
     return ScheduledEventRepository.updateNextOccurance(this.options);
   }
 
+  async refreshUpcomingCache(maxToRefresh?: number) {
+    return ScheduledEventRepository.refreshUpcomingCache(
+      this.options,
+      maxToRefresh,
+    );
+  }
+
   async findById(id) {
     return ScheduledEventRepository.findById(
       id,

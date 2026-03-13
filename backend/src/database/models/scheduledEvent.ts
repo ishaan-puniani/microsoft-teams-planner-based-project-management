@@ -134,6 +134,15 @@ export default (database) => {
     },
   );
 
+  // Upcoming query path: tenant + nextStart range
+  ScheduledEventSchema.index({ tenant: 1, nextStart: 1 });
+
+  // Currently running query path: tenant + nextStart/nextEnd window
+  ScheduledEventSchema.index({ tenant: 1, nextEnd: 1, nextStart: 1 });
+
+  // Stale refresh lookup path for recurring events
+  ScheduledEventSchema.index({ tenant: 1, rruleString: 1, endDate: 1, nextEnd: 1 });
+
   ScheduledEventSchema.virtual('id').get(function () {
     // @ts-ignore
     return this._id.toHexString();

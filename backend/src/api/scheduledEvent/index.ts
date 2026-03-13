@@ -10,6 +10,7 @@ import scheduledEventFind from "./scheduledEventFind";
 import scheduledEventUpcoming from "./scheduledEventUpcoming";
 import scheduledEventCurrentlyRunning from "./scheduledEventCurrentlyRunning";
 import scheduledEventUpdateNextOccurance from "./scheduledEventUpdateNextOccurance";
+import scheduledEventRefreshCache from "./scheduledEventRefreshCache";
 
 export default (app) => {
    app.post(
@@ -53,6 +54,10 @@ export default (app) => {
   app.post(
     `/tenant/:tenantId/update-next-occurrence`,
     scheduledEventUpdateNextOccurance,
+  );
+  app.post(
+    `/tenant/:tenantId/scheduled-event/refresh-cache`,
+    scheduledEventRefreshCache,
   );
   app.get(
     `/tenant/:tenantId/scheduled-event`,
