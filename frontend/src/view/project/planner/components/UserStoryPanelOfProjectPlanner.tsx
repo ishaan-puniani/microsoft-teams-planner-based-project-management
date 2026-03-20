@@ -1,17 +1,26 @@
-import { useState } from 'react';
+import { useRef, useState, type ChangeEvent } from 'react';
 import ButtonIcon from 'src/view/shared/ButtonIcon';
-import AiAgentService from 'src/modules/aiAgent/aiAgentService';
+import AiAgentService, {
+  type AiSuggestionAttachment,
+} from 'src/modules/aiAgent/aiAgentService';
 import Errors from 'src/modules/shared/error/errors';
 import { parseStructuredBulk, serializeTasksOnly } from '../structuredBulkParser';
 import type { ParsedItem } from '../structuredBulkParser';
 import { TaskPanelOfProjectPlanner } from './TaskPanelOfProjectPlanner';
+import {
+  readPlannerReferenceFile,
+  toAttachmentPayload,
+  type PlannerReferenceFile,
+} from '../plannerReferenceFile';
 
 type Props = {
   epicIndex: number;
   userStoryIndex: number;
   userStory: ParsedItem;
+  projectId: string;
   projectBrief: string;
   epicName: string;
+  plannerAttachment?: AiSuggestionAttachment;
   tasksText: string;
   onTasksTextChange: (text: string) => void;
   serializeUserStoryText: () => string;
@@ -21,14 +30,18 @@ const UserStoryPanelOfProjectPlanner = ({
   epicIndex,
   userStoryIndex,
   userStory,
+  projectId,
   projectBrief,
   epicName,
+  plannerAttachment,
   tasksText,
   onTasksTextChange,
   serializeUserStoryText,
 }: Props) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [storyAttachment, setStoryAttachment] = useState<PlannerReferenceFile | null>(null);
+  const storyFileRef = useRef<HTMLInputElement>(null);
 
   const parsed = parseStructuredBulk(tasksText);
   const tasks = parsed.filter((x) => x.level === 2);
@@ -44,6 +57,30 @@ const UserStoryPanelOfProjectPlanner = ({
     onTasksTextChange(serializeTasksOnly(updated));
   };
 
+  const storyAttachmentPayload = toAttachmentPayload(storyAttachment);
+  const attachmentForStoryAi = storyAttachmentPayload ?? plannerAttachment;
+
+  const clearStoryFile = () => {
+    setStoryAttachment(null);
+    if (storyFileRef.current) storyFileRef.current.value = '';
+  };
+
+  const onStoryReferenceFile = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) {
+      setStoryAttachment(null);
+      return;
+    }
+    try {
+      const data = await readPlannerReferenceFile(file);
+      setStoryAttachment(data);
+      setError(null);
+    } catch (err: any) {
+      setError(err?.message || 'Invalid file');
+      e.target.value = '';
+    }
+  };
+
   const handleGenerateTasks = async () => {
     setError(null);
     setLoading(true);
@@ -51,7 +88,7 @@ const UserStoryPanelOfProjectPlanner = ({
       const userStoryText = serializeUserStoryText();
       const data = await AiAgentService.plannerSuggestTasksForUserStory(
         userStoryText,
-        { projectBrief, epicName },
+        { projectBrief, epicName, projectId, attachment: attachmentForStoryAi },
       );
       const fullBlock = data.tasksText || '';
       const parsedFull = parseStructuredBulk(fullBlock);
@@ -95,16 +132,49 @@ const UserStoryPanelOfProjectPlanner = ({
         {/* Step 3: Panel to generate Tasks for this User Story */}
         <div className="mb-2">
           <label className="form-label small text-muted">3. Tasks + Todos (for this user story)</label>
-          <div className="d-flex flex-wrap align-items-center gap-2 mb-2">
-            <button
-              type="button"
-              className="btn btn-primary btn-sm"
-              disabled={loading}
-              onClick={handleGenerateTasks}
-            >
-              <ButtonIcon loading={loading} iconClass="fas fa-magic" />
-              Generate Tasks
-            </button>
+          <div className="mb-2">
+            <div className="d-flex flex-wrap align-items-end gap-2">
+              <div className="flex-grow-1" style={{ minWidth: '200px' }}>
+                <label className="form-label small text-muted mb-0">
+                  Optional PDF/image (this user story)
+                </label>
+                <input
+                  ref={storyFileRef}
+                  type="file"
+                  accept="application/pdf,image/jpeg,image/png,image/gif,image/webp,.pdf"
+                  className="form-control form-control-sm"
+                  disabled={loading}
+                  onChange={onStoryReferenceFile}
+                />
+              </div>
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                disabled={loading}
+                onClick={handleGenerateTasks}
+              >
+                <ButtonIcon loading={loading} iconClass="fas fa-magic" />
+                Generate Tasks
+              </button>
+            </div>
+            {storyAttachment && (
+              <div className="d-flex align-items-center flex-wrap gap-2 mt-1">
+                <span
+                  className="small text-muted text-truncate"
+                  style={{ maxWidth: '280px' }}
+                  title={storyAttachment.name}
+                >
+                  {storyAttachment.name}
+                </span>
+                <button
+                  type="button"
+                  className="btn btn-link btn-sm p-0"
+                  onClick={clearStoryFile}
+                >
+                  Clear file
+                </button>
+              </div>
+            )}
           </div>
           {error && (
             <div className="alert alert-danger py-2 small mb-2">{error}</div>
@@ -126,8 +196,10 @@ const UserStoryPanelOfProjectPlanner = ({
             <TaskPanelOfProjectPlanner
               tasks={tasks}
               onTaskTodosChange={handleTaskTodosChange}
+              projectId={projectId}
               projectBrief={projectBrief}
               userStoryTitle={userStory.title}
+              plannerAttachment={attachmentForStoryAi}
             />
           </div>
         )}

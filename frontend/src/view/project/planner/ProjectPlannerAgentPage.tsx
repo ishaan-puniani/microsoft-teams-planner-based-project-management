@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { i18n } from 'src/i18n';
 import Errors from 'src/modules/shared/error/errors';
 import ProjectService from 'src/modules/project/projectService';
-import AiAgentService from 'src/modules/aiAgent/aiAgentService';
+import AiAgentService, {
+  type AiSuggestionAttachment,
+} from 'src/modules/aiAgent/aiAgentService';
 import ContentWrapper from 'src/view/layout/styles/ContentWrapper';
 import Breadcrumb from 'src/view/shared/Breadcrumb';
 import PageTitle from 'src/view/shared/styles/PageTitle';
@@ -19,6 +21,7 @@ import {
   savePlannerBrief,
   PLANNER_SAMPLE_PLACEHOLDER,
 } from './plannerStorage';
+import { readPlannerReferenceFile, toAttachmentPayload } from './plannerReferenceFile';
 import './plannerHierarchy.css';
 
 const SAVE_DEBOUNCE_MS = 500;
@@ -112,8 +115,12 @@ const ProjectPlannerAgentPage = () => {
   const [userStoryTasks, setUserStoryTasks] = useState<Record<string, string>>({});
   const [epicsLoading, setEpicsLoading] = useState(false);
   const [epicsError, setEpicsError] = useState<string | null>(null);
+  const [plannerAttachment, setPlannerAttachment] = useState<
+    (AiSuggestionAttachment & { name: string }) | null
+  >(null);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loadedForProjectRef = useRef<string | null>(null);
+  const plannerFileInputRef = useRef<HTMLInputElement>(null);
 
   const loadProject = useCallback(async () => {
     if (!projectId) return;
@@ -168,11 +175,37 @@ const ProjectPlannerAgentPage = () => {
     };
   }, [projectId, projectBrief, epicsText, epicUserStories, userStoryTasks]);
 
+  const clearPlannerAttachment = () => {
+    setPlannerAttachment(null);
+    if (plannerFileInputRef.current) plannerFileInputRef.current.value = '';
+  };
+
+  const onPlannerReferenceFile = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) {
+      setPlannerAttachment(null);
+      return;
+    }
+    try {
+      const data = await readPlannerReferenceFile(file);
+      setPlannerAttachment(data);
+      setEpicsError(null);
+    } catch (err: any) {
+      setEpicsError(err?.message || 'Invalid file');
+      e.target.value = '';
+    }
+  };
+
+  const attachmentPayload = toAttachmentPayload(plannerAttachment);
+
   const handleGenerateEpics = async () => {
     setEpicsError(null);
     setEpicsLoading(true);
     try {
-      const data = await AiAgentService.plannerSuggestEpics(projectBrief);
+      const data = await AiAgentService.plannerSuggestEpics(projectBrief, {
+        projectId,
+        attachment: attachmentPayload,
+      });
       setEpicsText(data.epicsText || '');
     } catch (e: any) {
       Errors.handle(e);
@@ -243,6 +276,42 @@ const ProjectPlannerAgentPage = () => {
             </h5>
           </div>
           <div className="card-body">
+            <div className="mb-3 pb-3 border-bottom">
+              <label className="form-label small mb-1">
+                Optional reference file (PDF or image)
+              </label>
+              <p className="text-muted small mb-2">
+                Specs, wireframes, or screenshots are sent with each AI action on this page so
+                suggestions can match your document.
+              </p>
+              <input
+                ref={plannerFileInputRef}
+                type="file"
+                accept="application/pdf,image/jpeg,image/png,image/gif,image/webp,.pdf"
+                className="form-control form-control-sm mt-2"
+                disabled={epicsLoading}
+                onChange={onPlannerReferenceFile}
+              />
+              {plannerAttachment && (
+                <div className="d-flex align-items-center flex-wrap gap-2 mt-2">
+                  <span
+                    className="small text-muted text-truncate"
+                    style={{ maxWidth: '280px' }}
+                    title={plannerAttachment.name}
+                  >
+                    {plannerAttachment.name}
+                  </span>
+                  <button
+                    type="button"
+                    className="btn btn-link btn-sm p-0"
+                    onClick={clearPlannerAttachment}
+                  >
+                    Clear file
+                  </button>
+                </div>
+              )}
+            </div>
+
             {step === 1 && (
               <>
                 <label className="form-label small">Tell me about your project</label>
@@ -258,7 +327,9 @@ const ProjectPlannerAgentPage = () => {
                   <button
                     type="button"
                     className="btn btn-primary btn-sm"
-                    disabled={epicsLoading || !projectBrief.trim()}
+                    disabled={
+                      epicsLoading || (!projectBrief.trim() && !plannerAttachment)
+                    }
                     onClick={handleGenerateEpics}
                   >
                     <ButtonIcon loading={epicsLoading} iconClass="fas fa-magic" />
@@ -329,7 +400,9 @@ const ProjectPlannerAgentPage = () => {
                       key={epicIndex}
                       epicIndex={epicIndex}
                       epicName={epicName}
+                      projectId={projectId}
                       projectBrief={projectBrief}
+                      plannerAttachment={attachmentPayload}
                       userStoriesText={epicUserStories[epicIndex] ?? ''}
                       onUserStoriesTextChange={(text) =>
                         setEpicUserStories((prev) => ({ ...prev, [epicIndex]: text }))

@@ -1,4 +1,11 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+} from 'react';
 import {
   ReactGrid,
   Column,
@@ -19,6 +26,11 @@ import Spinner from 'src/view/shared/Spinner';
 import Errors from 'src/modules/shared/error/errors';
 import AiAgentService from 'src/modules/aiAgent/aiAgentService';
 import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
+import {
+  readPlannerReferenceFile,
+  toAttachmentPayload,
+  type PlannerReferenceFile,
+} from 'src/view/project/planner/plannerReferenceFile';
 
 const PENDING_ID_PREFIX = 'pending-';
 
@@ -438,6 +450,8 @@ const TestCaseExcelOfTask = ({
   const [deletedIds, setDeletedIds] = useState<Set<string>>(() => new Set());
   const [aiLoading, setAiLoading] = useState(false);
   const [aiLoadingRowId, setAiLoadingRowId] = useState<string | null>(null);
+  const [aiAttachment, setAiAttachment] = useState<PlannerReferenceFile | null>(null);
+  const aiFileInputRef = useRef<HTMLInputElement>(null);
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>(() => ({
     ...DEFAULT_COLUMN_WIDTHS,
   }));
@@ -476,6 +490,32 @@ const TestCaseExcelOfTask = ({
 
   getSpeechStateRef.current = () => ({ listening, dictatingFor });
   starLoadingRowIdRef.current = aiLoadingRowId;
+
+  const aiAttachmentPayload = useMemo(
+    () => toAttachmentPayload(aiAttachment),
+    [aiAttachment],
+  );
+
+  const clearAiAttachment = useCallback(() => {
+    setAiAttachment(null);
+    if (aiFileInputRef.current) aiFileInputRef.current.value = '';
+  }, []);
+
+  const onAiReferenceFile = useCallback(async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) {
+      setAiAttachment(null);
+      return;
+    }
+    try {
+      const data = await readPlannerReferenceFile(file);
+      setAiAttachment(data);
+      setError(null);
+    } catch (err: any) {
+      setError(err?.message || 'Invalid file');
+      e.target.value = '';
+    }
+  }, []);
 
   const persistDraft = useCallback(
     (tid: string | undefined, currentRows: TestCaseRow[]) => {
@@ -571,6 +611,7 @@ const TestCaseExcelOfTask = ({
       try {
         const data = await AiAgentService.suggestTestCasesForTask(taskTitle.trim(), {
           taskDescription: taskDescription?.trim() || undefined,
+          attachment: aiAttachmentPayload,
         });
         const list = data?.testCases ?? [];
         const first = list[0];
@@ -597,7 +638,7 @@ const TestCaseExcelOfTask = ({
         setAiLoadingRowId(null);
       }
     },
-    [taskId, taskTitle, taskDescription, rows, persistDraft],
+    [taskId, taskTitle, taskDescription, rows, persistDraft, aiAttachmentPayload],
   );
 
   useEffect(() => {
@@ -763,6 +804,7 @@ const TestCaseExcelOfTask = ({
     try {
       const data = await AiAgentService.suggestTestCasesForTask(taskTitle.trim(), {
         taskDescription: taskDescription?.trim() || undefined,
+        attachment: aiAttachmentPayload,
       });
       const list = data?.testCases ?? [];
       const newRows: TestCaseRow[] = list.map((t) => ({
@@ -788,7 +830,7 @@ const TestCaseExcelOfTask = ({
     } finally {
       setAiLoading(false);
     }
-  }, [taskId, taskTitle, taskDescription, persistDraft]);
+  }, [taskId, taskTitle, taskDescription, persistDraft, aiAttachmentPayload]);
 
   const handleSave = useCallback(async () => {
     if (!taskId || !projectId || !rows.length) return;
@@ -1031,7 +1073,7 @@ const TestCaseExcelOfTask = ({
           <i className="fas fa-vial me-2" />
           {i18n('entities.testCase.menu')} — {i18n('entities.task.view.title')}
         </h5>
-        <div className="d-flex align-items-center gap-2">
+        <div className="d-flex align-items-end flex-wrap gap-2">
           <button
             type="button"
             className="btn btn-outline-success btn-sm"
@@ -1041,6 +1083,34 @@ const TestCaseExcelOfTask = ({
             <i className="fas fa-plus me-1" />
             Add row
           </button>
+          <div className="d-flex flex-column" style={{ minWidth: '200px', maxWidth: '280px' }}>
+            <label className="form-label small text-muted mb-0">Optional PDF/image</label>
+            <input
+              ref={aiFileInputRef}
+              type="file"
+              accept="application/pdf,image/jpeg,image/png,image/gif,image/webp,.pdf"
+              className="form-control form-control-sm"
+              disabled={aiLoading}
+              onChange={onAiReferenceFile}
+            />
+            {aiAttachment && (
+              <div className="d-flex align-items-center gap-2 mt-1">
+                <span
+                  className="small text-muted text-truncate flex-grow-1"
+                  title={aiAttachment.name}
+                >
+                  {aiAttachment.name}
+                </span>
+                <button
+                  type="button"
+                  className="btn btn-link btn-sm p-0 text-nowrap"
+                  onClick={clearAiAttachment}
+                >
+                  Clear
+                </button>
+              </div>
+            )}
+          </div>
           <button
             type="button"
             className="btn btn-outline-warning btn-sm"

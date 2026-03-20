@@ -3,10 +3,15 @@ import axios from 'axios';
 import { getConfig } from '../../config';
 import ApiResponseHandler from '../apiResponseHandler';
 import ProjectRepository from '../../database/repositories/projectRepository';
+import {
+  buildGeminiUserParts,
+  parseOptionalPlannerAttachment,
+} from './geminiInlineAttachment';
 
 const geminiHttpsAgent = new https.Agent({ rejectUnauthorized: false });
 
 const SYSTEM = `You are a product owner assistant. Given a project description, output ONLY a list of EPICS (one per module or major area).
+If a PDF or image is attached, infer epics from it together with the text description.
 
 Rules:
 - Output plain text only. No markdown, no numbering, no preamble.
@@ -16,25 +21,32 @@ Rules:
 - Epic titles should be module/area names (2-4 words).`;
 
 export default async function plannerSuggestEpics(req, res, next) {
-
-  const projectId = req.body.projectId || req.projectId;
-  let projectDescription;
-  if(projectId){
-    const project = await ProjectRepository.findById(projectId, req);
-    projectDescription = project.description;
-  }
-
   try {
     const body = req.body || {};
+    const att = parseOptionalPlannerAttachment(body);
+    if (att.error) {
+      return ApiResponseHandler.error(req, res, att.error);
+    }
+    const { inlineData } = att;
+
+    const projectId = body.projectId || req.projectId;
+    let projectDescription: string | undefined;
+    if (projectId) {
+      const project = await ProjectRepository.findById(projectId, req);
+      projectDescription = project?.description;
+    }
+
     const projectBrief =
       typeof body.projectBrief === 'string' ? body.projectBrief.trim() : '';
 
     const projectContext = [projectDescription, projectBrief].filter(Boolean).join('\n\n');
-    if (!projectContext) {
+    if (!projectContext && !inlineData) {
       return ApiResponseHandler.error(
         req,
         res,
-        new Error('projectBrief (string) or project description (via projectId) is required'),
+        new Error(
+          'projectBrief (string), project description (via projectId), or an attachment (PDF/image) is required',
+        ),
       );
     }
 
@@ -49,13 +61,15 @@ export default async function plannerSuggestEpics(req, res, next) {
 
     const model = getConfig().GEMINI_MODEL || 'gemini-2.0-flash';
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-    const userPrompt = `Project description:\n\n${projectContext}\n\nOutput the list of epics only (one per line, no leading dash, optional description line under each).`;
+    const userPrompt = projectContext
+      ? `Project description:\n\n${projectContext}\n\nOutput the list of epics only (one per line, no leading dash, optional description line under each).`
+      : `No text project description was provided; use the attached PDF or image to infer the product and output the list of epics only (one per line, no leading dash, optional description line under each).`;
     const fullPrompt = `${SYSTEM}\n\n---\n\n${userPrompt}`;
 
     const response = await axios.post(
       url,
       {
-        contents: [{ role: 'user', parts: [{ text: fullPrompt }] }],
+        contents: [{ role: 'user', parts: buildGeminiUserParts(fullPrompt, inlineData) }],
         generationConfig: {
           temperature: 0.3,
           maxOutputTokens: 2048,

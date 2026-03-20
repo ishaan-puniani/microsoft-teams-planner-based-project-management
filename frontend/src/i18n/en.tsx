@@ -827,6 +827,8 @@ const en = {
     },
     signinWithAnotherAccount:
       'Sign in with another account',
+    microsoftRequired:
+      'Use Microsoft sign-in for this workspace or email domain.',
     passwordChange: {
       title: 'Change Password',
       success: 'Password successfully changed',
@@ -890,6 +892,7 @@ const en = {
       tenantName: 'Workspace Name',
       tenantId: 'Workspace',
       tenantUrl: 'Workspace URL',
+      ssoAuthProvider: 'SSO Auth Provider',
       plan: 'Plan',
       msPlanner: {
         title: 'Microsoft Planner',
@@ -899,7 +902,12 @@ const en = {
         scope: 'Scope',
       },
     },
-    enumerators: {},
+    enumerators: {
+      ssoAuthProvider: {
+        none: 'None',
+        microsoft: 'Microsoft',
+      },
+    },
     placeholders: {},
     hints: {},
     new: {

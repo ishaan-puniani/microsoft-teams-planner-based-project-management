@@ -3,6 +3,10 @@ import axios from 'axios';
 import { getConfig } from '../../config';
 import ApiResponseHandler from '../apiResponseHandler';
 import ProjectRepository from '../../database/repositories/projectRepository';
+import {
+  buildGeminiUserParts,
+  parseOptionalPlannerAttachment,
+} from './geminiInlineAttachment';
 
 const geminiHttpsAgent = new https.Agent({ rejectUnauthorized: false });
 
@@ -30,11 +34,17 @@ Rules:
 - Output plain text only. No markdown, no preamble.
 - Keep the user story block (title, description, AC) exactly as in the input. Only ADD "-- Task" blocks.
 - Add 1-4 tasks per user story. Each task has an optional description. A "TODO:" list with "- item" lines is optional per task (include only when it clearly helps; users can add TODOs later).
-- Use "--- Subtask" only if a task clearly has sub-items.`;
+- Use "--- Subtask" only if a task clearly has sub-items.
+If a PDF or image is attached, use it with the user story and project context.`;
 
 export default async function plannerSuggestTasksForUserStory(req, res, next) {
   try {
     const body = req.body || {};
+    const att = parseOptionalPlannerAttachment(body);
+    if (att.error) {
+      return ApiResponseHandler.error(req, res, att.error);
+    }
+    const { inlineData } = att;
     const projectId = body.projectId || req.projectId;
     let projectDescription;
     if (projectId) {
@@ -78,7 +88,7 @@ export default async function plannerSuggestTasksForUserStory(req, res, next) {
     const response = await axios.post(
       url,
       {
-        contents: [{ role: 'user', parts: [{ text: fullPrompt }] }],
+        contents: [{ role: 'user', parts: buildGeminiUserParts(fullPrompt, inlineData) }],
         generationConfig: {
           temperature: 0.3,
           maxOutputTokens: 4096,

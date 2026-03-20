@@ -3,6 +3,10 @@ import axios from 'axios';
 import { getConfig } from '../../config';
 import ApiResponseHandler from '../apiResponseHandler';
 import ProjectRepository from '../../database/repositories/projectRepository';
+import {
+  buildGeminiUserParts,
+  parseOptionalPlannerAttachment,
+} from './geminiInlineAttachment';
 
 const geminiHttpsAgent = new https.Agent({ rejectUnauthorized: false });
 
@@ -28,11 +32,17 @@ Rules:
 - Output plain text only. No markdown, no preamble.
 - Keep the exact epic title as the first line. Under it, add 2-5 user stories.
 - Each user story: one line starting with "- ". Then optional description. Then "AC:" and lines "- item" for acceptance criteria.
-- Do NOT add "-- Task" or "TODO:" yet. Only epic header and user stories with AC.`;
+- Do NOT add "-- Task" or "TODO:" yet. Only epic header and user stories with AC.
+If a PDF or image is attached, use it with the epic and project context.`;
 
 export default async function plannerSuggestUserStoriesForEpic(req, res, next) {
   try {
     const body = req.body || {};
+    const att = parseOptionalPlannerAttachment(body);
+    if (att.error) {
+      return ApiResponseHandler.error(req, res, att.error);
+    }
+    const { inlineData } = att;
     const projectId = body.projectId || req.projectId;
     let projectDescription;
     if (projectId) {
@@ -78,7 +88,7 @@ export default async function plannerSuggestUserStoriesForEpic(req, res, next) {
     const response = await axios.post(
       url,
       {
-        contents: [{ role: 'user', parts: [{ text: fullPrompt }] }],
+        contents: [{ role: 'user', parts: buildGeminiUserParts(fullPrompt, inlineData) }],
         generationConfig: {
           temperature: 0.3,
           maxOutputTokens: 4096,

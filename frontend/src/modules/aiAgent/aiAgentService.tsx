@@ -3,6 +3,22 @@ import authAxios from 'src/modules/shared/axios/authAxios';
 
 export type PlannerStep = 'epics' | 'user_stories' | 'tasks';
 
+/** Optional PDF or image (base64 + MIME) for planner / test-case suggestion APIs. */
+export type AiSuggestionAttachment = {
+  attachmentBase64: string;
+  attachmentMimeType: string;
+};
+
+function attachmentFields(attachment?: AiSuggestionAttachment | null) {
+  if (!attachment?.attachmentBase64?.trim() || !attachment?.attachmentMimeType?.trim()) {
+    return {};
+  }
+  return {
+    attachmentBase64: attachment.attachmentBase64.trim(),
+    attachmentMimeType: attachment.attachmentMimeType.trim(),
+  };
+}
+
 export default class AiAgentService {
   static async refinePlannerStep(
     step: PlannerStep,
@@ -22,18 +38,30 @@ export default class AiAgentService {
     return response.data as { structuredText: string; step: PlannerStep };
   }
 
-  static async plannerSuggestEpics(projectBrief: string) {
+  static async plannerSuggestEpics(
+    projectBrief: string,
+    options?: { projectId?: string; attachment?: AiSuggestionAttachment | null },
+  ) {
     const tenantId = AuthCurrentTenant.get();
     const response = await authAxios.post(
       `/tenant/${tenantId}/ai-agent/planner-suggest-epics`,
-      { projectBrief },
+      {
+        projectBrief,
+        projectId: options?.projectId,
+        ...attachmentFields(options?.attachment),
+      },
     );
     return response.data as { epicsText: string };
   }
 
   static async plannerSuggestUserStoriesForEpic(
     epicName: string,
-    options?: { projectBrief?: string; epicDescription?: string },
+    options?: {
+      projectBrief?: string;
+      epicDescription?: string;
+      projectId?: string;
+      attachment?: AiSuggestionAttachment | null;
+    },
   ) {
     const tenantId = AuthCurrentTenant.get();
     const response = await authAxios.post(
@@ -42,6 +70,8 @@ export default class AiAgentService {
         epicName,
         projectBrief: options?.projectBrief,
         epicDescription: options?.epicDescription,
+        projectId: options?.projectId,
+        ...attachmentFields(options?.attachment),
       },
     );
     return response.data as { userStoriesText: string };
@@ -49,7 +79,12 @@ export default class AiAgentService {
 
   static async plannerSuggestTasksForUserStory(
     userStoryText: string,
-    options?: { projectBrief?: string; epicName?: string },
+    options?: {
+      projectBrief?: string;
+      epicName?: string;
+      projectId?: string;
+      attachment?: AiSuggestionAttachment | null;
+    },
   ) {
     const tenantId = AuthCurrentTenant.get();
     const response = await authAxios.post(
@@ -58,6 +93,8 @@ export default class AiAgentService {
         userStoryText,
         projectBrief: options?.projectBrief,
         epicName: options?.epicName,
+        projectId: options?.projectId,
+        ...attachmentFields(options?.attachment),
       },
     );
     return response.data as { tasksText: string };
@@ -69,6 +106,8 @@ export default class AiAgentService {
       taskDescription?: string;
       projectBrief?: string;
       userStoryTitle?: string;
+      projectId?: string;
+      attachment?: AiSuggestionAttachment | null;
     },
   ) {
     const tenantId = AuthCurrentTenant.get();
@@ -79,6 +118,8 @@ export default class AiAgentService {
         taskDescription: options?.taskDescription,
         projectBrief: options?.projectBrief,
         userStoryTitle: options?.userStoryTitle,
+        projectId: options?.projectId,
+        ...attachmentFields(options?.attachment),
       },
     );
     return response.data as { todos: string[] };
@@ -86,7 +127,7 @@ export default class AiAgentService {
 
   static async suggestTestCasesForTask(
     taskTitle: string,
-    options?: { taskDescription?: string },
+    options?: { taskDescription?: string; attachment?: AiSuggestionAttachment | null },
   ) {
     const tenantId = AuthCurrentTenant.get();
     const response = await authAxios.post(
@@ -94,6 +135,7 @@ export default class AiAgentService {
       {
         taskTitle,
         taskDescription: options?.taskDescription,
+        ...attachmentFields(options?.attachment),
       },
     );
     return response.data as {

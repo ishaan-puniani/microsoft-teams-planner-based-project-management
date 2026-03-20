@@ -1,4 +1,11 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+} from 'react';
 import {
   ReactGrid,
   Column,
@@ -20,6 +27,11 @@ import Spinner from 'src/view/shared/Spinner';
 import Errors from 'src/modules/shared/error/errors';
 import AiAgentService from 'src/modules/aiAgent/aiAgentService';
 import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
+import {
+  readPlannerReferenceFile,
+  toAttachmentPayload,
+  type PlannerReferenceFile,
+} from 'src/view/project/planner/plannerReferenceFile';
 import type { TaskTemplateField } from 'src/view/task/form/DynamicTaskSchema';
 import { parseStructuredBulk } from 'src/view/project/planner/structuredBulkParser';
 
@@ -541,6 +553,8 @@ const SubtaskExcelView = ({
   const [deletedIds, setDeletedIds] = useState<Set<string>>(() => new Set());
   const [aiLoading, setAiLoading] = useState(false);
   const [aiLoadingRowId, setAiLoadingRowId] = useState<string | null>(null);
+  const [aiAttachment, setAiAttachment] = useState<PlannerReferenceFile | null>(null);
+  const aiFileInputRef = useRef<HTMLInputElement>(null);
   const defaultWidths = useMemo(() => getDefaultColumnWidths(templateFields), [templateFields]);
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>(() => defaultWidths);
   const [rowHeights, setRowHeights] = useState<Record<string, number>>(() => ({}));
@@ -579,6 +593,32 @@ const SubtaskExcelView = ({
 
   getSpeechStateRef.current = () => ({ listening, dictatingFor });
   starLoadingRowIdRef.current = aiLoadingRowId;
+
+  const aiAttachmentPayload = useMemo(
+    () => toAttachmentPayload(aiAttachment),
+    [aiAttachment],
+  );
+
+  const clearAiAttachment = useCallback(() => {
+    setAiAttachment(null);
+    if (aiFileInputRef.current) aiFileInputRef.current.value = '';
+  }, []);
+
+  const onAiReferenceFile = useCallback(async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) {
+      setAiAttachment(null);
+      return;
+    }
+    try {
+      const data = await readPlannerReferenceFile(file);
+      setAiAttachment(data);
+      setError(null);
+    } catch (err: any) {
+      setError(err?.message || 'Invalid file');
+      e.target.value = '';
+    }
+  }, []);
 
   // Load task template from project (test case template) to drive columns
   useEffect(() => {
@@ -943,6 +983,8 @@ const SubtaskExcelView = ({
       if (childType === 'USER_STORY') {
         const data = await AiAgentService.plannerSuggestUserStoriesForEpic(taskTitle.trim(), {
           epicDescription: taskDescription?.trim() || undefined,
+          projectId: projectId ?? undefined,
+          attachment: aiAttachmentPayload,
         });
         const text = typeof data?.userStoriesText === 'string' ? data.userStoriesText : '';
         const parsed = parseStructuredBulk(text);
@@ -974,7 +1016,11 @@ const SubtaskExcelView = ({
           });
         }
       } else if (childType === 'TASK') {
-        const data = await AiAgentService.plannerSuggestTasksForUserStory(taskTitle.trim(), {});
+        const data = await AiAgentService.plannerSuggestTasksForUserStory(taskTitle.trim(), {
+          projectBrief: taskDescription?.trim() || undefined,
+          projectId: projectId ?? undefined,
+          attachment: aiAttachmentPayload,
+        });
         const text = typeof data?.tasksText === 'string' ? data.tasksText : '';
         const parsed = parseStructuredBulk(text);
         const items = Array.isArray(parsed) ? parsed.filter((p) => p && p.level === 2) : [];
@@ -1007,6 +1053,7 @@ const SubtaskExcelView = ({
       } else {
         const data = await AiAgentService.suggestTestCasesForTask(taskTitle.trim(), {
           taskDescription: taskDescription?.trim() || undefined,
+          attachment: aiAttachmentPayload,
         });
         const list = data?.testCases ?? [];
         const newRows: TestCaseRow[] = list.map((t) => {
@@ -1053,7 +1100,16 @@ const SubtaskExcelView = ({
     } finally {
       setAiLoading(false);
     }
-  }, [taskId, taskTitle, taskDescription, childType, templateFields, persistDraft]);
+  }, [
+    taskId,
+    taskTitle,
+    taskDescription,
+    childType,
+    templateFields,
+    persistDraft,
+    projectId,
+    aiAttachmentPayload,
+  ]);
 
   const handleStarClick = useCallback(
     async (rowId: string) => {
@@ -1066,6 +1122,8 @@ const SubtaskExcelView = ({
         if (childType === 'USER_STORY') {
           const data = await AiAgentService.plannerSuggestUserStoriesForEpic(taskTitle.trim(), {
             epicDescription: taskDescription?.trim() || undefined,
+            projectId: projectId ?? undefined,
+            attachment: aiAttachmentPayload,
           });
           const text = typeof data?.userStoriesText === 'string' ? data.userStoriesText : '';
           const parsed = parseStructuredBulk(text);
@@ -1086,7 +1144,11 @@ const SubtaskExcelView = ({
             setDirtyIds((prev) => new Set(prev).add(rowId));
           }
         } else if (childType === 'TASK') {
-          const data = await AiAgentService.plannerSuggestTasksForUserStory(taskTitle.trim(), {});
+          const data = await AiAgentService.plannerSuggestTasksForUserStory(taskTitle.trim(), {
+            projectBrief: taskDescription?.trim() || undefined,
+            projectId: projectId ?? undefined,
+            attachment: aiAttachmentPayload,
+          });
           const text = typeof data?.tasksText === 'string' ? data.tasksText : '';
           const parsed = parseStructuredBulk(text);
           const items = Array.isArray(parsed) ? parsed.filter((p) => p && p.level === 2) : [];
@@ -1108,6 +1170,7 @@ const SubtaskExcelView = ({
         } else {
           const data = await AiAgentService.suggestTestCasesForTask(taskTitle.trim(), {
             taskDescription: taskDescription?.trim() || undefined,
+            attachment: aiAttachmentPayload,
           });
           const list = data?.testCases ?? [];
           const first = list[0];
@@ -1152,7 +1215,17 @@ const SubtaskExcelView = ({
         setAiLoadingRowId(null);
       }
     },
-    [taskId, taskTitle, taskDescription, childType, rows, templateFields, persistDraft],
+    [
+      taskId,
+      taskTitle,
+      taskDescription,
+      childType,
+      rows,
+      templateFields,
+      persistDraft,
+      projectId,
+      aiAttachmentPayload,
+    ],
   );
 
   const buildTemplateData = useCallback(
@@ -1496,7 +1569,7 @@ const SubtaskExcelView = ({
                 : 'Tasks'}{' '}
           — {i18n('entities.task.view.title')}
         </h5>
-        <div className="d-flex align-items-center gap-2">
+        <div className="d-flex align-items-end flex-wrap gap-2">
           <button
             type="button"
             className="btn btn-outline-success btn-sm"
@@ -1506,6 +1579,36 @@ const SubtaskExcelView = ({
             <i className="fas fa-plus me-1" />
             Add row
           </button>
+          {childType !== 'BUG' && (
+            <div className="d-flex flex-column" style={{ minWidth: '200px', maxWidth: '280px' }}>
+              <label className="form-label small text-muted mb-0">Optional PDF/image</label>
+              <input
+                ref={aiFileInputRef}
+                type="file"
+                accept="application/pdf,image/jpeg,image/png,image/gif,image/webp,.pdf"
+                className="form-control form-control-sm"
+                disabled={aiLoading}
+                onChange={onAiReferenceFile}
+              />
+              {aiAttachment && (
+                <div className="d-flex align-items-center gap-2 mt-1">
+                  <span
+                    className="small text-muted text-truncate flex-grow-1"
+                    title={aiAttachment.name}
+                  >
+                    {aiAttachment.name}
+                  </span>
+                  <button
+                    type="button"
+                    className="btn btn-link btn-sm p-0 text-nowrap"
+                    onClick={clearAiAttachment}
+                  >
+                    Clear
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
           <button
             type="button"
             className="btn btn-outline-warning btn-sm"

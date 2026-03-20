@@ -2,10 +2,15 @@ import https from 'https';
 import axios from 'axios';
 import { getConfig } from '../../config';
 import ApiResponseHandler from '../apiResponseHandler';
+import {
+  buildGeminiUserParts,
+  parseOptionalPlannerAttachment,
+} from './geminiInlineAttachment';
 
 const geminiHttpsAgent = new https.Agent({ rejectUnauthorized: false });
 
 const SYSTEM = `You are a QA assistant. Given a Task (title and optional description), suggest test cases.
+If a PDF or image is attached, use it (specs, diagrams, screenshots) together with the task text.
 
 Output valid JSON only, no markdown or preamble. Format:
 [
@@ -20,6 +25,11 @@ Output valid JSON only, no markdown or preamble. Format:
 export default async function suggestTestCasesForTask(req, res, next) {
   try {
     const body = req.body || {};
+    const att = parseOptionalPlannerAttachment(body);
+    if (att.error) {
+      return ApiResponseHandler.error(req, res, att.error);
+    }
+    const { inlineData } = att;
     const taskTitle =
       typeof body.taskTitle === 'string' ? body.taskTitle.trim() : '';
     const taskDescription =
@@ -52,7 +62,12 @@ export default async function suggestTestCasesForTask(req, res, next) {
     const response = await axios.post(
       url,
       {
-        contents: [{ role: 'user', parts: [{ text: `${SYSTEM}\n\n---\n\n${userPrompt}` }] }],
+        contents: [
+          {
+            role: 'user',
+            parts: buildGeminiUserParts(`${SYSTEM}\n\n---\n\n${userPrompt}`, inlineData),
+          },
+        ],
         generationConfig: {
           temperature: 0.3,
           maxOutputTokens: 2048,

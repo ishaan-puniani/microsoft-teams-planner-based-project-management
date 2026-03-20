@@ -1,10 +1,17 @@
-import { useState } from 'react';
+import { useRef, useState, type ChangeEvent } from 'react';
 import ButtonIcon from 'src/view/shared/ButtonIcon';
-import AiAgentService from 'src/modules/aiAgent/aiAgentService';
+import AiAgentService, {
+  type AiSuggestionAttachment,
+} from 'src/modules/aiAgent/aiAgentService';
 import Errors from 'src/modules/shared/error/errors';
 import { parseStructuredBulk } from '../structuredBulkParser';
 import type { ParsedItem } from '../structuredBulkParser';
 import { UserStoryPanelOfProjectPlanner } from './UserStoryPanelOfProjectPlanner';
+import {
+  readPlannerReferenceFile,
+  toAttachmentPayload,
+  type PlannerReferenceFile,
+} from '../plannerReferenceFile';
 
 function serializeUserStory(item: ParsedItem): string {
   const lines: string[] = [`- ${item.title}`];
@@ -19,7 +26,9 @@ function serializeUserStory(item: ParsedItem): string {
 type Props = {
   epicIndex: number;
   epicName: string;
+  projectId: string;
   projectBrief: string;
+  plannerAttachment?: AiSuggestionAttachment;
   userStoriesText: string;
   onUserStoriesTextChange: (text: string) => void;
   userStoryTasks: Record<string, string>;
@@ -29,7 +38,9 @@ type Props = {
 const EpicPanelOfProjectPlanner = ({
   epicIndex,
   epicName,
+  projectId,
   projectBrief,
+  plannerAttachment,
   userStoriesText,
   onUserStoriesTextChange,
   userStoryTasks,
@@ -38,6 +49,8 @@ const EpicPanelOfProjectPlanner = ({
   const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [epicAttachment, setEpicAttachment] = useState<PlannerReferenceFile | null>(null);
+  const epicFileRef = useRef<HTMLInputElement>(null);
 
   const parsed = parseStructuredBulk(userStoriesText);
   const userStories = parsed.filter((x) => x.level === 1);
@@ -54,13 +67,37 @@ const EpicPanelOfProjectPlanner = ({
     return text;
   };
 
+  const epicAttachmentPayload = toAttachmentPayload(epicAttachment);
+  const attachmentForEpicAi = epicAttachmentPayload ?? plannerAttachment;
+
+  const clearEpicFile = () => {
+    setEpicAttachment(null);
+    if (epicFileRef.current) epicFileRef.current.value = '';
+  };
+
+  const onEpicReferenceFile = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) {
+      setEpicAttachment(null);
+      return;
+    }
+    try {
+      const data = await readPlannerReferenceFile(file);
+      setEpicAttachment(data);
+      setError(null);
+    } catch (err: any) {
+      setError(err?.message || 'Invalid file');
+      e.target.value = '';
+    }
+  };
+
   const handleGenerateUserStories = async () => {
     setError(null);
     setLoading(true);
     try {
       const data = await AiAgentService.plannerSuggestUserStoriesForEpic(
         epicName,
-        { projectBrief },
+        { projectBrief, projectId, attachment: attachmentForEpicAi },
       );
       onUserStoriesTextChange(stripEpicTitleFromText(data.userStoriesText || ''));
     } catch (e: any) {
@@ -97,16 +134,49 @@ const EpicPanelOfProjectPlanner = ({
           {/* Step 2: Panel to generate User Stories for this Epic */}
           <div className="mb-3">
             <label className="form-label small text-muted">2. User Stories (for this epic)</label>
-            <div className="d-flex flex-wrap align-items-center gap-2 mb-2">
-              <button
-                type="button"
-                className="btn btn-primary btn-sm"
-                disabled={loading || !epicName.trim()}
-                onClick={handleGenerateUserStories}
-              >
-                <ButtonIcon loading={loading} iconClass="fas fa-magic" />
-                Generate User Stories
-              </button>
+            <div className="mb-2">
+              <div className="d-flex flex-wrap align-items-end gap-2">
+                <div className="flex-grow-1" style={{ minWidth: '200px' }}>
+                  <label className="form-label small text-muted mb-0">
+                    Optional PDF/image (this epic)
+                  </label>
+                  <input
+                    ref={epicFileRef}
+                    type="file"
+                    accept="application/pdf,image/jpeg,image/png,image/gif,image/webp,.pdf"
+                    className="form-control form-control-sm"
+                    disabled={loading}
+                    onChange={onEpicReferenceFile}
+                  />
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  disabled={loading || !epicName.trim()}
+                  onClick={handleGenerateUserStories}
+                >
+                  <ButtonIcon loading={loading} iconClass="fas fa-magic" />
+                  Generate User Stories
+                </button>
+              </div>
+              {epicAttachment && (
+                <div className="d-flex align-items-center flex-wrap gap-2 mt-1">
+                  <span
+                    className="small text-muted text-truncate"
+                    style={{ maxWidth: '280px' }}
+                    title={epicAttachment.name}
+                  >
+                    {epicAttachment.name}
+                  </span>
+                  <button
+                    type="button"
+                    className="btn btn-link btn-sm p-0"
+                    onClick={clearEpicFile}
+                  >
+                    Clear file
+                  </button>
+                </div>
+              )}
             </div>
             {error && (
               <div className="alert alert-danger py-2 small mb-2">{error}</div>
@@ -131,8 +201,10 @@ const EpicPanelOfProjectPlanner = ({
                   epicIndex={epicIndex}
                   userStoryIndex={usIdx}
                   userStory={us}
+                  projectId={projectId}
                   projectBrief={projectBrief}
                   epicName={epicName}
+                  plannerAttachment={attachmentForEpicAi}
                   tasksText={userStoryTasks[`${epicIndex}-${usIdx}`] ?? ''}
                   onTasksTextChange={(text) =>
                     onUserStoryTasksChange({ [`${epicIndex}-${usIdx}`]: text })

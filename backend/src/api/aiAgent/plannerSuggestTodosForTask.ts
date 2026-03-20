@@ -3,10 +3,15 @@ import axios from 'axios';
 import { getConfig } from '../../config';
 import ApiResponseHandler from '../apiResponseHandler';
 import ProjectRepository from '../../database/repositories/projectRepository';
+import {
+  buildGeminiUserParts,
+  parseOptionalPlannerAttachment,
+} from './geminiInlineAttachment';
 
 const geminiHttpsAgent = new https.Agent({ rejectUnauthorized: false });
 
 const SYSTEM = `You are a product owner assistant. You will receive a Task (title and optional description).
+If a PDF or image is attached, use it together with the task and project context.
 
 Your task: Output a short TODO checklist for this task. Rules:
 - Output plain text only. No markdown, no preamble.
@@ -17,6 +22,11 @@ Your task: Output a short TODO checklist for this task. Rules:
 export default async function plannerSuggestTodosForTask(req, res, next) {
   try {
     const body = req.body || {};
+    const att = parseOptionalPlannerAttachment(body);
+    if (att.error) {
+      return ApiResponseHandler.error(req, res, att.error);
+    }
+    const { inlineData } = att;
     const projectId = body.projectId || req.projectId;
     let projectDescription;
     if (projectId) {
@@ -63,7 +73,7 @@ export default async function plannerSuggestTodosForTask(req, res, next) {
     const response = await axios.post(
       url,
       {
-        contents: [{ role: 'user', parts: [{ text: fullPrompt }] }],
+        contents: [{ role: 'user', parts: buildGeminiUserParts(fullPrompt, inlineData) }],
         generationConfig: {
           temperature: 0.3,
           maxOutputTokens: 1024,

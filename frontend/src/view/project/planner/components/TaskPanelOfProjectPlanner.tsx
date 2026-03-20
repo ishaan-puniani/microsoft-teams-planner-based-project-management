@@ -1,21 +1,27 @@
 import { useState } from 'react';
 import ButtonIcon from 'src/view/shared/ButtonIcon';
-import AiAgentService from 'src/modules/aiAgent/aiAgentService';
+import AiAgentService, {
+  type AiSuggestionAttachment,
+} from 'src/modules/aiAgent/aiAgentService';
 import Errors from 'src/modules/shared/error/errors';
 import type { ParsedItem } from '../structuredBulkParser';
 
 type Props = {
   tasks: ParsedItem[];
   onTaskTodosChange?: (taskIndex: number, todos: string[]) => void;
+  projectId?: string;
   projectBrief?: string;
   userStoryTitle?: string;
+  plannerAttachment?: AiSuggestionAttachment;
 };
 
 const TaskPanelOfProjectPlanner = ({
   tasks,
   onTaskTodosChange,
+  projectId,
   projectBrief,
   userStoryTitle,
+  plannerAttachment,
 }: Props) => {
   const [loadingTaskIndex, setLoadingTaskIndex] = useState<number | null>(null);
 
@@ -28,6 +34,8 @@ const TaskPanelOfProjectPlanner = ({
         taskDescription: t.description || undefined,
         projectBrief,
         userStoryTitle,
+        projectId,
+        attachment: plannerAttachment,
       });
       onTaskTodosChange(taskIndex, data.todos || []);
     } catch (e: any) {
