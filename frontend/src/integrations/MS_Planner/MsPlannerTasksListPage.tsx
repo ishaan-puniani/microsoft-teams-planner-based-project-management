@@ -254,6 +254,7 @@ const MsPlannerTasksListPage = () => {
               <div key={task.id} className="col">
                 <MsPlannerTaskListItem
                   task={task}
+                  planId={planId}
                   categories={categories}
                   buckets={buckets}
                   users={users}

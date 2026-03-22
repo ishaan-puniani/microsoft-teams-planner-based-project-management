@@ -4,6 +4,7 @@ import { useRef } from 'react';
 import ReactDOM from 'react-dom';
 import moment from 'moment';
 import MsPlannerService from 'src/modules/msPlanner/msPlannerService';
+import { plannerReferenceKeyToDisplayUrl } from 'src/integrations/MS_Planner/plannerReferenceKey';
 
 const PRIORITY_LABELS: Record<number, string> = {
   1: 'Urgent',
@@ -191,9 +192,7 @@ const MsPlannerTaskDetail = ({
                     <ul className="list-unstyled">
                       {references.map(([key, ref]: [string, any]) => {
                         try {
-                          const url = /^https?:\/\//i.test(key)
-                            ? key
-                            : decodeURIComponent(key);
+                          const url = plannerReferenceKeyToDisplayUrl(key);
                           const label = ref?.alias || ref?.type || url;
                           return (
                             <li key={key} className="mb-1">

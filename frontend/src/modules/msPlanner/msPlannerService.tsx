@@ -153,6 +153,23 @@ export default class MsPlannerService {
     return response.data;
   }
 
+  /** Upload a file to the plan's group document library; returns { webUrl, name, id } for Planner references. */
+  static async uploadPlannerTaskFile(planId: string, file: File) {
+    const tenantId = AuthCurrentTenant.get();
+    const formData = new FormData();
+    formData.append('file', file, file.name);
+    const response = await authAxios.post(
+      `/tenant/${tenantId}/ms-planner/plan/${planId}/task-attachment-upload`,
+      formData,
+      {
+        timeout: 120_000,
+        maxBodyLength: Infinity,
+        maxContentLength: Infinity,
+      },
+    );
+    return response.data;
+  }
+
   static async getTask(taskId) {
     const tenantId = AuthCurrentTenant.get();
     const response = await authAxios.get(

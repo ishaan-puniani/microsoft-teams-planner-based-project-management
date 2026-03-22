@@ -180,13 +180,14 @@ const MSPlannerBoardPage = () => {
 
   const boardCardContextValue: PlannerBoardCardContextValue = useMemo(
     () => ({
+      planId: planId ?? '',
       categories,
       buckets,
       users,
       onTaskUpdate: handleTaskUpdate,
       onCardClick: setTaskDetailId,
     }),
-    [categories, buckets, users, handleTaskUpdate],
+    [planId, categories, buckets, users, handleTaskUpdate],
   );
 
   const boardData = useMemo(

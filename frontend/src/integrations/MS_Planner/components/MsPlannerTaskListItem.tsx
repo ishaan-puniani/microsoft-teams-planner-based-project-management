@@ -59,6 +59,8 @@ interface BucketOption {
 
 interface MsPlannerTaskListItemProps {
   task: PlannerTask;
+  /** Current plan id from route (required for reliable file uploads in edit modal). */
+  planId?: string;
   categories?: Record<string, string>;
   buckets?: BucketOption[];
   users?: GraphUser[];
@@ -67,6 +69,7 @@ interface MsPlannerTaskListItemProps {
 
 const MsPlannerTaskListItem = ({
   task,
+  planId,
   categories = {},
   buckets = [],
   users = [],
@@ -304,6 +307,7 @@ const MsPlannerTaskListItem = ({
         />
         <EditMsPlannerTaskDetail
           taskId={editTaskId}
+          planId={planId}
           visible={!!editTaskId}
           onClose={() => setEditTaskId(null)}
           onSuccess={(updated) => {

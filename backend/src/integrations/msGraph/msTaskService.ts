@@ -19,6 +19,92 @@ export interface TaskFilterParams {
 
 export default class MsTaskService {
 
+    private static _fullyDecodeURIComponent(value: string): string {
+        let out = value;
+        for (let i = 0; i < 8; i++) {
+            try {
+                const decoded = decodeURIComponent(out);
+                if (decoded === out) {
+                    break;
+                }
+                out = decoded;
+            } catch {
+                break;
+            }
+        }
+        return out;
+    }
+
+    private static _encodePlannerOpenTypeFragment(part: string): string {
+        let out = '';
+        for (const ch of part) {
+            const code = ch.charCodeAt(0);
+            if (code > 127) {
+                out += encodeURIComponent(ch);
+            } else if (ch === '.' || ch === ':' || ch === '%' || ch === '@' || ch === '#') {
+                out += encodeURIComponent(ch);
+            } else if (ch === ' ') {
+                out += '%20';
+            } else {
+                out += ch;
+            }
+        }
+        return out;
+    }
+
+    private static _normalizePlannerReferenceKey(rawKey: string): string {
+        const key = (rawKey || '').trim();
+        if (!key) {
+            return key;
+        }
+
+        const decoded = this._fullyDecodeURIComponent(key);
+        const candidate = /^https?:\/\//i.test(decoded) ? decoded : `https://${decoded}`;
+
+        try {
+            const u = new URL(candidate);
+            const scheme = u.protocol === 'https:' ? 'https' : 'http';
+            const host = u.hostname.replace(/\./g, '%2E');
+            const authority = u.port ? `${host}%3A${u.port}` : host;
+
+            let path = '';
+            if (u.pathname && u.pathname !== '/') {
+                const parts = u.pathname.split('/').map((seg) =>
+                    seg === '' ? '' : this._encodePlannerOpenTypeFragment(this._fullyDecodeURIComponent(seg)),
+                );
+                path = parts.join('/');
+            }
+
+            let normalized = `${scheme}%3A//${authority}${path}`;
+            if (u.search) {
+                normalized += this._encodePlannerOpenTypeFragment(this._fullyDecodeURIComponent(u.search));
+            }
+            if (u.hash) {
+                normalized += this._encodePlannerOpenTypeFragment(this._fullyDecodeURIComponent(u.hash));
+            }
+
+            return normalized;
+        } catch {
+            return key;
+        }
+    }
+
+    private static _normalizePlannerReferences(
+        references?: Record<string, any>,
+    ): Record<string, any> | undefined {
+        if (references === undefined) {
+            return undefined;
+        }
+
+        const normalized: Record<string, any> = {};
+        for (const [key, value] of Object.entries(references || {})) {
+            const normalizedKey = this._normalizePlannerReferenceKey(key) || key;
+            normalized[normalizedKey] = value;
+        }
+
+        return normalized;
+    }
+
     static async _getServiceToken(credentials?: MsPlannerCredentials): Promise<string> {
         const tenantId = credentials?.MS_TENANT_ID || getConfig().MS_TENANT_ID;
         const clientId = credentials?.MS_CLIENT_ID || getConfig().MS_CLIENT_ID;
@@ -293,6 +379,89 @@ export default class MsTaskService {
         } catch (error: any) {
             throw new Error(`Failed to create task: ${error.message}`);
         }
+    }
+
+    static async getPlannerPlanOwnerGroupId(
+        planId: string,
+        credentials?: MsPlannerCredentials,
+    ): Promise<string> {
+        const token = await this._getServiceToken(credentials);
+        const url = `https://graph.microsoft.com/v1.0/planner/plans/${planId}`;
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Failed to fetch plan ${planId}: ${response.status} - ${errorText}`);
+        }
+        const plan = await response.json();
+        const owner = plan?.owner;
+        if (!owner || typeof owner !== 'string') {
+            throw new Error(
+                'This plan has no Microsoft 365 group owner; file upload to the plan library is not supported.',
+            );
+        }
+        return owner;
+    }
+
+    /**
+     * Uploads bytes to the plan group's default document library under PlannerTaskAttachments/.
+     * The returned webUrl can be stored on the task as a Planner external reference (attachment link).
+     */
+    static async uploadPlannerTaskFileForPlan(
+        planId: string,
+        originalFileName: string,
+        contentType: string | undefined,
+        fileBuffer: Buffer,
+        credentials?: MsPlannerCredentials,
+    ): Promise<{ id: string; name: string; webUrl: string }> {
+        const groupId = await this.getPlannerPlanOwnerGroupId(planId, credentials);
+        const token = await this._getServiceToken(credentials);
+
+        const base = String(originalFileName || 'file')
+            .replace(/[/\\]/g, '_')
+            .replace(/[\x00-\x1f\x7f]/g, '_')
+            .slice(0, 180);
+        const uniqueName = `${Date.now()}_${base}`;
+
+        const folder = 'PlannerTaskAttachments';
+        const itemPath = [folder, uniqueName].map((s) => encodeURIComponent(s)).join('/');
+
+        const graphUrl = `https://graph.microsoft.com/v1.0/groups/${groupId}/drive/root:/${itemPath}:/content`;
+        const ct =
+            contentType && String(contentType).trim()
+                ? String(contentType).trim()
+                : 'application/octet-stream';
+
+        const response = await fetch(graphUrl, {
+            method: 'PUT',
+            headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': ct,
+            },
+            body: new Uint8Array(fileBuffer),
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(
+                `Failed to upload file to the plan group drive: ${response.status} ${response.statusText} - ${errorText}`,
+            );
+        }
+
+        const item = await response.json();
+        const webUrl = item?.webUrl;
+        if (!webUrl || typeof webUrl !== 'string') {
+            throw new Error(
+                'Upload succeeded but Microsoft Graph did not return a web URL for the file.',
+            );
+        }
+        return {
+            id: item.id,
+            name: item.name || uniqueName,
+            webUrl,
+        };
     }
 
     static async getBuckets(planId: string, credentials?: MsPlannerCredentials): Promise<any> {
@@ -643,39 +812,68 @@ export default class MsTaskService {
         const token = await this._getServiceToken(credentials);
         const url = `https://graph.microsoft.com/v1.0/planner/tasks/${taskId}/details`;
         try {
-            let etag = detailsEtag;
-            if (!etag) {
-                const getRes = await fetch(url, {
-                    method: 'GET',
-                    headers: { Authorization: `Bearer ${token}` },
-                });
-                if (getRes.ok) etag = getRes.headers.get('ETag') || '';
-            }
-
             const body: any = { previewType: 'description' };
             if (patch.description !== undefined) body.description = patch.description;
             if (patch.checklist !== undefined) body.checklist = patch.checklist;
-            if (patch.references !== undefined) body.references = patch.references;
+            if (patch.references !== undefined) {
+                body.references = this._normalizePlannerReferences(patch.references);
+            }
 
-            const headers: any = {
-                Authorization: `Bearer ${token}`,
-                'Content-Type': 'application/json',
-                'Prefer': 'return=representation',
+            const doRequest = async (ifMatch: string) => {
+                let etag = ifMatch;
+                if (!etag) {
+                    const getRes = await fetch(url, {
+                        method: 'GET',
+                        headers: { Authorization: `Bearer ${token}` },
+                    });
+                    if (getRes.ok) etag = getRes.headers.get('ETag') || '';
+                }
+                const headers: any = {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                    'Prefer': 'return=representation',
+                };
+                if (etag) headers['If-Match'] = etag;
+                const method = etag ? 'PATCH' : 'PUT';
+                return fetch(url, {
+                    method,
+                    headers,
+                    body: JSON.stringify(body),
+                });
             };
-            if (etag) headers['If-Match'] = etag;
 
-            const method = etag ? 'PATCH' : 'PUT';
-            const response = await fetch(url, {
-                method,
-                headers,
-                body: JSON.stringify(body),
-            });
+            let response = await doRequest(detailsEtag || '');
+            if (response.status === 409) {
+                const getResponse = await fetch(url, {
+                    method: 'GET',
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                if (!getResponse.ok) {
+                    const errText = await getResponse.text();
+                    throw new Error(
+                        `Failed to update planner task details: 409 Conflict. Could not read latest details: ${getResponse.status} - ${errText}`,
+                    );
+                }
+                let freshEtag = getResponse.headers.get('ETag') || getResponse.headers.get('etag');
+                if (!freshEtag) {
+                    const detailsBody = await getResponse.json();
+                    freshEtag = detailsBody?.['@odata.etag'];
+                }
+                if (!freshEtag) {
+                    throw new Error(
+                        'Failed to update planner task details: 409 Conflict. Could not get fresh etag from details.',
+                    );
+                }
+                response = await doRequest(freshEtag);
+            }
+
             if (!response.ok) {
                 const errorText = await response.text();
                 throw new Error(`Failed to update task details: ${response.status} ${response.statusText} - ${errorText}`);
             }
             const result = response.headers.get('content-type')?.includes('application/json') ? await response.json() : {};
-            return { ...result, _detailsEtag: response.headers.get('ETag') || etag };
+            const newEtag = response.headers.get('ETag') || '';
+            return { ...result, _detailsEtag: newEtag };
         } catch (error: any) {
             throw new Error(`Failed to update task details ${taskId}: ${error.message}`);
         }

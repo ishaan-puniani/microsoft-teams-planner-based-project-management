@@ -10,6 +10,7 @@ interface BucketOption {
 }
 
 export interface PlannerBoardCardContextValue {
+  planId: string;
   categories: Record<string, string>;
   buckets: BucketOption[];
   users: GraphUser[];
@@ -113,6 +114,7 @@ export function PlannerBoardCard(props: ReactTrelloCardProps) {
     >
       <MsPlannerTaskListItem
         task={task}
+        planId={ctx.planId}
         categories={ctx.categories}
         buckets={ctx.buckets}
         users={ctx.users}

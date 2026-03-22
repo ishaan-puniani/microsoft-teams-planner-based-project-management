@@ -1,9 +1,14 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { Modal } from 'bootstrap';
 import { useRef } from 'react';
 import ReactDOM from 'react-dom';
 import Select from 'react-select';
 import MsPlannerService from 'src/modules/msPlanner/msPlannerService';
+import { toGraphDateTimeOrNull } from 'src/integrations/MS_Planner/plannerDateTimeForGraph';
+import {
+  plannerReferenceKeyFromUrl,
+  plannerReferenceKeyToDisplayUrl,
+} from 'src/integrations/MS_Planner/plannerReferenceKey';
 import { i18n } from 'src/i18n';
 
 const PRIORITY_OPTIONS = [
@@ -24,8 +29,24 @@ interface ChecklistItemForm {
   isChecked: boolean;
 }
 
+interface ReferenceItemForm {
+  /** Stable row id for React */
+  rowId: string;
+  url: string;
+  alias: string;
+}
+
+function normalizeReferenceUrl(raw: string): string {
+  const t = raw.trim();
+  if (!t) return '';
+  if (/^https?:\/\//i.test(t)) return t;
+  return `https://${t}`;
+}
+
 interface EditMsPlannerTaskDetailProps {
   taskId: string | null;
+  /** Plan id from route (preferred for uploads; Graph task may omit `planId` on some responses). */
+  planId?: string | null;
   visible: boolean;
   onClose: () => void;
   onSuccess: (task: any) => void;
@@ -35,6 +56,7 @@ interface EditMsPlannerTaskDetailProps {
 
 const EditMsPlannerTaskDetail = ({
   taskId,
+  planId: planIdProp,
   visible,
   onClose,
   onSuccess,
@@ -57,6 +79,9 @@ const EditMsPlannerTaskDetail = ({
   const [selectedCategoryKeys, setSelectedCategoryKeys] = useState<string[]>([]);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [checklist, setChecklist] = useState<ChecklistItemForm[]>([]);
+  const [references, setReferences] = useState<ReferenceItemForm[]>([]);
+  const [initialReferenceKeys, setInitialReferenceKeys] = useState<string[]>([]);
+  const [attachmentUploadsInFlight, setAttachmentUploadsInFlight] = useState(0);
 
   const categoryOptions = useMemo(
     () =>
@@ -74,6 +99,10 @@ const EditMsPlannerTaskDetail = ({
     [users],
   );
 
+  const attachmentInputId = taskId
+    ? `msplanner-edit-attach-${taskId.replace(/[^a-zA-Z0-9_-]/g, '_')}`
+    : 'msplanner-edit-attach';
+
   useEffect(() => {
     if (!visible || !taskId) return;
     if (!modalRef.current) return;
@@ -89,6 +118,9 @@ const EditMsPlannerTaskDetail = ({
     if (!visible || !taskId) {
       setTask(null);
       setDetails(null);
+      setReferences([]);
+      setInitialReferenceKeys([]);
+      setAttachmentUploadsInFlight(0);
       return;
     }
     let cancelled = false;
@@ -116,8 +148,8 @@ const EditMsPlannerTaskDetail = ({
         setSelectedCategoryKeys(
           taskData.appliedCategories
             ? Object.entries(taskData.appliedCategories)
-                .filter(([, v]) => v)
-                .map(([k]) => k)
+              .filter(([, v]) => v)
+              .map(([k]) => k)
             : [],
         );
         setSelectedUserIds(Object.keys(taskData.assignments || {}));
@@ -129,6 +161,17 @@ const EditMsPlannerTaskDetail = ({
             key,
             title: item?.title ?? '',
             isChecked: !!item?.isChecked,
+          })),
+        );
+        const refEntries = detailsData?.references
+          ? Object.entries(detailsData.references)
+          : [];
+        setInitialReferenceKeys(refEntries.map(([k]) => k));
+        setReferences(
+          refEntries.map(([graphKey, ref]: [string, any]) => ({
+            rowId: `ref_${graphKey}`,
+            url: plannerReferenceKeyToDisplayUrl(graphKey),
+            alias: (ref?.alias as string) || '',
           })),
         );
       })
@@ -169,6 +212,90 @@ const EditMsPlannerTaskDetail = ({
     setChecklist((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const addReferenceRow = () => {
+    setReferences((prev) => [
+      ...prev,
+      {
+        rowId: `ref_new_${Date.now()}`,
+        url: '',
+        alias: '',
+      },
+    ]);
+  };
+
+  const updateReferenceRow = (
+    index: number,
+    field: 'url' | 'alias',
+    value: string,
+  ) => {
+    setReferences((prev) =>
+      prev.map((r, i) => (i === index ? { ...r, [field]: value } : r)),
+    );
+  };
+
+  const removeReferenceRow = (index: number) => {
+    setReferences((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  /** Upload each file as soon as the user finishes picking (input change). */
+  const runUploadForSelectedFiles = useCallback(
+    async (files: File[]) => {
+      const fromProp =
+        typeof planIdProp === 'string' && planIdProp.trim() ? planIdProp.trim() : '';
+      const fromTask =
+        typeof task?.planId === 'string' && String(task.planId).trim()
+          ? String(task.planId).trim()
+          : '';
+      const uploadPlanId = fromProp || fromTask;
+      if (!uploadPlanId) {
+        setError(
+          'Cannot upload files: plan id is missing. Open this task from a plan page and try again.',
+        );
+        return;
+      }
+      for (const file of files) {
+        setAttachmentUploadsInFlight((n) => n + 1);
+        try {
+          const uploaded = await MsPlannerService.uploadPlannerTaskFile(uploadPlanId, file);
+          const webUrl = uploaded?.webUrl;
+          if (!webUrl || typeof webUrl !== 'string') {
+            throw new Error(`No file URL returned for "${file.name}".`);
+          }
+          const label = String(uploaded?.name || file.name).slice(0, 255);
+          setReferences((prev) => [
+            ...prev,
+            {
+              rowId: `ref_upload_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+              url: webUrl,
+              alias: label,
+            },
+          ]);
+          setError(null);
+        } catch (err: any) {
+          setError(
+            err?.response?.data?.message ||
+              err?.message ||
+              `Upload failed for "${file.name}".`,
+          );
+        } finally {
+          setAttachmentUploadsInFlight((n) => Math.max(0, n - 1));
+        }
+      }
+    },
+    [planIdProp, task?.planId],
+  );
+
+  const onAttachmentFilesSelected = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const input = e.currentTarget;
+      const picked = input.files?.length ? Array.from(input.files) : [];
+      input.value = '';
+      if (picked.length === 0) return;
+      void runUploadForSelectedFiles(picked);
+    },
+    [runUploadForSelectedFiles],
+  );
+
   const handleSave = async () => {
     if (!taskId || !task) return;
     const etag = task['@odata.etag'];
@@ -198,13 +325,13 @@ const EditMsPlannerTaskDetail = ({
         etag,
         title: title || undefined,
         priority: priority === '' ? undefined : Number(priority),
-        startDateTime: startDateTime || null,
-        dueDateTime: dueDateTime || null,
+        startDateTime: toGraphDateTimeOrNull(startDateTime),
+        dueDateTime: toGraphDateTimeOrNull(dueDateTime),
         appliedCategories,
         assignments,
       });
 
-      if (detailsEtag) {
+      if (details != null) {
         const checklistPayload: Record<string, any> = {};
         checklist.forEach((item) => {
           if (item.title.trim()) {
@@ -215,11 +342,58 @@ const EditMsPlannerTaskDetail = ({
             };
           }
         });
-        await MsPlannerService.updateTaskDetails(taskId, {
-          detailsEtag,
+
+        const referencesPayload: Record<string, any> = {};
+        const finalKeys = new Set<string>();
+
+        references.forEach((row) => {
+          const u = row.url.trim();
+          if (!u) return;
+          try {
+            const gk = plannerReferenceKeyFromUrl(normalizeReferenceUrl(u));
+            finalKeys.add(gk);
+            const alias =
+              row.alias.trim() ||
+              (() => {
+                try {
+                  return new URL(normalizeReferenceUrl(u)).hostname || u;
+                } catch {
+                  return u;
+                }
+              })();
+            referencesPayload[gk] = {
+              '@odata.type': 'microsoft.graph.plannerExternalReference',
+              alias: alias.slice(0, 255),
+              type: 'Other',
+            };
+          } catch {
+            /* skip invalid url */
+          }
+        });
+        initialReferenceKeys.forEach((k) => {
+          if (!finalKeys.has(k)) {
+            referencesPayload[k] = null;
+          }
+        });
+
+        const detailsBody: {
+          detailsEtag: string;
+          description: string;
+          checklist: Record<string, any>;
+          references?: Record<string, any>;
+        } = {
+          detailsEtag: detailsEtag || '',
           description: note,
           checklist: checklistPayload,
-        });
+        };
+        if (
+          Object.keys(referencesPayload).length > 0 ||
+          initialReferenceKeys.length > 0
+        ) {
+          detailsBody.references = referencesPayload;
+        }
+
+        await MsPlannerService.updateTaskDetails(taskId, detailsBody);
       }
 
       const updatedTask = await MsPlannerService.getTask(taskId);
@@ -402,6 +576,97 @@ const EditMsPlannerTaskDetail = ({
                     </div>
                   ))}
                 </div>
+
+                <div className="form-group">
+                  <div className="d-flex justify-content-between align-items-center mb-1 flex-wrap gap-1">
+                    <label className="mb-0">Attachments / links</label>
+                    <div className="d-flex flex-wrap gap-1 position-relative align-items-center">
+                      <input
+                        id={attachmentInputId}
+                        type="file"
+                        multiple
+                        disabled={attachmentUploadsInFlight > 0}
+                        onChange={onAttachmentFilesSelected}
+                        aria-label="Choose files to upload"
+                        style={{
+                          position: 'absolute',
+                          width: 1,
+                          height: 1,
+                          padding: 0,
+                          margin: -1,
+                          overflow: 'hidden',
+                          clip: 'rect(0, 0, 0, 0)',
+                          whiteSpace: 'nowrap',
+                          border: 0,
+                        }}
+                      />
+                      <label
+                        htmlFor={attachmentInputId}
+                        className={`btn btn-sm btn-outline-primary mb-0 ${
+                          attachmentUploadsInFlight > 0 ? 'disabled' : ''
+                        }`}
+                        style={{
+                          cursor:
+                            attachmentUploadsInFlight > 0
+                              ? 'not-allowed'
+                              : 'pointer',
+                        }}
+                      >
+                        {attachmentUploadsInFlight > 0
+                          ? 'Uploading…'
+                          : 'Add files'}
+                      </label>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-primary"
+                        onClick={addReferenceRow}
+                      >
+                        Add link
+                      </button>
+                    </div>
+                  </div>
+                  <p className="text-muted small mb-2">
+                    Files upload immediately to the plan&apos;s SharePoint library (up to 25 MB each). Click <strong>Save</strong> to attach them to this task in Planner. You can also add a URL reference below.
+                  </p>
+                  {references.length === 0 && (
+                    <p className="text-muted small">No attachments or links.</p>
+                  )}
+                  {references.map((row, index) => (
+                    <div key={row.rowId} className="mb-2 border rounded p-2 bg-light">
+                      <div className="form-group mb-2">
+                        <label className="small mb-0">URL</label>
+                        <input
+                          type="url"
+                          className="form-control form-control-sm"
+                          value={row.url}
+                          onChange={(e) =>
+                            updateReferenceRow(index, 'url', e.target.value)
+                          }
+                          placeholder="https://…"
+                        />
+                      </div>
+                      <div className="form-group mb-2">
+                        <label className="small mb-0">Display name</label>
+                        <input
+                          type="text"
+                          className="form-control form-control-sm"
+                          value={row.alias}
+                          onChange={(e) =>
+                            updateReferenceRow(index, 'alias', e.target.value)
+                          }
+                          placeholder="Optional label"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-danger"
+                        onClick={() => removeReferenceRow(index)}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </>
             )}
           </div>
@@ -417,7 +682,7 @@ const EditMsPlannerTaskDetail = ({
               type="button"
               className="btn btn-primary btn-sm"
               onClick={handleSave}
-              disabled={saving || !task}
+              disabled={saving || !task || attachmentUploadsInFlight > 0}
             >
               {saving ? 'Saving...' : 'Save'}
             </button>

@@ -8,12 +8,14 @@ import taskCreate from './taskCreate';
 import taskDetailsGet from './taskDetailsGet';
 import taskDetailsUpdate from './taskDetailsUpdate';
 import bucketsGet from './bucketsGet';
+import planTaskFileUpload from './planTaskFileUpload';
 import users from './users';
 
 export default (app) => {
     app.get('/tenant/:tenantId/ms-planner/plan/:planId', planDetails);
     app.get('/tenant/:tenantId/ms-planner/tasks/:planId', tasks);
     app.get('/tenant/:tenantId/ms-planner/plan/:planId/buckets', bucketsGet);
+    app.post('/tenant/:tenantId/ms-planner/plan/:planId/task-attachment-upload', planTaskFileUpload);
     app.post('/tenant/:tenantId/ms-planner/plan/:planId/task', taskCreate);
     app.get('/tenant/:tenantId/ms-planner/task/:taskId', taskGet);
     app.patch('/tenant/:tenantId/ms-planner/task/:taskId', taskUpdate);

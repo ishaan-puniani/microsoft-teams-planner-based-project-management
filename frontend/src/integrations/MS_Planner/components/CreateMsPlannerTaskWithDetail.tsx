@@ -1,9 +1,11 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { Modal } from 'bootstrap';
 import { useRef } from 'react';
 import ReactDOM from 'react-dom';
 import Select from 'react-select';
 import MsPlannerService from 'src/modules/msPlanner/msPlannerService';
+import { toGraphDateTimeOptional } from 'src/integrations/MS_Planner/plannerDateTimeForGraph';
+import { plannerReferenceKeyFromUrl } from 'src/integrations/MS_Planner/plannerReferenceKey';
 import { i18n } from 'src/i18n';
 
 const PRIORITY_OPTIONS = [
@@ -22,6 +24,12 @@ interface ChecklistItemForm {
   key: string;
   title: string;
   isChecked: boolean;
+}
+
+interface UploadedAttachmentLink {
+  rowId: string;
+  url: string;
+  alias: string;
 }
 
 interface CreateMsPlannerTaskWithDetailProps {
@@ -57,6 +65,8 @@ const CreateMsPlannerTaskWithDetail = ({
   const [selectedCategoryKeys, setSelectedCategoryKeys] = useState<string[]>([]);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [checklist, setChecklist] = useState<ChecklistItemForm[]>([]);
+  const [uploadedAttachmentLinks, setUploadedAttachmentLinks] = useState<UploadedAttachmentLink[]>([]);
+  const [attachmentUploadsInFlight, setAttachmentUploadsInFlight] = useState(0);
 
   const categoryOptions = useMemo(
     () =>
@@ -78,6 +88,10 @@ const CreateMsPlannerTaskWithDetail = ({
       buckets.map((b) => ({ value: b.id, label: b.name || b.id })),
     [buckets],
   );
+
+  const createAttachmentInputId = planId
+    ? `msplanner-create-attach-${planId.replace(/[^a-zA-Z0-9_-]/g, '_')}`
+    : 'msplanner-create-attach';
 
   useEffect(() => {
     if (!visible || !planId) return;
@@ -102,6 +116,8 @@ const CreateMsPlannerTaskWithDetail = ({
       setSelectedCategoryKeys([]);
       setSelectedUserIds([]);
       setChecklist([]);
+      setUploadedAttachmentLinks([]);
+      setAttachmentUploadsInFlight(0);
       setError(null);
       return;
     }
@@ -153,6 +169,61 @@ const CreateMsPlannerTaskWithDetail = ({
     setChecklist((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const runUploadForSelectedFiles = useCallback(
+    async (files: File[]) => {
+      const pid = typeof planId === 'string' ? planId.trim() : '';
+      if (!pid) {
+        setError('Cannot upload files: plan is not loaded. Close the dialog and try again.');
+        return;
+      }
+      for (const file of files) {
+        setAttachmentUploadsInFlight((n) => n + 1);
+        try {
+          const uploaded = await MsPlannerService.uploadPlannerTaskFile(pid, file);
+          const webUrl = uploaded?.webUrl;
+          if (!webUrl || typeof webUrl !== 'string') {
+            throw new Error(`No file URL returned for "${file.name}".`);
+          }
+          const label = String(uploaded?.name || file.name).slice(0, 255);
+          setUploadedAttachmentLinks((prev) => [
+            ...prev,
+            {
+              rowId: `up_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+              url: webUrl,
+              alias: label,
+            },
+          ]);
+          setError(null);
+        } catch (err: any) {
+          setError(
+            err?.response?.data?.message ||
+              err?.message ||
+              `Upload failed for "${file.name}".`,
+          );
+        } finally {
+          setAttachmentUploadsInFlight((n) => Math.max(0, n - 1));
+        }
+      }
+    },
+    [planId],
+  );
+
+  /** Fire upload immediately when the user selects file(s). */
+  const onAttachmentFilesSelected = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const input = e.currentTarget;
+      const picked = input.files?.length ? Array.from(input.files) : [];
+      input.value = '';
+      if (picked.length === 0) return;
+      void runUploadForSelectedFiles(picked);
+    },
+    [runUploadForSelectedFiles],
+  );
+
+  const removeUploadedAttachmentLink = (index: number) => {
+    setUploadedAttachmentLinks((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const handleCreate = async () => {
     if (!planId) return;
     const trimmedTitle = title?.trim();
@@ -168,6 +239,18 @@ const CreateMsPlannerTaskWithDetail = ({
     setSaving(true);
     setError(null);
     try {
+      const referencesPayload: Record<string, any> = {};
+      uploadedAttachmentLinks.forEach((link) => {
+        const u = link.url.trim();
+        if (!u) return;
+        const key = plannerReferenceKeyFromUrl(u);
+        referencesPayload[key] = {
+          '@odata.type': 'microsoft.graph.plannerExternalReference',
+          alias: (link.alias.trim() || link.url).slice(0, 255),
+          type: 'Other',
+        };
+      });
+
       const appliedCategories: Record<string, boolean> = {};
       categoryOptions.forEach((opt) => {
         appliedCategories[opt.value] = selectedCategoryKeys.includes(opt.value);
@@ -177,18 +260,22 @@ const CreateMsPlannerTaskWithDetail = ({
         assignments[id] = PLANNER_ASSIGNMENT;
       });
 
+      const isoStart = toGraphDateTimeOptional(startDateTime);
+      const isoDue = toGraphDateTimeOptional(dueDateTime);
       const created = await MsPlannerService.createTask(planId, {
         bucketId,
         title: trimmedTitle,
         priority: priority === '' ? undefined : Number(priority),
-        startDateTime: startDateTime || undefined,
-        dueDateTime: dueDateTime || undefined,
+        ...(isoStart != null ? { startDateTime: isoStart } : {}),
+        ...(isoDue != null ? { dueDateTime: isoDue } : {}),
         appliedCategories: Object.keys(appliedCategories).length ? appliedCategories : undefined,
         assignments: Object.keys(assignments).length ? assignments : undefined,
       });
 
       const taskId = created?.id;
-      if (taskId && (note.trim() || checklist.some((c) => c.title.trim()))) {
+      const hasChecklist = checklist.some((c) => c.title.trim());
+      const hasRefs = Object.keys(referencesPayload).length > 0;
+      if (taskId && (note.trim() || hasChecklist || hasRefs)) {
         const checklistPayload: Record<string, any> = {};
         checklist.forEach((item) => {
           if (item.title.trim()) {
@@ -203,6 +290,7 @@ const CreateMsPlannerTaskWithDetail = ({
           detailsEtag: '',
           description: note.trim() || undefined,
           checklist: Object.keys(checklistPayload).length ? checklistPayload : undefined,
+          references: hasRefs ? referencesPayload : undefined,
         });
       }
 
@@ -400,6 +488,74 @@ const CreateMsPlannerTaskWithDetail = ({
                     </div>
                   ))}
                 </div>
+
+                <div className="form-group">
+                  <div className="d-flex justify-content-between align-items-center mb-1 position-relative">
+                    <span className="mb-0 font-weight-bold">Attachments</span>
+                    <div className="d-flex align-items-center">
+                      <input
+                        id={createAttachmentInputId}
+                        type="file"
+                        multiple
+                        disabled={attachmentUploadsInFlight > 0}
+                        onChange={onAttachmentFilesSelected}
+                        aria-label="Choose files to upload"
+                        style={{
+                          position: 'absolute',
+                          width: 1,
+                          height: 1,
+                          padding: 0,
+                          margin: -1,
+                          overflow: 'hidden',
+                          clip: 'rect(0, 0, 0, 0)',
+                          whiteSpace: 'nowrap',
+                          border: 0,
+                        }}
+                      />
+                      <label
+                        htmlFor={createAttachmentInputId}
+                        className={`btn btn-sm btn-outline-primary mb-0 ${
+                          attachmentUploadsInFlight > 0 ? 'disabled' : ''
+                        }`}
+                        style={{
+                          cursor:
+                            attachmentUploadsInFlight > 0
+                              ? 'not-allowed'
+                              : 'pointer',
+                        }}
+                      >
+                        {attachmentUploadsInFlight > 0
+                          ? 'Uploading…'
+                          : 'Add files'}
+                      </label>
+                    </div>
+                  </div>
+                  <p className="text-muted small mb-2">
+                    Files upload immediately to the plan&apos;s SharePoint library (up to 25 MB each). They are linked to the new task when you create it.
+                  </p>
+                  {uploadedAttachmentLinks.length === 0 && (
+                    <p className="text-muted small">No files uploaded yet.</p>
+                  )}
+                  <ul className="list-unstyled mb-0">
+                    {uploadedAttachmentLinks.map((link, index) => (
+                      <li
+                        key={link.rowId}
+                        className="d-flex justify-content-between align-items-center small py-1 border-bottom"
+                      >
+                        <span className="text-truncate mr-2" title={link.url}>
+                          {link.alias}
+                        </span>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-danger flex-shrink-0"
+                          onClick={() => removeUploadedAttachmentLink(index)}
+                        >
+                          Remove
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               </>
             )}
           </div>
@@ -415,7 +571,13 @@ const CreateMsPlannerTaskWithDetail = ({
               type="button"
               className="btn btn-primary btn-sm"
               onClick={handleCreate}
-              disabled={saving || !title?.trim() || !bucketId || (loadingBuckets && buckets.length === 0)}
+              disabled={
+                saving ||
+                !title?.trim() ||
+                !bucketId ||
+                (loadingBuckets && buckets.length === 0) ||
+                attachmentUploadsInFlight > 0
+              }
             >
               {saving ? 'Creating...' : 'Create task'}
             </button>
