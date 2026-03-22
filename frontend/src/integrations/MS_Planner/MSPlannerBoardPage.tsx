@@ -8,6 +8,13 @@ import Spinner from 'src/view/shared/Spinner';
 import MsPlannerService from 'src/modules/msPlanner/msPlannerService';
 import MsPlannerTaskDetail from './components/MsPlannerTaskDetail';
 import type { PlannerTask } from './components/MsPlannerTaskListItem';
+import CreateMsPlannerTaskWithDetail from './components/CreateMsPlannerTaskWithDetail';
+import QuickCreateMsPlannerTaskWithDetail from './components/QuickCreateMsPlannerTaskWithDetail';
+import MoveMsPlannerTasksDialog from './components/MoveMsPlannerTasksDialog';
+import MsPlannerFilter, {
+  type MsPlannerFilters,
+  EMPTY_FILTERS,
+} from './components/MsPlannerFilter';
 import {
   PlannerBoardCard,
   PlannerBoardCardProvider,
@@ -143,6 +150,36 @@ const MSPlannerBoardPage = () => {
   const [taskDetailId, setTaskDetailId] = useState<string | null>(null);
   const [taskDetailVisible, setTaskDetailVisible] = useState(false);
   const [quickEditMode, setQuickEditMode] = useState(false);
+  const [createVisible, setCreateVisible] = useState(false);
+  const [quickCreateVisible, setQuickCreateVisible] = useState(false);
+  const [bulkMoveVisible, setBulkMoveVisible] = useState(false);
+  const [filters, setFilters] = useState<MsPlannerFilters>(EMPTY_FILTERS);
+  const [tasksLoading, setTasksLoading] = useState(false);
+  const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
+
+  const fetchFilteredTasks = useCallback(
+    async (currentFilters: MsPlannerFilters) => {
+      if (!planId) return;
+      setTasksLoading(true);
+      try {
+        const tasksData = await MsPlannerService.getTasks(planId, currentFilters);
+        setTasks(tasksData || []);
+        setSelectedTasks([]);
+      } catch (e: any) {
+        setError(
+          e?.response?.data?.message || e?.message || 'Failed to filter board tasks',
+        );
+      } finally {
+        setTasksLoading(false);
+      }
+    },
+    [planId],
+  );
+
+  const handleFilterChange = (newFilters: MsPlannerFilters) => {
+    setFilters(newFilters);
+    fetchFilteredTasks(newFilters);
+  };
 
   useEffect(() => {
     if (!planId) return;
@@ -160,6 +197,7 @@ const MSPlannerBoardPage = () => {
         setBuckets(Array.isArray(planData?.buckets) ? planData.buckets : []);
         setCategories(planData?.categories || {});
         setUsers(usersData || []);
+        setSelectedTasks([]);
       } catch (e: any) {
         setError(
           e?.response?.data?.message || e?.message || 'Failed to load board',
@@ -195,6 +233,42 @@ const MSPlannerBoardPage = () => {
       }
       return [destinationTask, ...withoutSource];
     });
+    setSelectedTasks((prev) => prev.filter((id) => id !== result.sourceTaskId));
+  }, [planId]);
+
+  const handleTaskSelectionChange = useCallback((taskId: string, selected: boolean) => {
+    setSelectedTasks((prev) => {
+      if (selected) {
+        if (prev.includes(taskId)) return prev;
+        return [...prev, taskId];
+      }
+      return prev.filter((id) => id !== taskId);
+    });
+  }, []);
+
+  const handleBulkMoveSuccess = useCallback((payload: any) => {
+    const results = Array.isArray(payload?.results) ? payload.results : [];
+    const movedMap = new Map<string, PlannerTask>();
+    const removed = new Set<string>();
+
+    results.forEach((item: any) => {
+      if (!item) return;
+      if (item.sourceTaskId) {
+        removed.add(item.sourceTaskId);
+      } else if (item.taskId) {
+        removed.add(item.taskId);
+      }
+      if (item.destinationTask?.id && item.destinationPlanId === planId) {
+        movedMap.set(item.destinationTask.id, item.destinationTask);
+      }
+    });
+
+    setTasks((prev) => {
+      const kept = prev.filter((t) => !removed.has(String(t.id || '')));
+      return [...Array.from(movedMap.values()), ...kept];
+    });
+    setSelectedTasks([]);
+    setBulkMoveVisible(false);
   }, [planId]);
 
   const boardCardContextValue: PlannerBoardCardContextValue = useMemo(
@@ -204,10 +278,12 @@ const MSPlannerBoardPage = () => {
       buckets,
       users,
       onTaskUpdate: handleTaskUpdate,
+      selectedTaskIds: selectedTasks,
+      onTaskSelectionChange: handleTaskSelectionChange,
       onTaskMove: handleTaskMove,
       onCardClick: setTaskDetailId,
     }),
-    [planId, categories, buckets, users, handleTaskUpdate, handleTaskMove],
+    [planId, categories, buckets, users, handleTaskUpdate, selectedTasks, handleTaskSelectionChange, handleTaskMove],
   );
 
   const boardData = useMemo(
@@ -281,7 +357,7 @@ const MSPlannerBoardPage = () => {
       try {
         await MsPlannerService.updateTask(movedCardId, { etag, orderHint: newOrderHint });
         setError(null);
-        const updated = await MsPlannerService.getTasks(planId);
+        const updated = await MsPlannerService.getTasks(planId, filters);
         setTasks(updated || []);
       } catch (e: any) {
         setError(
@@ -354,12 +430,28 @@ const MSPlannerBoardPage = () => {
           >
             List view
           </Link>
-          <Link
+          <button
+            type="button"
             className="btn btn-sm btn-primary ms-2"
-            to={`/msplanner/tasks/${planId}`}
+            onClick={() => setCreateVisible(true)}
           >
             Add Task
-          </Link>
+          </button>
+          <button
+            type="button"
+            className="btn btn-sm btn-primary ms-2"
+            onClick={() => setQuickCreateVisible(true)}
+          >
+            Quick mode Add Tasks
+          </button>
+          <button
+            type="button"
+            className="btn btn-sm btn-outline-warning ms-2"
+            disabled={selectedTasks.length === 0}
+            onClick={() => setBulkMoveVisible(true)}
+          >
+            Move tasks ({selectedTasks.length})
+          </button>
           <button
             type="button"
             className={`btn btn-sm ms-2 ${quickEditMode ? 'btn-primary' : 'btn-outline-secondary'}`}
@@ -369,24 +461,74 @@ const MSPlannerBoardPage = () => {
           </button>
         </PageTitle>
 
+        <MsPlannerFilter
+          buckets={buckets}
+          categories={categories}
+          users={users}
+          onFilterChange={handleFilterChange}
+        />
+
+        <CreateMsPlannerTaskWithDetail
+          planId={planId ?? null}
+          visible={createVisible}
+          onClose={() => setCreateVisible(false)}
+          onSuccess={(task) => {
+            if (task?.id) {
+              setTasks((prev) => [task, ...prev]);
+            }
+            setCreateVisible(false);
+          }}
+          categories={categories}
+          users={users}
+        />
+
+        <QuickCreateMsPlannerTaskWithDetail
+          planId={planId ?? null}
+          visible={quickCreateVisible}
+          onClose={() => setQuickCreateVisible(false)}
+          onSuccess={(createdTasks) => {
+            if (Array.isArray(createdTasks) && createdTasks.length) {
+              setTasks((prev) => [...createdTasks, ...prev]);
+            } else if (createdTasks?.id) {
+              setTasks((prev) => [createdTasks, ...prev]);
+            }
+            setQuickCreateVisible(false);
+          }}
+          categories={categories}
+          users={users}
+        />
+
+        <MoveMsPlannerTasksDialog
+          taskIds={selectedTasks}
+          currentPlanId={planId}
+          visible={bulkMoveVisible}
+          onClose={() => setBulkMoveVisible(false)}
+          onSuccess={handleBulkMoveSuccess}
+        />
+
         {error && (
           <div className="alert alert-warning mb-3" role="alert">
             {error}
           </div>
         )}
 
-        {boardData.lanes.length === 0 ? (
+        {tasksLoading ? (
+          <div className="d-flex justify-content-center py-4">
+            <div className="spinner-border spinner-border-sm text-primary" role="status">
+              <span className="visually-hidden">Filtering…</span>
+            </div>
+          </div>
+        ) : boardData.lanes.length === 0 ? (
           <div className="text-center text-muted py-5">
-            No buckets in this plan. Create buckets in Microsoft Planner to see
-            them here.
+            No tasks match the current filters or there are no tasks in this plan.
           </div>
         ) : (
           <div
             className="react-trello-board-wrapper"
             style={{ minHeight: 400 }}
           >
-            {quickEditMode ? (
-              <PlannerBoardCardProvider value={boardCardContextValue}>
+            <PlannerBoardCardProvider value={boardCardContextValue}>
+              {quickEditMode ? (
                 <Board
                   data={boardData}
                   draggable
@@ -402,23 +544,23 @@ const MSPlannerBoardPage = () => {
                     padding: 0,
                   }}
                 />
-              </PlannerBoardCardProvider>
-            ) : (
-              <Board
-                data={boardData}
-                draggable
-                laneDraggable={false}
-                editable={false}
-                onCardMoveAcrossLanes={handleCardMoveAcrossLanes}
-                onDataChange={handleDataChange}
-                onCardClick={handleCardClick}
-                components={{ Card: DefaultBoardCard }}
-                style={{
-                  backgroundColor: 'transparent',
-                  padding: 0,
-                }}
-              />
-            )}
+              ) : (
+                <Board
+                  data={boardData}
+                  draggable
+                  laneDraggable={false}
+                  editable={false}
+                  onCardMoveAcrossLanes={handleCardMoveAcrossLanes}
+                  onDataChange={handleDataChange}
+                  onCardClick={handleCardClick}
+                  components={{ Card: DefaultBoardCard }}
+                  style={{
+                    backgroundColor: 'transparent',
+                    padding: 0,
+                  }}
+                />
+              )}
+            </PlannerBoardCardProvider>
           </div>
         )}
 

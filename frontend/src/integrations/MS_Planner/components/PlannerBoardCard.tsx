@@ -15,6 +15,8 @@ export interface PlannerBoardCardContextValue {
   buckets: BucketOption[];
   users: GraphUser[];
   onTaskUpdate: (updated: PlannerTask) => void;
+  selectedTaskIds: string[];
+  onTaskSelectionChange: (taskId: string, selected: boolean) => void;
   onTaskMove: (result: {
     sourceTaskId: string;
     destinationTask: PlannerTask;
@@ -46,7 +48,15 @@ interface ReactTrelloCardProps {
 }
 
 export function DefaultBoardCard(props: ReactTrelloCardProps) {
-  const { title, label, onClick } = props;
+  const { id, title, label, onClick } = props;
+  const ctx = useContext(PlannerBoardCardContext);
+  const isSelected = !!ctx?.selectedTaskIds.includes(String(id || ''));
+
+  const handleSelectChange = (selected: boolean) => {
+    if (!ctx) return;
+    ctx.onTaskSelectionChange(String(id || ''), selected);
+  };
+
   return (
     <div
       className="card border shadow-sm default-board-card"
@@ -61,7 +71,23 @@ export function DefaultBoardCard(props: ReactTrelloCardProps) {
       tabIndex={0}
       onKeyDown={(e) => e.key === 'Enter' && (typeof onClick === 'function' ? (onClick as (ev: React.KeyboardEvent) => void)(e) : undefined)}
     >
-      <div className="card-body py-2 text-truncate" style={{ minWidth: 0 }}>
+      <div className="card-body py-2 text-truncate d-flex align-items-start" style={{ minWidth: 0 }}>
+        {ctx && (
+          <div className="mr-2 mt-1" onClick={(e) => e.stopPropagation()}>
+            <input
+              type="checkbox"
+              className=""
+              style={{ width: 16, height: 16, cursor: 'pointer' }}
+              checked={isSelected}
+              onChange={(e) => {
+                e.stopPropagation();
+                handleSelectChange(e.target.checked);
+              }}
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+        )}
+        <div style={{ minWidth: 0, flex: 1 }}>
         <h6
           className="card-title mb-0 text-truncate"
           title={title || 'Untitled'}
@@ -78,6 +104,7 @@ export function DefaultBoardCard(props: ReactTrelloCardProps) {
             {label}
           </small>
         )}
+        </div>
       </div>
     </div>
   );
@@ -126,6 +153,8 @@ export function PlannerBoardCard(props: ReactTrelloCardProps) {
         buckets={ctx.buckets}
         users={ctx.users}
         onTaskUpdate={ctx.onTaskUpdate}
+        isSelected={ctx.selectedTaskIds.includes(String(task.id || ''))}
+        onSelectionChange={ctx.onTaskSelectionChange}
         onTaskMove={ctx.onTaskMove}
       />
     </div>
