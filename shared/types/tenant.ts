@@ -1,4 +1,4 @@
-import { ITenant, ITenantCreate, ITenantUpdate, ITenantFilter, ITenantPlan, ITenantPlanStatus } from '../interfaces/tenant/ITenant';
+import { ITenant, ITenantCreate, ITenantUpdate, ITenantFilter, ITenantPlan, ITenantPlanStatus, ITenantSsoAuthProvider } from '../interfaces/tenant/ITenant';
 
 export type TenantEntity = ITenant;
 export type TenantCreateData = ITenantCreate;
@@ -7,5 +7,6 @@ export type TenantFilterData = ITenantFilter;
 
 export type TenantPlanType = ITenantPlan;
 export type TenantPlanStatusType = ITenantPlanStatus;
+export type TenantSsoAuthProviderType = ITenantSsoAuthProvider;
 
 export type TenantStatus = 'active' | 'inactive' | 'suspended' | 'pending';

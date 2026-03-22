@@ -1,10 +1,12 @@
 export type ITenantPlan = 'free' | 'growth' | 'enterprise';
 export type ITenantPlanStatus = 'active' | 'cancel_at_period_end' | 'error';
+export type ITenantSsoAuthProvider = 'none' | 'microsoft';
 
 export interface ITenant {
   id?: string;
   name: string;
   url?: string;
+  ssoAuthProvider?: ITenantSsoAuthProvider;
   plan: ITenantPlan;
   planStatus: ITenantPlanStatus;
   planStripeCustomerId?: string;
@@ -19,6 +21,7 @@ export interface ITenant {
 export interface ITenantCreate {
   name: string;
   url?: string;
+  ssoAuthProvider?: ITenantSsoAuthProvider;
   plan?: ITenantPlan;
   planStatus?: ITenantPlanStatus;
   planStripeCustomerId?: string;
@@ -28,6 +31,7 @@ export interface ITenantCreate {
 export interface ITenantUpdate {
   name?: string;
   url?: string;
+  ssoAuthProvider?: ITenantSsoAuthProvider;
   plan?: ITenantPlan;
   planStatus?: ITenantPlanStatus;
   planStripeCustomerId?: string;
@@ -37,6 +41,7 @@ export interface ITenantUpdate {
 export interface ITenantFilter {
   name?: string;
   url?: string;
+  ssoAuthProvider?: ITenantSsoAuthProvider;
   plan?: ITenantPlan;
   planStatus?: ITenantPlanStatus;
   importHash?: string;

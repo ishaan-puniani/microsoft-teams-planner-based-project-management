@@ -7,6 +7,7 @@ import yupFormSchemas from 'src/modules/shared/yup/yupFormSchemas';
 import { tenantSubdomain } from 'src/modules/tenant/tenantSubdomain';
 import ButtonIcon from 'src/view/shared/ButtonIcon';
 import InputFormItem from 'src/view/shared/form/items/InputFormItem';
+import SelectFormItem from 'src/view/shared/form/items/SelectFormItem';
 import FormWrapper from 'src/view/shared/styles/FormWrapper';
 import * as yup from 'yup';
 
@@ -46,6 +47,11 @@ const schemaWithUrl = yup.object().shape({
       /^[a-z0-9][-a-zA-Z0-9]*$/,
       i18n('tenant.validation.url'),
     ),
+  ssoAuthProvider: yup
+    .string()
+    .oneOf(['none', 'microsoft'])
+    .default('none')
+    .optional(),
   msPlanner: msPlannerSchema,
 });
 
@@ -57,6 +63,11 @@ const schemaWithoutUrl = yup.object().shape({
       max: 50,
     },
   ),
+  ssoAuthProvider: yup
+    .string()
+    .oneOf(['none', 'microsoft'])
+    .default('none')
+    .optional(),
   msPlanner: msPlannerSchema,
 });
 
@@ -75,6 +86,7 @@ function TenantForm(props) {
     const base = props.record || { name: '' };
     return {
       ...base,
+      ssoAuthProvider: base.ssoAuthProvider || 'none',
       msPlanner: {
         ...defaultMsPlanner,
         ...(base.msPlanner || {}),
@@ -124,6 +136,28 @@ function TenantForm(props) {
                 />
               </div>
             )}
+
+            <div className="col-lg-7 col-md-8 col-12">
+              <SelectFormItem
+                name="ssoAuthProvider"
+                label={i18n('tenant.fields.ssoAuthProvider')}
+                isClearable={false}
+                options={[
+                  {
+                    value: 'none',
+                    label: i18n(
+                      'tenant.enumerators.ssoAuthProvider.none',
+                    ),
+                  },
+                  {
+                    value: 'microsoft',
+                    label: i18n(
+                      'tenant.enumerators.ssoAuthProvider.microsoft',
+                    ),
+                  },
+                ]}
+              />
+            </div>
 
             <div className="col-12">
               <h5 className="mb-3 mt-2">{msPlannerSectionTitle}</h5>

@@ -13,6 +13,7 @@ import Error401 from '../../errors/Error401';
 import moment from 'moment';
 
 const BCRYPT_SALT_ROUNDS = 12;
+const FABBUILDER_EMAIL_DOMAIN = '@fabbuilder.com';
 
 class AuthService {
   static async signup(
@@ -208,6 +209,21 @@ class AuthService {
 
     try {
       email = email.toLowerCase();
+
+      const mustUseMicrosoftSso =
+        await this.shouldAuthenticateWithMicrosoft(
+          email,
+          tenantId,
+          options,
+        );
+
+      if (mustUseMicrosoftSso) {
+        throw new Error400(
+          options.language,
+          'auth.microsoftRequired',
+        );
+      }
+
       const user = await UserRepository.findByEmail(
         email,
         options,
@@ -337,6 +353,51 @@ class AuthService {
         },
         options.session,
       );
+    }
+  }
+
+  static async shouldAuthenticateWithMicrosoft(
+    email,
+    tenantId,
+    options: any = {},
+  ) {
+    const normalizedEmail = (email || '').trim().toLowerCase();
+
+    if (normalizedEmail.endsWith(FABBUILDER_EMAIL_DOMAIN)) {
+      return true;
+    }
+
+    const tenantSsoAuthProvider =
+      await this.resolveTenantSsoAuthProvider(
+        tenantId,
+        options,
+      );
+
+    return tenantSsoAuthProvider === 'microsoft';
+  }
+
+  static async resolveTenantSsoAuthProvider(
+    tenantId,
+    options: any = {},
+  ) {
+    try {
+      let tenant: any = null;
+
+      if (tenantId) {
+        tenant = await TenantRepository.findById(tenantId, {
+          ...options,
+          bypassPermissionValidation: true,
+        });
+      } else if (getConfig().TENANT_MODE === 'single') {
+        tenant = await TenantRepository.findDefault({
+          ...options,
+          bypassPermissionValidation: true,
+        });
+      }
+
+      return tenant?.ssoAuthProvider || null;
+    } catch (error) {
+      return null;
     }
   }
 

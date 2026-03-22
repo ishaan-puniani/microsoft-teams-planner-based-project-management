@@ -21,6 +21,11 @@ export default (database) => {
         maxlength: 255,
       },
       url: { type: String, maxlength: 1024 },
+      ssoAuthProvider: {
+        type: String,
+        enum: ['none', 'microsoft'],
+        default: 'none',
+      },
       // msPlanner: {
       //   MS_TENANT_ID: {
       //     type: String

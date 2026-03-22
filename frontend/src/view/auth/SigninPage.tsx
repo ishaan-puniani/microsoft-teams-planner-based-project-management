@@ -40,6 +40,9 @@ function SigninPage() {
   const location = useLocation();
   const dispatch = useDispatch<AppDispatch>();
   const loading = useSelector(selectors.selectLoading);
+  const currentTenant = useSelector(
+    selectors.selectCurrentTenant,
+  );
 
   const { socialErrorCode } = queryString.parse(
     location.search,
@@ -83,6 +86,44 @@ function SigninPage() {
     defaultValues: initialValues,
   });
 
+  const buildMicrosoftSignInUrl = () => {
+    const microsoftUrlParams = new URLSearchParams();
+
+    if (currentTenant?.id) {
+      microsoftUrlParams.set('tenantId', currentTenant.id);
+    }
+
+    const query = microsoftUrlParams.toString();
+
+    return `${config.backendUrl}/auth/social/microsoft${query ? `?${query}` : ''}`;
+  };
+
+  const shouldUseMicrosoftSso = (email) => {
+    const normalizedEmail = email
+      ?.trim()
+      .toLowerCase();
+    const tenantUsesMicrosoftSso =
+      currentTenant?.ssoAuthProvider === 'microsoft';
+    const isFabbuilderEmail = normalizedEmail?.endsWith(
+      '@fabbuilder.com',
+    );
+
+    return tenantUsesMicrosoftSso || isFabbuilderEmail;
+  };
+
+  const onFormSubmit = (event) => {
+    event.preventDefault();
+
+    const { email } = form.getValues();
+
+    if (shouldUseMicrosoftSso(email)) {
+      window.location.href = buildMicrosoftSignInUrl();
+      return;
+    }
+
+    form.handleSubmit(onSubmit)(event);
+  };
+
   const onSubmit = ({ email, password, rememberMe }) => {
     dispatch(
       actions.doSigninWithEmailAndPassword(
@@ -115,7 +156,7 @@ function SigninPage() {
         </Logo>
 
         <FormProvider {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)}>
+          <form onSubmit={onFormSubmit}>
             <InputFormItem
               name="email"
               placeholder={i18n('user.fields.email')}
@@ -170,6 +211,17 @@ function SigninPage() {
             </button>
 
             <SocialButtons>
+              <a
+                href={buildMicrosoftSignInUrl()}
+              >
+                <i
+                  className="fab fa-microsoft"
+                  style={{
+                    color: '#00A4EF',
+                  }}
+                />
+              </a>
+
               <a
                 href={`${config.backendUrl}/auth/social/facebook`}
               >

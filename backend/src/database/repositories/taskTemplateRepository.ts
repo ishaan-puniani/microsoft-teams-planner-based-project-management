@@ -390,3 +390,23 @@ class TaskTemplateRepository {
 
 export default TaskTemplateRepository;
 /// File is generated from https://studio.fabbuilder.com - taskTemplate
+
+
+
+// db.getCollection("tasktemplates").aggregate([
+//   { $match: { name: /^BASE_/ } },
+//   {
+//     $set: {
+//       name: {
+//         $replaceOne: {
+//           input: "$name",
+//           find: "BASE_",
+//           replacement: ""
+//         }
+//       },
+//       tenant: ObjectId("69b3df93cf3f6ffc21592d3d")
+//     }
+//   },
+//   { $unset: "_id" },
+//   { $merge: { into: "tasktemplates" } }
+// ])
