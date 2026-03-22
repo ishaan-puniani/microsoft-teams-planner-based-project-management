@@ -204,6 +204,15 @@ export default class MsPlannerService {
     return response.data;
   }
 
+  static async bulkMoveTasks(payload) {
+    const tenantId = AuthCurrentTenant.get();
+    const response = await authAxios.post(
+      `/tenant/${tenantId}/ms-planner/tasks/move`,
+      payload,
+    );
+    return response.data;
+  }
+
   static async updateTaskDetails(taskId, payload) {
     const tenantId = AuthCurrentTenant.get();
     const response = await authAxios.patch(

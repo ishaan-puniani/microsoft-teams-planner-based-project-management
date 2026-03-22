@@ -5,6 +5,7 @@ import tasks from './tasks';
 import taskGet from './taskGet';
 import taskUpdate from './taskUpdate';
 import taskMove from './taskMove';
+import taskBulkMove from './taskBulkMove';
 import taskCreate from './taskCreate';
 import taskDetailsGet from './taskDetailsGet';
 import taskDetailsUpdate from './taskDetailsUpdate';
@@ -21,6 +22,7 @@ export default (app) => {
     app.get('/tenant/:tenantId/ms-planner/task/:taskId', taskGet);
     app.patch('/tenant/:tenantId/ms-planner/task/:taskId', taskUpdate);
     app.post('/tenant/:tenantId/ms-planner/task/:taskId/move', taskMove);
+    app.post('/tenant/:tenantId/ms-planner/tasks/move', taskBulkMove);
     app.get('/tenant/:tenantId/ms-planner/task/:taskId/details', taskDetailsGet);
     app.patch('/tenant/:tenantId/ms-planner/task/:taskId/details', taskDetailsUpdate);
     app.get('/tenant/:tenantId/ms-planner/plans/autocomplete', planner);

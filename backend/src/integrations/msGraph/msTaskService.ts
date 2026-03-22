@@ -24,6 +24,10 @@ export interface MoveTaskParams {
     copyDetails?: boolean;
 }
 
+export interface BulkMoveTaskParams extends MoveTaskParams {
+    continueOnError?: boolean;
+}
+
 export default class MsTaskService {
 
     private static _fullyDecodeURIComponent(value: string): string {
@@ -896,6 +900,46 @@ export default class MsTaskService {
             detailsCopied,
             sourceDeleted,
             warnings,
+        };
+    }
+
+    static async moveTasksToPlan(
+        taskIds: string[],
+        moveParams: BulkMoveTaskParams,
+        credentials?: MsPlannerCredentials,
+    ): Promise<any> {
+        const normalizedTaskIds = Array.isArray(taskIds)
+            ? taskIds.map((id) => String(id || '').trim()).filter(Boolean)
+            : [];
+
+        if (normalizedTaskIds.length === 0) {
+            throw new Error('taskIds must be a non-empty array.');
+        }
+
+        const continueOnError = moveParams.continueOnError !== false;
+        const results: Array<any> = [];
+        const failures: Array<{ taskId: string; error: string }> = [];
+
+        for (const taskId of normalizedTaskIds) {
+            try {
+                const moved = await this.moveTaskToPlan(taskId, moveParams, credentials);
+                results.push(moved);
+            } catch (error: any) {
+                const message = error?.message || String(error);
+                failures.push({ taskId, error: message });
+                results.push({ taskId, success: false, error: message });
+                if (!continueOnError) {
+                    throw new Error(`Bulk move failed for task ${taskId}: ${message}`);
+                }
+            }
+        }
+
+        return {
+            total: normalizedTaskIds.length,
+            succeeded: normalizedTaskIds.length - failures.length,
+            failed: failures.length,
+            results,
+            failures,
         };
     }
 

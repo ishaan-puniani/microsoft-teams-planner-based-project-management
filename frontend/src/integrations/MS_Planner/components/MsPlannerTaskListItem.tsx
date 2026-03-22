@@ -66,6 +66,8 @@ interface MsPlannerTaskListItemProps {
   buckets?: BucketOption[];
   users?: GraphUser[];
   onTaskUpdate: (updated: PlannerTask) => void;
+  isSelected?: boolean;
+  onSelectionChange?: (taskId: string, selected: boolean) => void;
   onTaskMove?: (result: {
     sourceTaskId: string;
     destinationTask: PlannerTask;
@@ -82,6 +84,8 @@ const MsPlannerTaskListItem = ({
   buckets = [],
   users = [],
   onTaskUpdate,
+  isSelected = false,
+  onSelectionChange,
   onTaskMove,
 }: MsPlannerTaskListItemProps) => {
   const [updating, setUpdating] = useState(false);
@@ -198,6 +202,20 @@ const MsPlannerTaskListItem = ({
     <div className="card h-100 shadow-sm">
       <div className="card-body">
         <div className="d-flex justify-content-between align-items-start mb-2">
+          <div className="form-check mr-2 mt-1">
+            <input
+              type="checkbox"
+              className="form-check-input"
+              checked={isSelected}
+              onChange={(e) => {
+                e.stopPropagation();
+                if (task.id && onSelectionChange) {
+                  onSelectionChange(task.id, e.target.checked);
+                }
+              }}
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
           <h6
             className="card-title mb-0 text-truncate flex-grow-1"
             title={task.title}

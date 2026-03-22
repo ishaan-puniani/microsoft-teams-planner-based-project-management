@@ -8,6 +8,7 @@ import MsPlannerService from 'src/modules/msPlanner/msPlannerService';
 import MsPlannerTaskListItem, {
   type PlannerTask,
 } from './components/MsPlannerTaskListItem';
+import MoveMsPlannerTasksDialog from './components/MoveMsPlannerTasksDialog';
 import CreateMsPlannerTaskWithDetail from './components/CreateMsPlannerTaskWithDetail';
 import QuickCreateMsPlannerTaskWithDetail from './components/QuickCreateMsPlannerTaskWithDetail';
 import MsPlannerFilter, {
@@ -34,6 +35,8 @@ const MsPlannerTasksListPage = () => {
   const [layout, setLayout] = useState<LayoutMode>('grid3');
   const [filters, setFilters] = useState<MsPlannerFilters>(EMPTY_FILTERS);
   const [tasksLoading, setTasksLoading] = useState(false);
+  const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
+  const [bulkMoveVisible, setBulkMoveVisible] = useState(false);
 
   const fetchFilteredTasks = useCallback(
     async (currentFilters: MsPlannerFilters) => {
@@ -72,6 +75,7 @@ const MsPlannerTasksListPage = () => {
         setCategories(planData?.categories || {});
         setBuckets(Array.isArray(planData?.buckets) ? planData.buckets : []);
         setUsers(usersData || []);
+        setSelectedTasks([]);
       } catch (e: any) {
         setError(
           e?.response?.data?.message || e?.message || 'Failed to load tasks',
@@ -107,6 +111,41 @@ const MsPlannerTasksListPage = () => {
       }
       return [destinationTask, ...withoutSource];
     });
+  };
+
+  const handleTaskSelectionChange = (taskId: string, selected: boolean) => {
+    setSelectedTasks((prev) => {
+      if (selected) {
+        if (prev.includes(taskId)) return prev;
+        return [...prev, taskId];
+      }
+      return prev.filter((id) => id !== taskId);
+    });
+  };
+
+  const handleBulkMoveSuccess = (payload: any) => {
+    const results = Array.isArray(payload?.results) ? payload.results : [];
+    const movedMap = new Map<string, PlannerTask>();
+    const removed = new Set<string>();
+
+    results.forEach((item: any) => {
+      if (!item) return;
+      if (item.sourceTaskId) {
+        removed.add(item.sourceTaskId);
+      } else if (item.taskId) {
+        removed.add(item.taskId);
+      }
+      if (item.destinationTask?.id && item.destinationPlanId === planId) {
+        movedMap.set(item.destinationTask.id, item.destinationTask);
+      }
+    });
+
+    setTasks((prev) => {
+      const kept = prev.filter((t) => !removed.has(String(t.id || '')));
+      return [...Array.from(movedMap.values()), ...kept];
+    });
+    setSelectedTasks([]);
+    setBulkMoveVisible(false);
   };
 
   const hasActiveFilters =
@@ -182,6 +221,15 @@ const MsPlannerTasksListPage = () => {
           >
             Quick mode Add Tasks
           </button>
+
+          <button
+            type="button"
+            className="btn btn-sm btn-outline-warning ml-2"
+            disabled={selectedTasks.length === 0}
+            onClick={() => setBulkMoveVisible(true)}
+          >
+            Move tasks ({selectedTasks.length})
+          </button>
         </PageTitle>
         <MsPlannerFilter
           buckets={buckets}
@@ -217,6 +265,13 @@ const MsPlannerTasksListPage = () => {
           }}
           categories={categories}
           users={users}
+        />
+        <MoveMsPlannerTasksDialog
+          taskIds={selectedTasks}
+          currentPlanId={planId}
+          visible={bulkMoveVisible}
+          onClose={() => setBulkMoveVisible(false)}
+          onSuccess={handleBulkMoveSuccess}
         />
         <div className="d-flex align-items-center gap-1 mb-3">
           <span className="text-muted small me-2">Layout:</span>
@@ -278,6 +333,8 @@ const MsPlannerTasksListPage = () => {
                   buckets={buckets}
                   users={users}
                   onTaskUpdate={handleTaskUpdate}
+                  isSelected={selectedTasks.includes(String(task.id || ''))}
+                  onSelectionChange={handleTaskSelectionChange}
                   onTaskMove={handleTaskMove}
                 />
               </div>
