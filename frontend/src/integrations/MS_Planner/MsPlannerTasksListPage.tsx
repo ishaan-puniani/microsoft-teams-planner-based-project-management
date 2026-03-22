@@ -90,6 +90,25 @@ const MsPlannerTasksListPage = () => {
     );
   };
 
+  const handleTaskMove = (result: {
+    sourceTaskId: string;
+    destinationTask: PlannerTask;
+    sourceDeleted: boolean;
+    destinationPlanId: string;
+    destinationBucketId: string;
+  }) => {
+    const destinationTask = result.destinationTask;
+    const movedWithinCurrentPlan = !!planId && result.destinationPlanId === planId;
+
+    setTasks((prev) => {
+      const withoutSource = prev.filter((t) => t.id !== result.sourceTaskId);
+      if (!movedWithinCurrentPlan || !destinationTask?.id) {
+        return withoutSource;
+      }
+      return [destinationTask, ...withoutSource];
+    });
+  };
+
   const hasActiveFilters =
     filters.buckets.length > 0 ||
     filters.statuses.length > 0 ||
@@ -259,6 +278,7 @@ const MsPlannerTasksListPage = () => {
                   buckets={buckets}
                   users={users}
                   onTaskUpdate={handleTaskUpdate}
+                  onTaskMove={handleTaskMove}
                 />
               </div>
             ))}

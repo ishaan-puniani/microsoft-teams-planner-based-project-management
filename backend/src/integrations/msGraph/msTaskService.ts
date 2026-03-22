@@ -17,6 +17,13 @@ export interface TaskFilterParams {
     startDateTo?: string;
 }
 
+export interface MoveTaskParams {
+    destinationPlanId: string;
+    destinationBucketId: string;
+    deleteSourceTask?: boolean;
+    copyDetails?: boolean;
+}
+
 export default class MsTaskService {
 
     private static _fullyDecodeURIComponent(value: string): string {
@@ -710,6 +717,186 @@ export default class MsTaskService {
         } catch (error: any) {
             throw new Error(`Failed to update planner task ${taskId}: ${error.message}`);
         }
+    }
+
+    private static async _deletePlannerTask(
+        taskId: string,
+        etag: string,
+        credentials?: MsPlannerCredentials,
+    ): Promise<void> {
+        const token = await this._getServiceToken(credentials);
+        const url = `https://graph.microsoft.com/v1.0/planner/tasks/${taskId}`;
+
+        const doDelete = async (ifMatch: string) => {
+            const headers: Record<string, string> = {
+                Authorization: `Bearer ${token}`,
+            };
+            if (ifMatch) {
+                headers['If-Match'] = ifMatch;
+            }
+
+            return fetch(url, {
+                method: 'DELETE',
+                headers,
+            });
+        };
+
+        let response = await doDelete(etag || '');
+
+        if (response.status === 409) {
+            const getResponse = await fetch(url, {
+                method: 'GET',
+                headers: { Authorization: `Bearer ${token}` },
+            });
+
+            if (!getResponse.ok) {
+                const errorText = await getResponse.text();
+                throw new Error(
+                    `Failed to delete source task after move: 409 Conflict. Could not read latest task: ${getResponse.status} - ${errorText}`,
+                );
+            }
+
+            let freshEtag = getResponse.headers.get('ETag') || getResponse.headers.get('etag');
+            if (!freshEtag) {
+                const body = await getResponse.json();
+                freshEtag = body?.['@odata.etag'];
+            }
+
+            if (!freshEtag) {
+                throw new Error(
+                    'Failed to delete source task after move: 409 Conflict. Could not resolve fresh etag.',
+                );
+            }
+
+            response = await doDelete(freshEtag);
+        }
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Failed to delete source task: ${response.status} ${response.statusText} - ${errorText}`);
+        }
+    }
+
+    static async moveTaskToPlan(
+        taskId: string,
+        moveParams: MoveTaskParams,
+        credentials?: MsPlannerCredentials,
+    ): Promise<any> {
+        const destinationPlanId = String(moveParams.destinationPlanId || '').trim();
+        const destinationBucketId = String(moveParams.destinationBucketId || '').trim();
+
+        if (!destinationPlanId || !destinationBucketId) {
+            throw new Error('destinationPlanId and destinationBucketId are required to move a task.');
+        }
+
+        const deleteSourceTask = moveParams.deleteSourceTask !== false;
+        const copyDetails = moveParams.copyDetails !== false;
+        const warnings: string[] = [];
+
+        const sourceTask = await this.getTask(taskId, credentials);
+        const sourceTaskEtag = sourceTask?.['@odata.etag'] || sourceTask?.etag || '';
+
+        // Create with minimal required fields first; some optional fields can be invalid across plans/groups.
+        const createPayload: any = {
+            planId: destinationPlanId,
+            bucketId: destinationBucketId,
+            title: String(sourceTask?.title || '').trim() || 'Untitled',
+        };
+
+        const destinationTask = await this.createTask(destinationPlanId, createPayload, credentials);
+        const destinationTaskEtag = destinationTask?.['@odata.etag'] || destinationTask?.etag || '';
+
+        // Copy safe scalar fields first.
+        if (destinationTaskEtag) {
+            const scalarPatch: any = {};
+            if (sourceTask?.priority != null) scalarPatch.priority = Number(sourceTask.priority);
+            if (sourceTask?.startDateTime !== undefined) scalarPatch.startDateTime = sourceTask.startDateTime;
+            if (sourceTask?.dueDateTime !== undefined) scalarPatch.dueDateTime = sourceTask.dueDateTime;
+            if (
+                sourceTask?.orderHint &&
+                typeof sourceTask.orderHint === 'string' &&
+                (sourceTask.orderHint.includes('!') || sourceTask.orderHint.includes(' '))
+            ) {
+                scalarPatch.orderHint = sourceTask.orderHint;
+            }
+
+            if (Object.keys(scalarPatch).length > 0) {
+                try {
+                    await this.updatePlannerTask(destinationTask.id, destinationTaskEtag, scalarPatch, credentials);
+                } catch (error: any) {
+                    warnings.push(`Could not copy one or more scalar fields: ${error?.message || String(error)}`);
+                }
+            }
+
+            // Categories may differ per plan; keep move successful and report warnings.
+            if (sourceTask?.appliedCategories && Object.keys(sourceTask.appliedCategories).length > 0) {
+                try {
+                    await this.updatePlannerTask(
+                        destinationTask.id,
+                        destinationTaskEtag,
+                        { appliedCategories: sourceTask.appliedCategories },
+                        credentials,
+                    );
+                } catch (error: any) {
+                    warnings.push(`Could not copy categories: ${error?.message || String(error)}`);
+                }
+            }
+
+            // Assignments can be invalid when destination plan has different members.
+            if (sourceTask?.assignments && Object.keys(sourceTask.assignments).length > 0) {
+                try {
+                    await this.updatePlannerTask(
+                        destinationTask.id,
+                        destinationTaskEtag,
+                        { assignments: sourceTask.assignments },
+                        credentials,
+                    );
+                } catch (error: any) {
+                    warnings.push(`Could not copy assignments: ${error?.message || String(error)}`);
+                }
+            }
+        } else {
+            warnings.push('Destination task etag is missing, so optional task fields were not copied.');
+        }
+
+        let detailsCopied = false;
+        if (copyDetails) {
+            const sourceDetails = await this.getTaskDetails(taskId, credentials);
+            const patch: any = {};
+
+            if (sourceDetails?.description !== undefined) {
+                patch.description = sourceDetails.description;
+            }
+            if (sourceDetails?.checklist !== undefined) {
+                patch.checklist = sourceDetails.checklist;
+            }
+            if (sourceDetails?.references !== undefined) {
+                patch.references = sourceDetails.references;
+            }
+
+            if (Object.keys(patch).length > 0) {
+                try {
+                    await this.updateTaskDetailsWithEtag(destinationTask.id, '', patch, credentials);
+                    detailsCopied = true;
+                } catch (error: any) {
+                    warnings.push(`Could not copy task details: ${error?.message || String(error)}`);
+                }
+            }
+        }
+
+        let sourceDeleted = false;
+        if (deleteSourceTask) {
+            await this._deletePlannerTask(taskId, sourceTaskEtag, credentials);
+            sourceDeleted = true;
+        }
+
+        return {
+            sourceTaskId: taskId,
+            destinationTask,
+            detailsCopied,
+            sourceDeleted,
+            warnings,
+        };
     }
 
     static async updateTaskDetails(taskId: string, description: string, credentials?: MsPlannerCredentials): Promise<any> {

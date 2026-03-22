@@ -5,6 +5,7 @@ import MsPlannerService from 'src/modules/msPlanner/msPlannerService';
 import { i18n } from 'src/i18n';
 import MsPlannerTaskDetail from './MsPlannerTaskDetail';
 import EditMsPlannerTaskDetail from './EditMsPlannerTaskDetail';
+import MoveMsPlannerTaskDialog from './MoveMsPlannerTaskDialog';
 
 export interface PlannerTask {
   id?: string;
@@ -65,6 +66,13 @@ interface MsPlannerTaskListItemProps {
   buckets?: BucketOption[];
   users?: GraphUser[];
   onTaskUpdate: (updated: PlannerTask) => void;
+  onTaskMove?: (result: {
+    sourceTaskId: string;
+    destinationTask: PlannerTask;
+    sourceDeleted: boolean;
+    destinationPlanId: string;
+    destinationBucketId: string;
+  }) => void;
 }
 
 const MsPlannerTaskListItem = ({
@@ -74,6 +82,7 @@ const MsPlannerTaskListItem = ({
   buckets = [],
   users = [],
   onTaskUpdate,
+  onTaskMove,
 }: MsPlannerTaskListItemProps) => {
   const [updating, setUpdating] = useState(false);
   const [updateError, setUpdateError] = useState<string | null>(null);
@@ -183,6 +192,7 @@ const MsPlannerTaskListItem = ({
 
   const [detailTaskId, setDetailTaskId] = useState<string | null>(null);
   const [editTaskId, setEditTaskId] = useState<string | null>(null);
+  const [moveTaskId, setMoveTaskId] = useState<string | null>(null);
 
   return (
     <div className="card h-100 shadow-sm">
@@ -196,6 +206,16 @@ const MsPlannerTaskListItem = ({
           >
             {task.title ?? 'Untitled task'}
           </h6>
+          <button
+            type="button"
+            className="btn btn-sm btn-outline-warning ml-1"
+            onClick={(e) => {
+              e.stopPropagation();
+              task.id && setMoveTaskId(task.id);
+            }}
+          >
+            Move
+          </button>
           <button
             type="button"
             className="btn btn-sm btn-outline-primary ml-1"
@@ -316,6 +336,26 @@ const MsPlannerTaskListItem = ({
           }}
           categories={categories}
           users={users}
+        />
+        <MoveMsPlannerTaskDialog
+          task={task}
+          currentPlanId={planId}
+          visible={!!moveTaskId}
+          onClose={() => setMoveTaskId(null)}
+          onSuccess={(result) => {
+            if (onTaskMove) {
+              onTaskMove({
+                sourceTaskId: result.sourceTaskId,
+                destinationTask: result.destinationTask,
+                sourceDeleted: result.sourceDeleted,
+                destinationPlanId: result.destinationPlanId,
+                destinationBucketId: result.destinationBucketId,
+              });
+            } else if (result.destinationTask?.id) {
+              onTaskUpdate(result.destinationTask);
+            }
+            setMoveTaskId(null);
+          }}
         />
       </div>
     </div>

@@ -15,6 +15,13 @@ export interface PlannerBoardCardContextValue {
   buckets: BucketOption[];
   users: GraphUser[];
   onTaskUpdate: (updated: PlannerTask) => void;
+  onTaskMove: (result: {
+    sourceTaskId: string;
+    destinationTask: PlannerTask;
+    sourceDeleted: boolean;
+    destinationPlanId: string;
+    destinationBucketId: string;
+  }) => void;
   onCardClick?: (cardId: string) => void;
 }
 
@@ -119,6 +126,7 @@ export function PlannerBoardCard(props: ReactTrelloCardProps) {
         buckets={ctx.buckets}
         users={ctx.users}
         onTaskUpdate={ctx.onTaskUpdate}
+        onTaskMove={ctx.onTaskMove}
       />
     </div>
   );

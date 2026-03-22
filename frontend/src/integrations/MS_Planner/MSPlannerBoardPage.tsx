@@ -178,6 +178,25 @@ const MSPlannerBoardPage = () => {
     );
   }, []);
 
+  const handleTaskMove = useCallback((result: {
+    sourceTaskId: string;
+    destinationTask: PlannerTask;
+    sourceDeleted: boolean;
+    destinationPlanId: string;
+    destinationBucketId: string;
+  }) => {
+    const destinationTask = result.destinationTask;
+    const movedWithinCurrentPlan = !!planId && result.destinationPlanId === planId;
+
+    setTasks((prev) => {
+      const withoutSource = prev.filter((t) => t.id !== result.sourceTaskId);
+      if (!movedWithinCurrentPlan || !destinationTask?.id) {
+        return withoutSource;
+      }
+      return [destinationTask, ...withoutSource];
+    });
+  }, [planId]);
+
   const boardCardContextValue: PlannerBoardCardContextValue = useMemo(
     () => ({
       planId: planId ?? '',
@@ -185,9 +204,10 @@ const MSPlannerBoardPage = () => {
       buckets,
       users,
       onTaskUpdate: handleTaskUpdate,
+      onTaskMove: handleTaskMove,
       onCardClick: setTaskDetailId,
     }),
-    [planId, categories, buckets, users, handleTaskUpdate],
+    [planId, categories, buckets, users, handleTaskUpdate, handleTaskMove],
   );
 
   const boardData = useMemo(
