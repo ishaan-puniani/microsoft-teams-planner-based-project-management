@@ -37,6 +37,7 @@ export function normalizeEstimates(obj: Record<string, unknown> | null): Estimat
 }
 
 export async function estimateTask(params: {
+  skillsEstimationContext?: string;
   projectDescription: string;
   teamSkillLevel: Record<string, unknown>;
   taskType: string;
@@ -45,14 +46,19 @@ export async function estimateTask(params: {
   acceptanceCriteria: string;
   apiKey: string;
 }): Promise<{ low: EstimatesByRole; ideal: EstimatesByRole; high: EstimatesByRole }> {
-  const { projectDescription, teamSkillLevel, taskType, title, description, acceptanceCriteria, apiKey } = params;
+  const {skillsEstimationContext, projectDescription, teamSkillLevel, taskType, title, description, acceptanceCriteria, apiKey } = params;
 
   const skillDesc = Object.entries(teamSkillLevel)
     .filter(([, v]) => v != null)
     .map(([role, level]) => `${role}: ${level}`)
     .join(', ') || 'all roles: average (undefined treated as average; unallocated = out of team)';
 
-  const userPrompt = `Project description:\n${projectDescription || '(none)'}\n\nTeam skill level: ${skillDesc}\n\nTask type: ${taskType}\nTask title: ${title}\nTask description: ${description || '(none)'}\nAcceptance criteria: ${acceptanceCriteria || '(none)'}\n\nOutput JSON with low, ideal, high; each an object with architect, developer, tester, businessAnalyst, ux, pm (hours). Use 0 for roles not needed for this task.`;
+  let userPrompt = `Project description:\n${projectDescription || '(none)'}\n\nTeam skill level: ${skillDesc}\n\nTask type: ${taskType}\nTask title: ${title}\nTask description: ${description || '(none)'}\nAcceptance criteria: ${acceptanceCriteria || '(none)'}\n\nOutput JSON with low, ideal, high; each an object with architect, developer, tester, businessAnalyst, ux, pm (hours). Use 0 for roles not needed for this task.`;
+
+  if (skillsEstimationContext && typeof skillsEstimationContext === 'string' && skillsEstimationContext.trim() !== '') {
+    userPrompt += `\n\nSkills context and constraints: ${skillsEstimationContext}`;
+  }
+
 
   const model = getConfig().GEMINI_MODEL || 'gemini-2.0-flash';
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;

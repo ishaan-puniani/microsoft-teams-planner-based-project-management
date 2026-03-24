@@ -2,6 +2,7 @@ export interface Project {
   id: string;
   name?: string;
   description?: string;
+  skillsEstimationContext?: string;
   startDate?: Date;
   endDate?: Date;
   status?: string;
@@ -24,6 +25,7 @@ export interface Project {
 export interface ProjectFormValues {
   name?: string;
   description?: string;
+  skillsEstimationContext?: string;
   startDate?: Date;
   endDate?: Date;
   status?: string;
@@ -41,6 +43,7 @@ export interface ProjectFormValues {
 export interface ProjectFilter {
   name?: string;
   description?: string;
+  skillsEstimationContext?: string;
   startDate?: Date;
   endDate?: Date;
   status?: string;

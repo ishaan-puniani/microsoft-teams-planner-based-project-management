@@ -21,6 +21,10 @@ export default (database) => {
         type: String,
       },
 
+      skillsEstimationContext: {
+        type: String,
+      },
+
       teamSkillLevel: {
         architect: { type: String, enum: ['LOW', 'MEDIUM', 'HIGH'] },
         developer: { type: String, enum: ['LOW', 'MEDIUM', 'HIGH'] },

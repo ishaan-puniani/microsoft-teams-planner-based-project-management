@@ -112,6 +112,7 @@ const en = {
         id: 'Id',
         name: 'Name',
         description: 'Description',
+        skillsEstimationContext: 'Skills estimation context',
         code: 'Code',
         startDate: 'Start Date',
         startDateRange: 'Start Date',
@@ -138,7 +139,9 @@ const en = {
         createdAtRange: 'Created at',
       },
       enumerators: {},
-      placeholders: {},
+      placeholders: {
+        skillsEstimationContext: 'Share any project-specific context that helps estimate skills and effort',
+      },
       hints: {
         epicTemplate: 'Select the template to use for creating epics in this project',
         userStoryTemplate: 'Select the template to use for creating user stories in this project',

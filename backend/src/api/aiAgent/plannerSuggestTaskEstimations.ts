@@ -15,6 +15,7 @@ export default async function plannerSuggestEstimatesOfTask(req, res, next) {
     const project = await ProjectRepository.findById(projectId, req);
     const projectDescription = project?.description ?? '';
     const teamSkillLevel = project?.teamSkillLevel ?? {};
+    const skillsEstimationContext = project?.skillsEstimationContext ?? '';
 
     const task = await TaskRepository.findById(taskId, req);
     const taskType = task?.type ?? '';
@@ -32,6 +33,7 @@ export default async function plannerSuggestEstimatesOfTask(req, res, next) {
     }
 
     const suggestedEstimatedTime = await estimateTask({
+      skillsEstimationContext,
       projectDescription,
       teamSkillLevel,
       taskType,

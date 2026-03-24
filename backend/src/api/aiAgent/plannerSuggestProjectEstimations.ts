@@ -12,6 +12,7 @@ export default async function plannerSuggestEstimatesOfTask(req, res, next) {
     const project = await ProjectRepository.findById(projectId, req);
     const projectDescription = project?.description ?? '';
     const teamSkillLevel = project?.teamSkillLevel ?? {};
+    const skillsEstimationContext = project?.skillsEstimationContext ?? '';
 
     const apiKey = getConfig().GEMINI_API_KEY || getConfig().GOOGLE_GEMINI_API_KEY;
     if (!apiKey) {
@@ -36,6 +37,7 @@ export default async function plannerSuggestEstimatesOfTask(req, res, next) {
 
     for (const task of tasks) {
       const suggestedEstimatedTime = await estimateTask({
+        skillsEstimationContext,
         projectDescription,
         teamSkillLevel,
         taskType: task.type,

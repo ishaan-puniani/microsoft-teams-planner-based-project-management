@@ -5,6 +5,7 @@ import { i18n } from 'src/i18n';
 import yupFormSchemas from 'src/modules/shared/yup/yupFormSchemas';
 import ButtonIcon from 'src/view/shared/ButtonIcon';
 import InputFormItem from 'src/view/shared/form/items/InputFormItem';
+import TextAreaFormItem from 'src/view/shared/form/items/TextAreaFormItem';
 import DatePickerFormItem from 'src/view/shared/form/items/DatePickerFormItem';
 import SelectFormItem from 'src/view/shared/form/items/SelectFormItem';
 import FormWrapper from 'src/view/shared/styles/FormWrapper';
@@ -28,6 +29,10 @@ const schema = yup.object().shape({
   ),
   description: yupFormSchemas.string(
     i18n('entities.project.fields.description'),
+    {},
+  ),
+  skillsEstimationContext: yupFormSchemas.string(
+    i18n('entities.project.fields.skillsEstimationContext'),
     {},
   ),
   code: yupFormSchemas.string(
@@ -113,6 +118,7 @@ const ProjectForm = (props) => {
     return {
       name: record.name,
       description: record.description,
+      skillsEstimationContext: record.skillsEstimationContext,
       code: record.code,
       startDate: record.startDate,
       endDate: record.endDate,
@@ -257,6 +263,13 @@ const ProjectForm = (props) => {
           <div className="row">
             <div className="col-12">
               <h5 className="mb-3">{i18n('entities.project.sections.teamSkillLevel')}</h5>
+            </div>
+            <div className="col-lg-7 col-md-8 col-12">
+              <TextAreaFormItem
+                name="skillsEstimationContext"
+                label={i18n('entities.project.fields.skillsEstimationContext')}
+                placeholder={i18n('entities.project.placeholders.skillsEstimationContext')}
+              />
             </div>
             {ESTIMATES_ROLES.map(({ key, label }) => (
               <div key={key} className="col-lg-6 col-md-8 col-12">

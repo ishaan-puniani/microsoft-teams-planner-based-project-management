@@ -111,6 +111,7 @@ const en = {
         id: 'Id',
         name: 'Name',
         description: 'Description',
+        skillsEstimationContext: 'Skills estimation context',
         startDate: 'Start Date',
         startDateRange: 'Start Date',
         endDate: 'End Date',
@@ -127,7 +128,9 @@ const en = {
         createdAtRange: 'Created at',
       },
       enumerators: {},
-      placeholders: {},
+      placeholders: {
+        skillsEstimationContext: 'Share any project-specific context that helps estimate skills and effort',
+      },
       hints: {},
       sections: {
         teamSkillLevel: 'Team skill level',

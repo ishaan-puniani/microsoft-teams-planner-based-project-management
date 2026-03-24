@@ -23,6 +23,11 @@ const ProjectView = (props) => {
         value={record.description}
       />
 
+      <TextViewItem
+        label={i18n('entities.project.fields.skillsEstimationContext')}
+        value={record.skillsEstimationContext}
+      />
+
       <DateViewItem
         label={i18n('entities.project.fields.startDate')}
         value={record.startDate}

@@ -3,6 +3,7 @@ import * as yup from 'yup';
 export const projectSchema = yup.object({
   name: yup.string().optional(),
   description: yup.string().optional(),
+  skillsEstimationContext: yup.string().optional(),
   code: yup.string().required().length(4),
   counter: yup.number().default(0),
   startDate: yup.date().optional(),
@@ -20,6 +21,7 @@ export const projectUpdateSchema = projectSchema.partial().omit(['createdBy', 'u
 export const projectFilterSchema = yup.object({
   name: yup.string().optional(),
   description: yup.string().optional(),
+  skillsEstimationContext: yup.string().optional(),
   startDate: yup.date().optional(),
   endDate: yup.date().optional(),
   status: yup.string().optional(),

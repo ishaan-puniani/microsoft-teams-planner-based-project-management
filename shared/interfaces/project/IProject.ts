@@ -2,6 +2,7 @@ export interface IProject {
   id?: string;
   name?: string;
   description?: string;
+  skillsEstimationContext?: string;
   startDate?: Date;
   endDate?: Date;
   status?: string;
@@ -24,6 +25,7 @@ export interface IProject {
 export interface IProjectCreate {
   name?: string;
   description?: string;
+  skillsEstimationContext?: string;
   startDate?: Date;
   endDate?: Date;
   status?: string;
@@ -41,6 +43,7 @@ export interface IProjectCreate {
 export interface IProjectUpdate {
   name?: string;
   description?: string;
+  skillsEstimationContext?: string;
   startDate?: Date;
   endDate?: Date;
   status?: string;
@@ -58,6 +61,7 @@ export interface IProjectUpdate {
 export interface IProjectFilter {
   name?: string;
   description?: string;
+  skillsEstimationContext?: string;
   startDate?: Date;
   endDate?: Date;
   status?: string;
