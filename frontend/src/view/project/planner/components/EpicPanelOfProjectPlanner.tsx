@@ -4,7 +4,7 @@ import AiAgentService, {
   type AiSuggestionAttachment,
 } from 'src/modules/aiAgent/aiAgentService';
 import Errors from 'src/modules/shared/error/errors';
-import { parseStructuredBulk } from '../structuredBulkParser';
+import { parseStructuredBulk, serializeTasksOnly } from '../structuredBulkParser';
 import type { ParsedItem } from '../structuredBulkParser';
 import { UserStoryPanelOfProjectPlanner } from './UserStoryPanelOfProjectPlanner';
 import {
@@ -49,6 +49,9 @@ const EpicPanelOfProjectPlanner = ({
   const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedUserStoryIndexes, setSelectedUserStoryIndexes] = useState<number[]>([]);
+  const [taskSuggestionLoadingByUserStory, setTaskSuggestionLoadingByUserStory] =
+    useState<Record<number, boolean>>({});
   const [epicAttachment, setEpicAttachment] = useState<PlannerReferenceFile | null>(null);
   const epicFileRef = useRef<HTMLInputElement>(null);
 
@@ -107,6 +110,49 @@ const EpicPanelOfProjectPlanner = ({
       setLoading(false);
     }
   };
+
+  const toggleUserStorySelection = (userStoryIndex: number, checked: boolean) => {
+    setSelectedUserStoryIndexes((prev) => {
+      if (checked) {
+        if (prev.includes(userStoryIndex)) return prev;
+        return [...prev, userStoryIndex];
+      }
+      return prev.filter((idx) => idx !== userStoryIndex);
+    });
+  };
+
+  const handleGenerateTasksForSelectedUserStories = async () => {
+    if (!selectedUserStoryIndexes.length) return;
+    setError(null);
+    const failedUserStories: string[] = [];
+
+    for (const usIdx of selectedUserStoryIndexes) {
+      const userStory = userStories[usIdx];
+      if (!userStory) continue;
+
+      setTaskSuggestionLoadingByUserStory((prev) => ({ ...prev, [usIdx]: true }));
+      try {
+        const data = await AiAgentService.plannerSuggestTasksForUserStory(
+          serializeUserStory(userStory),
+          { projectBrief, epicName, projectId, attachment: attachmentForEpicAi },
+        );
+        const parsedFull = parseStructuredBulk(data.tasksText || '');
+        const tasksOnly = parsedFull.filter((x) => x.level === 2);
+        onUserStoryTasksChange({ [`${epicIndex}-${usIdx}`]: serializeTasksOnly(tasksOnly) });
+      } catch (e: any) {
+        Errors.handle(e);
+        failedUserStories.push(userStory.title);
+      } finally {
+        setTaskSuggestionLoadingByUserStory((prev) => ({ ...prev, [usIdx]: false }));
+      }
+    }
+
+    if (failedUserStories.length > 0) {
+      setError(`Failed to suggest tasks for: ${failedUserStories.join(', ')}`);
+    }
+  };
+
+  const isAnyTaskSuggestionLoading = Object.values(taskSuggestionLoadingByUserStory).some(Boolean);
 
   const collapseId = `epic-${epicIndex}`;
 
@@ -195,9 +241,36 @@ const EpicPanelOfProjectPlanner = ({
           {userStories.length > 0 && (
             <div className="planner-level-1 ms-2 border-start border-2 border-light ps-2">
               <div className="small text-muted mb-2">User stories (expand to generate tasks)</div>
+              <button
+                type="button"
+                className="btn btn-primary btn-sm mb-2"
+                disabled={selectedUserStoryIndexes.length === 0 || isAnyTaskSuggestionLoading}
+                onClick={handleGenerateTasksForSelectedUserStories}
+              >
+                <ButtonIcon loading={isAnyTaskSuggestionLoading} iconClass="fas fa-magic" />
+                Generate Task suggestions for selected User Stories ({selectedUserStoryIndexes.length})
+              </button>
               {userStories.map((us, usIdx) => (
+                <div key={usIdx} className="d-flex align-items-start gap-2">
+                  <div className="pt-2" style={{ minWidth: '20px' }}>
+                    {taskSuggestionLoadingByUserStory[usIdx] ? (
+                      <span
+                        className="spinner-border spinner-border-sm text-primary"
+                        role="status"
+                        aria-label={`Generating tasks for ${us.title}`}
+                      />
+                    ) : (
+                      <input
+                        type="checkbox"
+                        id={`userstory-${epicIndex}-${usIdx}`}
+                        className="form-check-input mt-1"
+                        checked={selectedUserStoryIndexes.includes(usIdx)}
+                        onChange={(e) => toggleUserStorySelection(usIdx, e.target.checked)}
+                        disabled={isAnyTaskSuggestionLoading}
+                      />
+                    )}
+                  </div>
                 <UserStoryPanelOfProjectPlanner
-                  key={usIdx}
                   epicIndex={epicIndex}
                   userStoryIndex={usIdx}
                   userStory={us}
@@ -211,6 +284,7 @@ const EpicPanelOfProjectPlanner = ({
                   }
                   serializeUserStoryText={() => serializeUserStory(us)}
                 />
+                </div>
               ))}
             </div>
           )}

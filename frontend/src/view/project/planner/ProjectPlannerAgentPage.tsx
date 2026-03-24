@@ -103,6 +103,17 @@ function parseFullTextToAgentState(fullText: string): {
   return { epicsText, epicUserStories, userStoryTasks };
 }
 
+function stripEpicTitleFromText(text: string, epicName: string): string {
+  const trimmed = text.trim();
+  if (!trimmed || !epicName.trim()) return text;
+  const firstLine = trimmed.split('\n')[0].trim();
+  if (firstLine === epicName.trim()) {
+    const rest = trimmed.slice(firstLine.length).trimStart();
+    return rest.startsWith('\n\n') ? rest.slice(2) : rest;
+  }
+  return text;
+}
+
 const ProjectPlannerAgentPage = () => {
   const { id: projectId } = useParams<{ id: string }>();
   const [project, setProject] = useState<{ id: string; name?: string } | null>(null);
@@ -113,6 +124,8 @@ const ProjectPlannerAgentPage = () => {
   const [showEpicsPreview, setShowEpicsPreview] = useState(false);
   const [epicUserStories, setEpicUserStories] = useState<Record<number, string>>({});
   const [userStoryTasks, setUserStoryTasks] = useState<Record<string, string>>({});
+  const [selectedEpicIndexes, setSelectedEpicIndexes] = useState<number[]>([]);
+  const [epicUserStoriesLoading, setEpicUserStoriesLoading] = useState<Record<number, boolean>>({});
   const [epicsLoading, setEpicsLoading] = useState(false);
   const [epicsError, setEpicsError] = useState<string | null>(null);
   const [plannerAttachment, setPlannerAttachment] = useState<
@@ -219,10 +232,56 @@ const ProjectPlannerAgentPage = () => {
     if (epicsText.trim()) setStep(2);
   };
 
+  const toggleEpicSelection = (epicIndex: number, checked: boolean) => {
+    setSelectedEpicIndexes((prev) => {
+      if (checked) {
+        if (prev.includes(epicIndex)) return prev;
+        return [...prev, epicIndex];
+      }
+      return prev.filter((idx) => idx !== epicIndex);
+    });
+  };
+
+  const handleSuggestUserStoriesForSelectedEpics = async () => {
+    if (!selectedEpicIndexes.length) return;
+    setEpicsError(null);
+    const failedEpics: string[] = [];
+
+    for (const epicIndex of selectedEpicIndexes) {
+      const epicName = epicNames[epicIndex];
+      if (!epicName?.trim()) continue;
+
+      setEpicUserStoriesLoading((prev) => ({ ...prev, [epicIndex]: true }));
+      try {
+        const data = await AiAgentService.plannerSuggestUserStoriesForEpic(epicName, {
+          projectBrief,
+          projectId,
+          attachment: attachmentPayload,
+        });
+
+        setEpicUserStories((prev) => ({
+          ...prev,
+          [epicIndex]: stripEpicTitleFromText(data.userStoriesText || '', epicName),
+        }));
+      } catch (e: any) {
+        Errors.handle(e);
+        failedEpics.push(epicName);
+      } finally {
+        setEpicUserStoriesLoading((prev) => ({ ...prev, [epicIndex]: false }));
+      }
+    }
+
+    if (failedEpics.length > 0) {
+      setEpicsError(`Failed to suggest user stories for: ${failedEpics.join(', ')}`);
+    }
+  };
+
   const epicNames = epicsText
     .split(/\n/)
     .map((l) => l.trim())
     .filter(Boolean);
+  const countSelectedEpics = selectedEpicIndexes.length;
+  const isAnyBulkUserStoriesLoading = Object.values(epicUserStoriesLoading).some(Boolean);
 
   if (loadingProject || !projectId) {
     return (
@@ -276,44 +335,45 @@ const ProjectPlannerAgentPage = () => {
             </h5>
           </div>
           <div className="card-body">
-            <div className="mb-3 pb-3 border-bottom">
-              <label className="form-label small mb-1">
-                Optional reference file (PDF or image)
-              </label>
-              <p className="text-muted small mb-2">
-                Specs, wireframes, or screenshots are sent with each AI action on this page so
-                suggestions can match your document.
-              </p>
-              <input
-                ref={plannerFileInputRef}
-                type="file"
-                accept="application/pdf,image/jpeg,image/png,image/gif,image/webp,.pdf"
-                className="form-control form-control-sm mt-2"
-                disabled={epicsLoading}
-                onChange={onPlannerReferenceFile}
-              />
-              {plannerAttachment && (
-                <div className="d-flex align-items-center flex-wrap gap-2 mt-2">
-                  <span
-                    className="small text-muted text-truncate"
-                    style={{ maxWidth: '280px' }}
-                    title={plannerAttachment.name}
-                  >
-                    {plannerAttachment.name}
-                  </span>
-                  <button
-                    type="button"
-                    className="btn btn-link btn-sm p-0"
-                    onClick={clearPlannerAttachment}
-                  >
-                    Clear file
-                  </button>
-                </div>
-              )}
-            </div>
+
 
             {step === 1 && (
               <>
+                <div className="mb-3 pb-3 border-bottom">
+                  <label className="form-label small mb-1">
+                    Optional reference file (PDF or image)
+                  </label>
+                  <p className="text-muted small mb-2">
+                    Specs, wireframes, or screenshots are sent with each AI action on this page so
+                    suggestions can match your document.
+                  </p>
+                  <input
+                    ref={plannerFileInputRef}
+                    type="file"
+                    accept="application/pdf,image/jpeg,image/png,image/gif,image/webp,.pdf"
+                    className="form-control form-control-sm mt-2"
+                    disabled={epicsLoading}
+                    onChange={onPlannerReferenceFile}
+                  />
+                  {plannerAttachment && (
+                    <div className="d-flex align-items-center flex-wrap gap-2 mt-2">
+                      <span
+                        className="small text-muted text-truncate"
+                        style={{ maxWidth: '280px' }}
+                        title={plannerAttachment.name}
+                      >
+                        {plannerAttachment.name}
+                      </span>
+                      <button
+                        type="button"
+                        className="btn btn-link btn-sm p-0"
+                        onClick={clearPlannerAttachment}
+                      >
+                        Clear file
+                      </button>
+                    </div>
+                  )}
+                </div>
                 <label className="form-label small">Tell me about your project</label>
                 <textarea
                   className="form-control mb-2"
@@ -391,27 +451,54 @@ const ProjectPlannerAgentPage = () => {
                   Brief: {projectBrief.slice(0, 80)}
                   {projectBrief.length > 80 ? '…' : ''}
                 </p>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm mb-2"
+                  onClick={handleSuggestUserStoriesForSelectedEpics}
+                  disabled={countSelectedEpics === 0 || isAnyBulkUserStoriesLoading}
+                >
+                  <ButtonIcon loading={isAnyBulkUserStoriesLoading} iconClass="fas fa-magic" />
+                  Suggest User Stories for selected Epics ({countSelectedEpics})
+                </button>
+                {epicsError && (
+                  <div className="alert alert-danger py-2 small mb-2">{epicsError}</div>
+                )}
                 <p className="form-label small mb-2">
                   Expand each <strong>Epic</strong> to generate user stories. Expand each <strong>User Story</strong> to generate tasks. Each <strong>Task</strong> shows its todos.
                 </p>
                 <div className="accordion mb-3 planner-hierarchy" id="epics-accordion">
                   {epicNames.map((epicName, epicIndex) => (
-                    <EpicPanelOfProjectPlanner
-                      key={epicIndex}
-                      epicIndex={epicIndex}
-                      epicName={epicName}
-                      projectId={projectId}
-                      projectBrief={projectBrief}
-                      plannerAttachment={attachmentPayload}
-                      userStoriesText={epicUserStories[epicIndex] ?? ''}
-                      onUserStoriesTextChange={(text) =>
-                        setEpicUserStories((prev) => ({ ...prev, [epicIndex]: text }))
-                      }
-                      userStoryTasks={userStoryTasks}
-                      onUserStoryTasksChange={(patch) =>
-                        setUserStoryTasks((prev) => ({ ...prev, ...patch }))
-                      }
-                    />
+                    <div key={epicIndex} className="d-flex align-items-start gap-2">
+                      <div className="pt-2" style={{ minWidth: '20px' }}>
+                        {epicUserStoriesLoading[epicIndex] ? (
+                          <span className="spinner-border spinner-border-sm text-primary" role="status" aria-label={`Generating user stories for ${epicName}`} />
+                        ) : (
+                          <input
+                            type="checkbox"
+                            id={`select-epic-${epicIndex}`}
+                            className="form-check-input mt-1"
+                            checked={selectedEpicIndexes.includes(epicIndex)}
+                            onChange={(e) => toggleEpicSelection(epicIndex, e.target.checked)}
+                            disabled={isAnyBulkUserStoriesLoading}
+                          />
+                        )}
+                      </div>
+                      <EpicPanelOfProjectPlanner
+                        epicIndex={epicIndex}
+                        epicName={epicName}
+                        projectId={projectId}
+                        projectBrief={projectBrief}
+                        plannerAttachment={attachmentPayload}
+                        userStoriesText={epicUserStories[epicIndex] ?? ''}
+                        onUserStoriesTextChange={(text) =>
+                          setEpicUserStories((prev) => ({ ...prev, [epicIndex]: text }))
+                        }
+                        userStoryTasks={userStoryTasks}
+                        onUserStoryTasksChange={(patch) =>
+                          setUserStoryTasks((prev) => ({ ...prev, ...patch }))
+                        }
+                      />
+                    </div>
                   ))}
                 </div>
               </>
