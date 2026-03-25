@@ -2,7 +2,9 @@ import { yupResolver } from '@hookform/resolvers/yup';
 import { useEffect, useRef, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { i18n } from 'src/i18n';
+import Errors from 'src/modules/shared/error/errors';
 import yupFormSchemas from 'src/modules/shared/yup/yupFormSchemas';
+import AiAgentService from 'src/modules/aiAgent/aiAgentService';
 import ButtonIcon from 'src/view/shared/ButtonIcon';
 import InputFormItem from 'src/view/shared/form/items/InputFormItem';
 import TextAreaFormItem from 'src/view/shared/form/items/TextAreaFormItem';
@@ -112,6 +114,8 @@ function normalizeRelationToOne(value: any): { id: string; label: string } | nul
 }
 
 const ProjectForm = (props) => {
+  const [suggestion, setSuggestion] = useState('');
+  const [suggestionLoading, setSuggestionLoading] = useState(false);
   const [initialValues] = useState(() => {
     const record = props.record || {};
     const tsl = record.teamSkillLevel || {};
@@ -172,6 +176,9 @@ const ProjectForm = (props) => {
   };
 
   const groupId = form.watch('msGroup')?.id;
+  const description = form.watch('description');
+  const descriptionText = typeof description === 'string' ? description.trim() : '';
+  const canGenerateSuggestion = descriptionText.length > 0;
   const prevGroupIdRef = useRef<string | undefined>(undefined);
 
   // When msGroup changes, clear msPlan so the plan list refetches for the new group and we don't keep a plan from the previous group
@@ -181,6 +188,22 @@ const ProjectForm = (props) => {
     }
     prevGroupIdRef.current = groupId;
   }, [groupId, form]);
+
+  const onGenerateSuggestion = async () => {
+    if (!canGenerateSuggestion || suggestionLoading) {
+      return;
+    }
+
+    try {
+      setSuggestionLoading(true);
+      const data = await AiAgentService.suggestProjectDescription(descriptionText);
+      setSuggestion((data?.suggestion || '').trim());
+    } catch (error) {
+      Errors.showMessage(error);
+    } finally {
+      setSuggestionLoading(false);
+    }
+  };
 
   return (
     <FormWrapper>
@@ -210,10 +233,30 @@ const ProjectForm = (props) => {
               />
             </div>
             <div className="col-lg-7 col-md-8 col-12">
-              <InputFormItem
+              <TextAreaFormItem
                 name="description"
                 label={i18n('entities.project.fields.description')}
               />
+
+              <div className="mt-2">
+                <div className="mb-2">
+                  <button
+                    className="btn btn-outline-secondary btn-sm"
+                    type="button"
+                    disabled={!canGenerateSuggestion || suggestionLoading || props.saveLoading}
+                    onClick={onGenerateSuggestion}
+                  >
+                    {suggestionLoading ? 'Generating suggestion...' : 'Generate Suggestion'}
+                  </button>
+                </div>
+
+                {suggestion ? (
+                  <div className="alert alert-info mb-0" role="status">
+                    {suggestion}
+                  </div>
+                ) : null}
+              </div>
+
             </div>
             <div className="col-lg-7 col-md-8 col-12">
               <InputFormItem

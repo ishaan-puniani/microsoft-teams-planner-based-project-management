@@ -7,6 +7,7 @@ import yupFormSchemas from 'src/modules/shared/yup/yupFormSchemas';
 import { tenantSubdomain } from 'src/modules/tenant/tenantSubdomain';
 import ButtonIcon from 'src/view/shared/ButtonIcon';
 import InputFormItem from 'src/view/shared/form/items/InputFormItem';
+import TextAreaFormItem from 'src/view/shared/form/items/TextAreaFormItem';
 import FormWrapper from 'src/view/shared/styles/FormWrapper';
 import * as yup from 'yup';
 
@@ -46,6 +47,13 @@ const schemaWithUrl = yup.object().shape({
       /^[a-z0-9][-a-zA-Z0-9]*$/,
       i18n('tenant.validation.url'),
     ),
+  learning: yupFormSchemas.string(
+    i18n('tenant.fields.learning'),
+    {
+      required: true,
+      max: 1000,
+    },
+  ),
   msPlanner: msPlannerSchema,
 });
 
@@ -55,6 +63,13 @@ const schemaWithoutUrl = yup.object().shape({
     {
       required: true,
       max: 50,
+    },
+  ),
+  learning: yupFormSchemas.string(
+    i18n('tenant.fields.learning'),
+    {
+      required: true,
+      max: 1000,
     },
   ),
   msPlanner: msPlannerSchema,
@@ -72,9 +87,10 @@ function TenantForm(props) {
     MS_SCOPE: '',
   };
   const [initialValues] = useState(() => {
-    const base = props.record || { name: '' };
+    const base = props.record || { name: '', learning: '' };
     return {
       ...base,
+      learning: base.learning || '',
       msPlanner: {
         ...defaultMsPlanner,
         ...(base.msPlanner || {}),
@@ -124,6 +140,17 @@ function TenantForm(props) {
                 />
               </div>
             )}
+
+             <div className="row">
+            <div className="col-lg-7 col-md-8 col-12">
+              <TextAreaFormItem
+                name="learning"
+                label={i18n('tenant.fields.learning')}
+                required={true}
+                autoFocus
+              />
+            </div>
+            </div>
 
             <div className="col-12">
               <h5 className="mb-3 mt-2">{msPlannerSectionTitle}</h5>

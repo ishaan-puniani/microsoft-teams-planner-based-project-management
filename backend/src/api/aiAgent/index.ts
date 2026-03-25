@@ -8,6 +8,7 @@ import plannerSuggestTodosForTask from './plannerSuggestTodosForTask';
 import suggestTestCasesForTask from './suggestTestCasesForTask';
 import plannerSuggestTaskEstimations from './plannerSuggestTaskEstimations';
 import plannerSuggestProjectEstimations from './plannerSuggestProjectEstimations';
+import suggestProjectDescription from './suggestProjectDescription';
 
 export default (app) => {
   app.get('/tenant/:tenantId/ai-agent/organize-project-tasks/:projectId', organizeTasksInPorject);
@@ -22,4 +23,5 @@ export default (app) => {
   app.post('/tenant/:tenantId/ai-agent/planner-suggest-tasks-for-user-story-of-epic', plannerSuggestTasksForUserStory);
   app.post('/tenant/:tenantId/ai-agent/planner-suggest-todos-for-task', plannerSuggestTodosForTask);
   app.post('/tenant/:tenantId/ai-agent/suggest-test-cases-for-task', suggestTestCasesForTask);
+  app.post('/tenant/:tenantId/ai-agent/suggest-project-description', suggestProjectDescription);
 };
