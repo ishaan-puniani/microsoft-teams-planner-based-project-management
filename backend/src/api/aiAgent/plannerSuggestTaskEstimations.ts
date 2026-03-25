@@ -10,6 +10,7 @@ export { estimateTask } from '../../services/aiAgent/taskService';
 export default async function plannerSuggestEstimatesOfTask(req, res, next) {
   const projectId = req.params.projectId;
   const taskId = req.params.taskId;
+  const reEstimate = req.query.reEstimate === 'true';
 
   try {
     const project = await ProjectRepository.findById(projectId, req);
@@ -22,6 +23,12 @@ export default async function plannerSuggestEstimatesOfTask(req, res, next) {
     const title = task?.title ?? '';
     const description = task?.description ?? '';
     const acceptanceCriteria = task?.acceptanceCriteria ?? '';
+
+    if (!reEstimate && task?.suggestedEstimatedTime) {
+      return ApiResponseHandler.success(req, res, {
+        suggestedEstimatedTime: task.suggestedEstimatedTime,
+      });
+    }
 
     const apiKey = getConfig().GEMINI_API_KEY || getConfig().GOOGLE_GEMINI_API_KEY;
     if (!apiKey) {

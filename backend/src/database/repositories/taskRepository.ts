@@ -779,6 +779,7 @@ class TaskRepository {
   static async getEpicsAndUserStoriesWithoutEstimates(
     projectId: string,
     options: IRepositoryOptions,
+    { reEstimate = false }: { reEstimate?: boolean } = {},
   ): Promise<
     Array<{
       id: string;
@@ -792,24 +793,29 @@ class TaskRepository {
     const projectObjId = MongooseQueryUtils.uuid(projectId);
     if (!projectObjId) return [];
 
+    const criteria: any = {
+      tenant: currentTenant.id,
+      project: projectObjId,
+      $or: [
+        { type: 'EPIC' },
+        { type: 'USER_STORY' },
+        { type: { $regex: /^(EPIC|USER_STORY)$/i } },
+      ],
+    };
+
+    if (!reEstimate) {
+      criteria.$and = [
+        {
+          $or: [
+            { suggestedEstimatedTime: { $exists: false } },
+            { suggestedEstimatedTime: null },
+          ],
+        },
+      ];
+    }
+
     const rows = await Task(options.database)
-      .find({
-        tenant: currentTenant.id,
-        project: projectObjId,
-        $or: [
-          { type: 'EPIC' },
-          { type: 'USER_STORY' },
-          { type: { $regex: /^(EPIC|USER_STORY)$/i } },
-        ],
-        $and: [
-          {
-            $or: [
-              { suggestedEstimatedTime: { $exists: false } },
-              { suggestedEstimatedTime: null },
-            ],
-          },
-        ],
-      })
+      .find(criteria)
       .select('_id title description acceptanceCriteria type')
       .lean();
 

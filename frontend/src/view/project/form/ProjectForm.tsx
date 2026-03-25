@@ -116,6 +116,8 @@ function normalizeRelationToOne(value: any): { id: string; label: string } | nul
 const ProjectForm = (props) => {
   const [suggestion, setSuggestion] = useState('');
   const [suggestionLoading, setSuggestionLoading] = useState(false);
+  const [integrationSuggestion, setIntegrationSuggestion] = useState('');
+  const [suggestionIntegrationLoading, setSuggestionIntegrationLoading] = useState(false);
   const [initialValues] = useState(() => {
     const record = props.record || {};
     const tsl = record.teamSkillLevel || {};
@@ -205,6 +207,22 @@ const ProjectForm = (props) => {
     }
   };
 
+  const onGenerateIntegrationSuggestion = async () => {
+    if (!canGenerateSuggestion || suggestionIntegrationLoading) {
+      return;
+    }
+
+    try {
+      setSuggestionIntegrationLoading(true);
+      const data = await AiAgentService.suggestProjectIntegrations(descriptionText);
+      setIntegrationSuggestion((data?.suggestion || '').trim());
+    } catch (error) {
+      Errors.showMessage(error);
+    } finally {
+      setSuggestionIntegrationLoading(false);
+    }
+  };
+
   return (
     <FormWrapper>
       <FormProvider {...form}>
@@ -237,6 +255,27 @@ const ProjectForm = (props) => {
                 name="description"
                 label={i18n('entities.project.fields.description')}
               />
+
+              <div className="mt-2">
+                <div className="mb-2">
+                  <button
+                    className="btn btn-outline-secondary btn-sm"
+                    type="button"
+                    disabled={!canGenerateSuggestion || suggestionIntegrationLoading || props.saveLoading}
+                    onClick={onGenerateIntegrationSuggestion}
+                  >
+                    {suggestionIntegrationLoading
+                      ? 'Generating 3rd-party integration suggestion...'
+                      : 'Generate 3rd-party integration suggestion'}
+                  </button>
+                </div>
+
+                {integrationSuggestion ? (
+                  <div className="alert alert-info mb-2" role="status">
+                    {integrationSuggestion}
+                  </div>
+                ) : null}
+              </div>
 
               <div className="mt-2">
                 <div className="mb-2">

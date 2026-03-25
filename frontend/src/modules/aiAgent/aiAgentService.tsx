@@ -154,6 +154,17 @@ export default class AiAgentService {
     return response.data as { suggestion: string };
   }
 
+  static async suggestProjectIntegrations(description: string) {
+    const tenantId = AuthCurrentTenant.get();
+    const response = await authAxios.post(
+      `/tenant/${tenantId}/ai-agent/suggest-project-integrations`,
+      {
+        description,
+      },
+    );
+    return response.data as { suggestion: string };
+  }
+
   static async organizeProjectTasks(projectId: string) {
     const tenantId = AuthCurrentTenant.get();
     const response = await authAxios.get(

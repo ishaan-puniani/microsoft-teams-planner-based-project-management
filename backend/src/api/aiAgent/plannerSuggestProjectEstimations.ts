@@ -7,6 +7,7 @@ import { estimateTask } from '../../services/aiAgent/taskService';
 
 export default async function plannerSuggestEstimatesOfTask(req, res, next) {
   const projectId = req.params.projectId;
+  const reEstimate = req.query.reEstimate === 'true';
 
   try {
     const project = await ProjectRepository.findById(projectId, req);
@@ -26,6 +27,7 @@ export default async function plannerSuggestEstimatesOfTask(req, res, next) {
     const tasks = await TaskRepository.getEpicsAndUserStoriesWithoutEstimates(
       projectId,
       req,
+      { reEstimate },
     );
 
     const results: Array<{
