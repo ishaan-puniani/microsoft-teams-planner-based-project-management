@@ -34,7 +34,7 @@ type TaskRecord = {
   };
 };
 
-type SkillKey = 'architect' | 'developer' | 'tester' | 'businessAnalyst' | 'ux' | 'pm';
+type SkillKey = 'team' | 'architect' | 'developer' | 'tester' | 'businessAnalyst' | 'ux' | 'pm';
 
 type ProjectRecord = {
   id: string;
