@@ -283,6 +283,10 @@ const ProjectPlannerPage = () => {
             <i className="fas fa-arrow-left me-1" />
             {i18n('common.view')} {i18n('entities.project.menu')}
           </Link>
+          <Link to={`/project-planner/${projectId}/timeline`} className="btn btn-outline-secondary btn-sm me-2">
+            <i className="fas fa-table me-1" />
+             Plan Timeline
+          </Link>
         </div>
 
         <div className="card">

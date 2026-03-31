@@ -194,6 +194,13 @@ const privateRoutes = [
     exact: true,
   },
   {
+    path: '/project-planner/:id/timeline',
+    loader: () =>
+      import('src/view/project/planner/ProjectPlannerTimelinePage'),
+    permissionRequired: permissions.projectRead,
+    exact: true,
+  },
+  {
     path: '/project-planner/:id/estimates-report',
     loader: () =>
       import('src/view/project/reports/ProjectEstimatesPage'),
