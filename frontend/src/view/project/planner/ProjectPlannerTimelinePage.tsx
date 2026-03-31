@@ -34,7 +34,7 @@ type TaskRecord = {
   };
 };
 
-type SkillKey = 'team' | 'architect' | 'developer' | 'tester' | 'businessAnalyst' | 'ux' | 'pm';
+type SkillKey = 'architect' | 'developer' | 'tester' | 'businessAnalyst' | 'ux' | 'pm';
 
 type ProjectRecord = {
   id: string;
@@ -49,7 +49,7 @@ type TimelineRow = {
   title: string;
   color: string;
   estimatedTime?: TaskRecord['estimatedTime'];
-  selectedDaysBySkill: Partial<Record<SkillKey, string[]>>;
+  selectedDaysBySkill: Record<string, string[]>;
 };
 
 type ColorPickerCell = {
@@ -218,12 +218,15 @@ function createTimelineToggleTemplate(
   };
 }
 
+type PlanningMode = 'general' | 'team';
+
 const ProjectPlannerTimelinePage = () => {
   const { id: projectId } = useParams<{ id: string }>();
   const [project, setProject] = useState<ProjectRecord | null>(null);
   const [loadingProject, setLoadingProject] = useState(true);
   const [loadingRows, setLoadingRows] = useState(true);
   const [rows, setRows] = useState<TimelineRow[]>([]);
+  const [planningMode, setPlanningMode] = useState<PlanningMode>('general');
   const [selectedSkill, setSelectedSkill] = useState<SkillKey>('team');
 
   const onColorChangeRef = useRef<((rowId: string, color: string) => void) | null>(null);
@@ -289,20 +292,23 @@ const ProjectPlannerTimelinePage = () => {
   }, [loadTasks]);
 
   const handleColorChange = useCallback((rowId: string, color: string) => {
-    // Team view is read-only
-    if (selectedSkill === 'team') return;
+    // Team view is read-only (when in team mode and viewing combined team view)
+    if (planningMode === 'team' && selectedSkill === 'team') return;
     setRows((current) =>
       current.map((row) => (row.id === rowId ? { ...row, color: ensureHexColor(color) } : row)),
     );
-  }, [selectedSkill]);
+  }, [planningMode, selectedSkill]);
 
   const toggleDaySelection = useCallback((rowId: string, dayKey: string) => {
-    // Team view is read-only
-    if (selectedSkill === 'team') return;
+    // Team view is read-only (when in team mode and viewing combined team view)
+    if (planningMode === 'team' && selectedSkill === 'team') return;
+    
+    const skillKey = planningMode === 'general' ? 'general' : selectedSkill;
+    
     setRows((current) =>
       current.map((row) => {
         if (row.id !== rowId) return row;
-        const selectedDays = row.selectedDaysBySkill[selectedSkill] ?? [];
+        const selectedDays = row.selectedDaysBySkill[skillKey] ?? [];
         const hasDay = selectedDays.includes(dayKey);
         const nextDays = hasDay
           ? selectedDays.filter((d) => d !== dayKey)
@@ -311,12 +317,12 @@ const ProjectPlannerTimelinePage = () => {
           ...row,
           selectedDaysBySkill: {
             ...row.selectedDaysBySkill,
-            [selectedSkill]: nextDays,
+            [skillKey]: nextDays,
           },
         };
       }),
     );
-  }, [selectedSkill]);
+  }, [planningMode, selectedSkill]);
 
   useEffect(() => {
     onColorChangeRef.current = handleColorChange;
@@ -344,9 +350,14 @@ const ProjectPlannerTimelinePage = () => {
 
   const displayedRows = rows;
 
-  // Helper to get selected days for a row - for Team view, combine all skills
+  // Helper to get selected days for a row
   const getSelectedDaysForRow = useCallback(
     (row: TimelineRow): string[] => {
+      if (planningMode === 'general') {
+        // General mode: get days from 'general' key
+        return row.selectedDaysBySkill['general'] ?? [];
+      }
+      // Team mode
       if (selectedSkill === 'team') {
         // Combine all selected days from all skills
         const allDays = new Set<string>();
@@ -357,7 +368,7 @@ const ProjectPlannerTimelinePage = () => {
       }
       return row.selectedDaysBySkill[selectedSkill] ?? [];
     },
-    [selectedSkill],
+    [planningMode, selectedSkill],
   );
 
   const saveTimeline = useCallback(() => {
@@ -368,17 +379,26 @@ const ProjectPlannerTimelinePage = () => {
       })
       .map((row) => {
         const selectedDays = getSelectedDaysForRow(row);
-        return {
+        const baseData = {
           key: row.key.trim(),
-          skill: selectedSkill,
           start: selectedDays[0],
           end: selectedDays[selectedDays.length - 1],
           color: row.color,
         };
+        
+        if (planningMode === 'general') {
+          return baseData;
+        } else {
+          // Team mode
+          return {
+            ...baseData,
+            skill: selectedSkill,
+          };
+        }
       });
 
     console.log(payload);
-  }, [displayedRows, selectedSkill, getSelectedDaysForRow]);
+  }, [displayedRows, planningMode, selectedSkill, getSelectedDaysForRow]);
 
   const exportColoredExcel = useCallback(() => {
     if (!displayedRows.length) return;
@@ -571,17 +591,29 @@ const ProjectPlannerTimelinePage = () => {
           </Link>
 
           <select
-            className="form-select form-select-sm d-inline-block ms-2"
-            style={{ width: 190 }}
-            value={selectedSkill}
-            onChange={(event) => setSelectedSkill(event.target.value as SkillKey)}
+            className="form-select form-select-sm d-inline-block ms-3"
+            style={{ width: 150 }}
+            value={planningMode}
+            onChange={(event) => setPlanningMode(event.target.value as PlanningMode)}
           >
-            {skillsInProject.map((skill) => (
-              <option key={skill} value={skill}>
-                {SKILL_LABELS[skill]}
-              </option>
-            ))}
+            <option value="general">General</option>
+            <option value="team">Team</option>
           </select>
+
+          {planningMode === 'team' && (
+            <select
+              className="form-select form-select-sm d-inline-block ms-2"
+              style={{ width: 190 }}
+              value={selectedSkill}
+              onChange={(event) => setSelectedSkill(event.target.value as SkillKey)}
+            >
+              {skillsInProject.map((skill) => (
+                <option key={skill} value={skill}>
+                  {SKILL_LABELS[skill]}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
 
         <div className="mb-2 text-muted small">
@@ -612,7 +644,10 @@ const ProjectPlannerTimelinePage = () => {
 
         <div className="mt-3 d-flex gap-2">
           <button type="button" className="btn btn-primary btn-sm" onClick={saveTimeline}>
-            Save Estimates for {`(${SKILL_LABELS[selectedSkill]})`}
+            Save Estimates
+            {planningMode === 'general'
+              ? ' (General)'
+              : ` (Team: ${SKILL_LABELS[selectedSkill]})`}
           </button>
           <button type="button" className="btn btn-outline-secondary btn-sm" onClick={exportColoredExcel}>
             Export Colored Excel
