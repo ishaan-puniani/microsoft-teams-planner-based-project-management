@@ -113,7 +113,14 @@ Workspace Context: ${workspaceLearning || '(no workspace context)'}`;
 
 		// Run the agent
 		try {
-			const { response: reply, tokensUsed, debugTrace, suggestions } = await agent.invoke(userInput, previousMessages);
+			const previousSuggestedTasks = Array.isArray(session?.data?.response?.suggestedTasks)
+				? session.data.response.suggestedTasks
+				: [];
+			const { response: reply, tokensUsed, debugTrace, suggestions } = await agent.invoke(
+				userInput,
+				previousMessages,
+				previousSuggestedTasks,
+			);
 
 			const toolErrorMatch = reply.match(/Tool\s+\w+\s+error:\s*([\s\S]+)/i);
 			const toolError = toolErrorMatch ? toolErrorMatch[1].trim() : null;

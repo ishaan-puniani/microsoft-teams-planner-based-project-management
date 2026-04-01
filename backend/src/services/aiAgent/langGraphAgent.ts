@@ -39,7 +39,11 @@ export type AgentDebugEvent = {
 	type:
 		| 'iteration-start'
 		| 'intent-routed'
+		| 'memory-append'
 		| 'model-response'
+		| 'memory-remove'
+		| 'memory-rename'
+		| 'memory-reorder'
 		| 'tool-detected'
 		| 'tool-input-parsed'
 		| 'tool-execution-start'
@@ -101,6 +105,10 @@ Available tools:
 - suggest_test_cases: Generate test cases for a task
 - suggest_estimations: Estimate time/effort for tasks
 - suggest_todos: Create subtasks/todos for a task
+- append_suggested_tasks: Append new task items into current in-memory suggestions for follow-up requests
+- remove_suggested_tasks: Remove task items from current in-memory suggestions for follow-up requests
+- rename_suggested_task: Rename one task in current in-memory suggestions
+- reorder_suggested_tasks: Move one task to top or bottom in current in-memory suggestions
 - suggest_project_description: Refine a project description`;
 
 	/**
@@ -109,13 +117,11 @@ Available tools:
 	async function callGemini(conversationHistory: ChatMessage[]): Promise<GeminiCallResult> {
 		const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
-		// Format messages for Gemini API
 		const contents = conversationHistory.map((msg) => ({
 			role: msg.role === 'assistant' ? 'model' : 'user',
 			parts: [{ text: msg.content }],
 		}));
 
-		// Add system prompt as first message
 		const allContents = [{ role: 'user' as const, parts: [{ text: systemPrompt }] }, ...contents];
 
 		const response = await axios.post(
@@ -144,6 +150,100 @@ Available tools:
 	 * Execute a tool based on its name and input
 	 */
 	async function executeTool(toolName: string, toolInput: any): Promise<string> {
+		if (toolName === 'append_suggested_tasks') {
+			const incoming = Array.isArray(toolInput?.tasks) ? toolInput.tasks : [];
+			const mapped: SuggestedTask[] = incoming
+				.map((raw: any, index: number) => {
+					const name = String(raw?.name || raw?.title || raw || '').trim();
+					if (!name) return null;
+					return {
+						id: `task-append-${Date.now()}-${index + 1}`,
+						name,
+						description: typeof raw?.description === 'string' ? raw.description : 'Appended task',
+						type: 'TASK',
+					};
+				})
+				.filter(Boolean) as SuggestedTask[];
+			suggestions.suggestedTasks = mergeTasks(suggestions.suggestedTasks || [], mapped);
+			suggestions.suggestedTasksType = 'TASK';
+			return JSON.stringify({ appended: mapped.length, tasks: mapped });
+		}
+
+		if (toolName === 'remove_suggested_tasks') {
+			const toRemoveRaw = Array.isArray(toolInput?.taskNames) ? toolInput.taskNames : [];
+			const toRemove = toRemoveRaw
+				.map((x: any) => String(x || '').trim().toLowerCase())
+				.filter(Boolean);
+
+			const current = Array.isArray(suggestions.suggestedTasks) ? suggestions.suggestedTasks : [];
+			const removed: SuggestedTask[] = [];
+			const kept = current.filter((task) => {
+				const taskName = String(task?.name || '').trim().toLowerCase();
+				if (!taskName) return true;
+				const matched = toRemove.some((needle) => taskName.includes(needle) || needle.includes(taskName));
+				if (matched) removed.push(task);
+				return !matched;
+			});
+
+			suggestions.suggestedTasks = kept;
+			suggestions.suggestedTasksType = 'TASK';
+			return JSON.stringify({ removed: removed.length, removedTasks: removed, remaining: kept.length });
+		}
+
+		if (toolName === 'rename_suggested_task') {
+			const oldName = String(toolInput?.oldName || '').trim().toLowerCase();
+			const newName = String(toolInput?.newName || '').trim();
+			const current = Array.isArray(suggestions.suggestedTasks) ? suggestions.suggestedTasks : [];
+
+			if (!oldName || !newName || current.length === 0) {
+				return JSON.stringify({ renamed: false, reason: 'missing-old-or-new-name-or-empty-list' });
+			}
+
+			let renamed = false;
+			suggestions.suggestedTasks = current.map((task) => {
+				const taskName = String(task?.name || '').trim().toLowerCase();
+				if (!renamed && taskName && (taskName.includes(oldName) || oldName.includes(taskName))) {
+					renamed = true;
+					return { ...task, name: newName };
+				}
+				return task;
+			});
+
+			suggestions.suggestedTasksType = 'TASK';
+			return JSON.stringify({ renamed, newName });
+		}
+
+		if (toolName === 'reorder_suggested_tasks') {
+			const taskNameNeedle = String(toolInput?.taskName || '').trim().toLowerCase();
+			const positionRaw = String(toolInput?.position || '').trim().toLowerCase();
+			const position = positionRaw === 'top' || positionRaw === 'bottom' ? positionRaw : '';
+			const current = Array.isArray(suggestions.suggestedTasks) ? [...suggestions.suggestedTasks] : [];
+
+			if (!taskNameNeedle || !position || current.length === 0) {
+				return JSON.stringify({ reordered: false, reason: 'missing-task-or-position-or-empty-list' });
+			}
+
+			const idx = current.findIndex((task) => {
+				const taskName = String(task?.name || '').trim().toLowerCase();
+				return taskName && (taskName.includes(taskNameNeedle) || taskNameNeedle.includes(taskName));
+			});
+
+			if (idx < 0) {
+				return JSON.stringify({ reordered: false, reason: 'task-not-found' });
+			}
+
+			const [task] = current.splice(idx, 1);
+			if (position === 'top') {
+				current.unshift(task);
+			} else {
+				current.push(task);
+			}
+
+			suggestions.suggestedTasks = current;
+			suggestions.suggestedTasksType = 'TASK';
+			return JSON.stringify({ reordered: true, position, taskName: task.name });
+		}
+
 		const tool = tools.find((t) => t.name === toolName);
 		if (!tool) {
 			throw new Error(`Tool ${toolName} not found`);
@@ -247,6 +347,20 @@ Available tools:
 
 		if (current) tasks.push(current);
 		return tasks;
+	}
+
+	function mergeTasks(existing: SuggestedTask[], incoming: SuggestedTask[]): SuggestedTask[] {
+		const merged: SuggestedTask[] = [...existing];
+		const seen = new Set(existing.map((t) => (t.name || '').trim().toLowerCase()));
+
+		for (const task of incoming) {
+			const key = (task.name || '').trim().toLowerCase();
+			if (!key || seen.has(key)) continue;
+			seen.add(key);
+			merged.push(task);
+		}
+
+		return merged;
 	}
 
 	function parseUserStoryBlocks(text: string): Array<{ title: string; description?: string }> {
@@ -355,7 +469,7 @@ Available tools:
 					const text = extractTasksText(parsed);
 				const tasks = parseTasksText(text);
 				if (tasks.length > 0) {
-					suggestions.suggestedTasks = tasks;
+					suggestions.suggestedTasks = mergeTasks(suggestions.suggestedTasks || [], tasks);
 					suggestions.suggestedTasksType = 'TASK';
 				}
 				break;
@@ -400,13 +514,98 @@ Available tools:
 	}
 
 	type RoutedToolDecision = {
-		toolName: 'suggest_epics' | 'suggest_user_stories' | 'suggest_tasks';
+		toolName:
+			| 'suggest_epics'
+			| 'suggest_user_stories'
+			| 'suggest_tasks'
+			| 'append_suggested_tasks'
+			| 'remove_suggested_tasks'
+			| 'rename_suggested_task'
+			| 'reorder_suggested_tasks';
 		input: any;
 	};
 
 	function extractTopicAfterFor(userText: string): string {
 		const match = userText.match(/\bfor\b\s+(.+)$/i);
 		return match?.[1]?.trim() || '';
+	}
+
+	function extractAppendedTaskNames(userText: string): string[] {
+		const text = userText.trim();
+		const names: string[] = [];
+		const patterns = [
+			/\b(?:have|add|include)\s+(.+?)\s+task\s+as\s+well\b/i,
+			/\b(?:have|add|include)\s+(.+?)\s+task\b/i,
+			/\balso\s+(.+?)\s+task\b/i,
+		];
+
+		for (const pattern of patterns) {
+			const match = text.match(pattern);
+			if (match?.[1]) {
+				names.push(match[1].trim());
+			}
+		}
+
+		return names.filter(Boolean);
+	}
+
+	function extractRemovedTaskNames(userText: string): string[] {
+		const text = userText.trim();
+		const match = text.match(/\b(?:remove|delete|drop)\s+(?:task\s+)?["']?(.+?)["']?\s*$/i);
+		if (!match?.[1]) return [];
+
+		return match[1]
+			.split(/,|\band\b/i)
+			.map((name) => name.trim())
+			.filter(Boolean);
+	}
+
+	function extractRenameTaskSpec(userText: string): { oldName: string; newName: string } | null {
+		const text = userText.trim();
+		const patterns = [
+			/\b(?:rename|change)\s+(?:task\s+)?["']?(.+?)["']?\s+(?:to|as)\s+["']?(.+?)["']?\s*$/i,
+			/\b(?:rename|change)\s+["']?(.+?)["']?\s*->\s*["']?(.+?)["']?\s*$/i,
+		];
+
+		for (const pattern of patterns) {
+			const match = text.match(pattern);
+			if (match?.[1] && match?.[2]) {
+				const oldName = match[1].trim();
+				const newName = match[2].trim();
+				if (oldName && newName) {
+					return { oldName, newName };
+				}
+			}
+		}
+
+		return null;
+	}
+
+	function extractReorderTaskSpec(userText: string): { taskName: string; position: 'top' | 'bottom' } | null {
+		const text = userText.trim();
+		const patterns: Array<{ regex: RegExp; mapPosition: (v: string) => 'top' | 'bottom' | null }> = [
+			{
+				regex: /\b(?:move|put|place)\s+(?:task\s+)?["']?(.+?)["']?\s+(?:to|at)\s+(top|bottom|first|last)\b/i,
+				mapPosition: (value: string) => (/(top|first)/i.test(value) ? 'top' : /(bottom|last)/i.test(value) ? 'bottom' : null),
+			},
+			{
+				regex: /\b(?:move|put|place)\s+(?:task\s+)?["']?(.+?)["']?\s*$/i,
+				mapPosition: () => null,
+			},
+		];
+
+		for (const pattern of patterns) {
+			const match = text.match(pattern.regex);
+			if (!match?.[1]) continue;
+
+			const taskName = match[1].trim();
+			const mapped = pattern.mapPosition(match[2] || '');
+			if (taskName && mapped) {
+				return { taskName, position: mapped };
+			}
+		}
+
+		return null;
 	}
 
 	function shouldRouteSuggestEpics(userText: string): boolean {
@@ -417,9 +616,54 @@ Available tools:
 		);
 	}
 
-	function detectRoutedTool(userText: string): RoutedToolDecision | null {
+	function detectRoutedTool(userText: string, previousSuggestedTasks: SuggestedTask[] = []): RoutedToolDecision | null {
 		const text = (userText || '').toLowerCase().trim();
 		const topic = extractTopicAfterFor(userText) || userText;
+		const appendNames = extractAppendedTaskNames(userText);
+		const removeNames = extractRemovedTaskNames(userText);
+		const renameSpec = extractRenameTaskSpec(userText);
+		const reorderSpec = extractReorderTaskSpec(userText);
+
+		if (renameSpec && previousSuggestedTasks.length > 0) {
+			return {
+				toolName: 'rename_suggested_task',
+				input: {
+					oldName: renameSpec.oldName,
+					newName: renameSpec.newName,
+				},
+			};
+		}
+
+		if (reorderSpec && previousSuggestedTasks.length > 0) {
+			return {
+				toolName: 'reorder_suggested_tasks',
+				input: {
+					taskName: reorderSpec.taskName,
+					position: reorderSpec.position,
+				},
+			};
+		}
+
+		if (removeNames.length > 0 && previousSuggestedTasks.length > 0) {
+			return {
+				toolName: 'remove_suggested_tasks',
+				input: {
+					taskNames: removeNames,
+				},
+			};
+		}
+
+		if (appendNames.length > 0 && previousSuggestedTasks.length > 0) {
+			return {
+				toolName: 'append_suggested_tasks',
+				input: {
+					tasks: appendNames.map((name) => ({
+						name: /implementation$/i.test(name) ? name : `${name} Implementation`,
+						description: `Added from follow-up request: ${userText}`,
+					})),
+				},
+			};
+		}
 
 		if (/(user stor(y|ies)|create user story|generate user stor(y|ies))/.test(text)) {
 			return {
@@ -432,11 +676,18 @@ Available tools:
 			};
 		}
 
-		if (/(create tasks?|generate tasks?|break.*into tasks?|task list)/.test(text)) {
+		if (/(create tasks?|generate tasks?|break.*into tasks?|task list|\badd\b.*\btask\b|task\b.*\bas well\b|\balso\b.*\btask\b)/.test(text)) {
+			const previousTasksContext = (previousSuggestedTasks || [])
+				.map((task) => `- ${task.name}${task.description ? `: ${task.description}` : ''}`)
+				.join('\n');
+			const userStoryText = previousTasksContext
+				? `Existing suggested tasks:\n${previousTasksContext}\n\nAdditional task request:\n${userText}`
+				: topic;
+
 			return {
 				toolName: 'suggest_tasks',
 				input: {
-					userStoryText: topic,
+					userStoryText,
 					projectBrief: userText,
 					projectId: toolContext.projectId,
 				},
@@ -462,12 +713,16 @@ Available tools:
 	async function runAgent(
 		userMessage: string,
 		initialHistory: ChatMessage[] = [],
+		previousSuggestedTasks: SuggestedTask[] = [],
 		maxIterations: number = 10,
 	): Promise<{ response: string; messages: ChatMessage[]; tokensUsed: number; debugTrace: AgentDebugEvent[]; suggestions: AgentSuggestions }> {
 		let conversationHistory: ChatMessage[] = [...initialHistory];
 		let iterations = 0;
 		let totalTokensUsed = 0;
 		const debugTrace: AgentDebugEvent[] = [];
+		if (Array.isArray(previousSuggestedTasks) && previousSuggestedTasks.length > 0) {
+			suggestions.suggestedTasks = [...previousSuggestedTasks];
+		}
 
 		console.info('[AI_AGENT] Starting agent run', {
 			maxIterations,
@@ -482,7 +737,7 @@ Available tools:
 		});
 
 		// Proactive intent routing for planner prompts.
-		const routedDecision = detectRoutedTool(userMessage);
+		const routedDecision = detectRoutedTool(userMessage, previousSuggestedTasks);
 		if (routedDecision) {
 			const routedInput = routedDecision.input;
 
@@ -501,6 +756,38 @@ Available tools:
 
 				const routedToolResult = await executeTool(routedDecision.toolName, routedInput);
 				applyToolSuggestions(routedDecision.toolName, routedToolResult);
+				if (routedDecision.toolName === 'append_suggested_tasks') {
+					debugTrace.push({
+						iteration: 0,
+						type: 'memory-append',
+						toolName: routedDecision.toolName,
+						details: { routedInput },
+					});
+				}
+				if (routedDecision.toolName === 'remove_suggested_tasks') {
+					debugTrace.push({
+						iteration: 0,
+						type: 'memory-remove',
+						toolName: routedDecision.toolName,
+						details: { routedInput },
+					});
+				}
+				if (routedDecision.toolName === 'rename_suggested_task') {
+					debugTrace.push({
+						iteration: 0,
+						type: 'memory-rename',
+						toolName: routedDecision.toolName,
+						details: { routedInput },
+					});
+				}
+				if (routedDecision.toolName === 'reorder_suggested_tasks') {
+					debugTrace.push({
+						iteration: 0,
+						type: 'memory-reorder',
+						toolName: routedDecision.toolName,
+						details: { routedInput },
+					});
+				}
 
 				debugTrace.push({
 					iteration: 0,
