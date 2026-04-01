@@ -549,6 +549,25 @@ Available tools:
 		return names.filter(Boolean);
 	}
 
+	function extractAdditionalTaskFocus(userText: string): string {
+		const text = userText.trim();
+		const patterns = [
+			/\b(?:add|create|generate|suggest)\s+(?:more\s+|additional\s+|another\s+)?tasks?\s+(?:for|on|about|around)\s+(.+)$/i,
+			/\b(?:more|additional)\s+tasks?\s+(?:for|on|about|around)\s+(.+)$/i,
+			/\b(?:and\s+)?(?:also\s+)?(?:add\s+)?(?:some\s+more|more|additional|some)\s+(?:tasks?\s+)?(?:for|on|about|around)\s+(.+)$/i,
+		];
+
+		for (const pattern of patterns) {
+			const match = text.match(pattern);
+			if (match?.[1]) {
+				const focus = match[1].trim();
+				if (focus) return focus;
+			}
+		}
+
+		return '';
+	}
+
 	function extractRemovedTaskNames(userText: string): string[] {
 		const text = userText.trim();
 		const match = text.match(/\b(?:remove|delete|drop)\s+(?:task\s+)?["']?(.+?)["']?\s*$/i);
@@ -620,6 +639,7 @@ Available tools:
 		const text = (userText || '').toLowerCase().trim();
 		const topic = extractTopicAfterFor(userText) || userText;
 		const appendNames = extractAppendedTaskNames(userText);
+		const additionalTaskFocus = extractAdditionalTaskFocus(userText);
 		const removeNames = extractRemovedTaskNames(userText);
 		const renameSpec = extractRenameTaskSpec(userText);
 		const reorderSpec = extractReorderTaskSpec(userText);
@@ -649,6 +669,21 @@ Available tools:
 				toolName: 'remove_suggested_tasks',
 				input: {
 					taskNames: removeNames,
+				},
+			};
+		}
+
+		if (additionalTaskFocus && previousSuggestedTasks.length > 0) {
+			const previousTasksContext = previousSuggestedTasks
+				.map((task) => `- ${task.name}${task.description ? `: ${task.description}` : ''}`)
+				.join('\n');
+
+			return {
+				toolName: 'suggest_tasks',
+				input: {
+					userStoryText: `Existing suggested tasks:\n${previousTasksContext}\n\nGenerate additional tasks focused on: ${additionalTaskFocus}`,
+					projectBrief: userText,
+					projectId: toolContext.projectId,
 				},
 			};
 		}
