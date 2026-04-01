@@ -524,7 +524,17 @@ function formatCellValue(v: any): string {
 
 export type TaskChildrenType = 'USER_STORY' | 'TASK' | 'TEST_CASE' | 'BUG';
 
+type PreSuggestedTask = {
+  id?: string;
+  key?: string;
+  name?: string;
+  title?: string;
+  description?: string;
+  type?: string;
+};
+
 type Props = {
+  preSuggestedTasks?: PreSuggestedTask[];
   taskId: string | undefined;
   projectId?: string | null;
   /** Type of child tasks to list and create (e.g. USER_STORY when viewing EPIC, TEST_CASE when viewing TASK). Defaults to TEST_CASE. */
@@ -536,6 +546,7 @@ type Props = {
 };
 
 const SubtaskExcelView = ({
+  preSuggestedTasks = [],
   taskId,
   projectId,
   type: childType = 'TEST_CASE',
@@ -543,9 +554,10 @@ const SubtaskExcelView = ({
   taskTitle = '',
   taskDescription = '',
 }: Props) => {
+  const isPreSuggestedMode = !taskId && preSuggestedTasks.length > 0;
   const [templateFields, setTemplateFields] = useState<TaskTemplateField[] | null>(null);
   const [templateLoading, setTemplateLoading] = useState(true);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!isPreSuggestedMode);
   const [rows, setRows] = useState<TestCaseRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -559,6 +571,45 @@ const SubtaskExcelView = ({
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>(() => defaultWidths);
   const [rowHeights, setRowHeights] = useState<Record<string, number>>(() => ({}));
   const [dictatingFor, setDictatingFor] = useState<{ rowId: string; field: string } | null>(null);
+
+  const toPreSuggestedRows = useCallback(
+    (items: PreSuggestedTask[]): TestCaseRow[] =>
+      items.map((item) => {
+        const title = String(item?.name ?? item?.title ?? 'Task').trim() || 'Task';
+        const description = String(item?.description ?? '').trim();
+        const base: TestCaseRow = {
+          id: makePendingId(),
+          task: taskId,
+          title,
+          acceptanceCriteria: description,
+          checklist: [],
+        };
+
+        if (templateFields?.length) {
+          return {
+            ...base,
+            ...templateFields
+              .filter((f) => f.id !== ACCEPTANCE_CRITERIA_COLUMN_ID && f.id !== CHECKLIST_COLUMN_ID)
+              .reduce(
+                (acc, f) => ({
+                  ...acc,
+                  [f.id]: f.defaultValue ?? (f.type === 'CHECKLIST' ? [] : ''),
+                }),
+                {} as Record<string, any>,
+              ),
+          };
+        }
+
+        return {
+          ...base,
+          preconditions: '',
+          steps: description,
+          expectedResult: '',
+          testType: 'Functional',
+        };
+      }),
+    [taskId, templateFields],
+  );
 
   const {
     transcript,
@@ -653,6 +704,17 @@ const SubtaskExcelView = ({
   useEffect(() => {
     setColumnWidths((prev) => ({ ...getDefaultColumnWidths(templateFields), ...prev }));
   }, [templateFields]);
+
+  useEffect(() => {
+    if (!isPreSuggestedMode) return;
+    const mappedRows = toPreSuggestedRows(preSuggestedTasks);
+    lastSavedRowsRef.current = new Map(mappedRows.map((r) => [r.id, { ...r }]));
+    setRows(mappedRows);
+    setDirtyIds(new Set());
+    setDeletedIds(new Set());
+    setLoading(false);
+    setError(null);
+  }, [isPreSuggestedMode, preSuggestedTasks, toPreSuggestedRows]);
 
   const persistDraft = useCallback(
     (tid: string | undefined, currentRows: TestCaseRow[]) => {
@@ -908,7 +970,7 @@ const SubtaskExcelView = ({
   );
 
   const handleAddRow = useCallback(() => {
-    if (!taskId) return;
+    if (!taskId && !isPreSuggestedMode) return;
     const newRow: TestCaseRow = templateFields?.length
       ? {
           id: makePendingId(),
@@ -943,18 +1005,18 @@ const SubtaskExcelView = ({
       persistDraft(taskId, next);
       return next;
     });
-  }, [taskId, templateFields, persistDraft]);
+  }, [taskId, templateFields, persistDraft, isPreSuggestedMode]);
 
   const handleRemovePending = useCallback(
     (rowId: string) => {
-      if (!taskId) return;
+      if (!taskId && !isPreSuggestedMode) return;
       setRows((prev) => {
         const next = prev.filter((r) => r.id !== rowId);
         persistDraft(taskId, next);
         return next;
       });
     },
-    [taskId, persistDraft],
+    [taskId, persistDraft, isPreSuggestedMode],
   );
 
   const handleToggleDelete = useCallback((rowId: string) => {
@@ -1254,7 +1316,7 @@ const SubtaskExcelView = ({
   );
 
   const handleSave = useCallback(async () => {
-    if (!taskId || !projectId || !rows.length) return;
+    if (!projectId || !rows.length || (!taskId && !isPreSuggestedMode)) return;
     setSaving(true);
     try {
       const pending = rows.filter((r) => isPendingId(r.id) && !deletedIds.has(r.id));
@@ -1265,7 +1327,7 @@ const SubtaskExcelView = ({
         ...(r.acceptanceCriteria != null && r.acceptanceCriteria !== '' && { acceptanceCriteria: r.acceptanceCriteria }),
         ...(r.checklist != null && r.checklist.length > 0 && { checklist: r.checklist }),
         templateData: buildTemplateData(r),
-        parents: [taskId],
+        ...(taskId ? { parents: [taskId] } : {}),
       }));
 
       const existing = rows.filter((r) => !isPendingId(r.id));
@@ -1283,7 +1345,7 @@ const SubtaskExcelView = ({
               type: childType,
               project: projectId,
               ...(templateId && { template: templateId }),
-              parents: [taskId],
+              ...(taskId ? { parents: [taskId] } : {}),
               title: p.title,
               ...(p.acceptanceCriteria != null && { acceptanceCriteria: p.acceptanceCriteria }),
               ...(p.checklist != null && { checklist: p.checklist }),
@@ -1306,14 +1368,16 @@ const SubtaskExcelView = ({
 
       setDirtyIds(new Set());
       setDeletedIds(new Set());
-      localStorage.removeItem(getStorageKey(taskId));
-      loadRows();
+      if (taskId) {
+        localStorage.removeItem(getStorageKey(taskId));
+        loadRows();
+      }
     } catch (e) {
       setError((e as Error)?.message ?? 'Failed to save');
     } finally {
       setSaving(false);
     }
-  }, [taskId, projectId, childType, templateId, rows, dirtyIds, deletedIds, buildTemplateData, loadRows]);
+  }, [taskId, projectId, childType, templateId, rows, dirtyIds, deletedIds, buildTemplateData, loadRows, isPreSuggestedMode]);
 
   const deleteButtonTemplate = useMemo(
     () => createDeleteButtonTemplate(onToggleDeleteRef, onRemoveRef),
@@ -1545,8 +1609,8 @@ const SubtaskExcelView = ({
     setRowHeights((prev) => ({ ...prev, [String(rowId)]: height }));
   }, []);
 
-  if (!taskId) return null;
-  if (loading || (templateId && templateLoading)) return <Spinner />;
+  if (!taskId && !isPreSuggestedMode) return null;
+  if (!isPreSuggestedMode && (loading || (templateId && templateLoading))) return <Spinner />;
   if (error) {
     return (
       <div className="mt-4">

@@ -2,7 +2,14 @@ import { KeyboardEvent, useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import AiAgentService, { AiChatSession } from 'src/modules/aiAgent/aiAgentService';
 import ContentWrapper from 'src/view/layout/styles/ContentWrapper';
-import TaskExcel, { TaskExcelItem } from './components/TaskExcel';
+import SubtaskExcelView from 'src/view/task/SubtaskExcelView';
+
+type TaskExcelItem = {
+  id: string;
+  name: string;
+  description?: string;
+  type?: string;
+};
 
 type ChatMessage = {
   role: 'user' | 'assistant';
@@ -215,7 +222,12 @@ const ChatPage = () => {
               >
                 {message.content}
                 {message.role === 'assistant' && (message.suggestedTasks?.length || 0) > 0 && (
-                  <TaskExcel tasks={message.suggestedTasks || []} />
+                  <SubtaskExcelView
+                    preSuggestedTasks={message.suggestedTasks || []}
+                    taskId={undefined}
+                    projectId={projectId || null}
+                    type="TASK"
+                  />
                 )}
               </div>
             </div>
