@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import moment from 'moment';
 import {
   ReactGrid,
   Column,
@@ -116,14 +117,11 @@ function defaultColorForType(type: string): string {
 }
 
 function toLocalDateString(date: Date): string {
-  const year = date.getFullYear();
-  const month = `${date.getMonth() + 1}`.padStart(2, '0');
-  const day = `${date.getDate()}`.padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  return moment(date).format('DD-MM-YY');
 }
 
 function addDays(date: Date, days: number): Date {
-  return new Date(date.getTime() + days * DAY_MS);
+  return moment(date).add(days, 'days').toDate();
 }
 
 function buildTimelineDays(start: Date, end: Date): Date[] {
