@@ -44,6 +44,13 @@ export default (database) => {
         response: {
           success: Boolean,
           message: String,
+          error: String,
+          suggestedTasksType: String,
+          suggestedTasks: Schema.Types.Mixed,
+        },
+        tokensUsed: {
+          type: Number,
+          default: 0,
         },
       },
       history: [
@@ -54,6 +61,13 @@ export default (database) => {
           response: {
             success: Boolean,
             message: String,
+            error: String,
+            suggestedTasksType: String,
+            suggestedTasks: Schema.Types.Mixed,
+          },
+          tokensUsed: {
+            type: Number,
+            default: 0,
           },
         },
       ],

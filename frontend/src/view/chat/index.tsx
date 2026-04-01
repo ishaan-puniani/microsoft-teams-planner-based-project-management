@@ -2,15 +2,50 @@ import { KeyboardEvent, useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import AiAgentService, { AiChatSession } from 'src/modules/aiAgent/aiAgentService';
 import ContentWrapper from 'src/view/layout/styles/ContentWrapper';
+import TaskExcel, { TaskExcelItem } from './components/TaskExcel';
 
 type ChatMessage = {
   role: 'user' | 'assistant';
   content: string;
+  suggestedTasks?: TaskExcelItem[];
 };
+
+const DEFAULT_ACTIONS_MESSAGE =
+  'Hello! I can help you manage this project.\n\nYou can ask me to:\n1. Suggest epics from a project brief\n2. Break an epic into user stories\n3. Generate tasks from a user story\n4. Suggest todos/subtasks for a task\n5. Suggest test cases for a task\n6. Estimate effort for a task or project\n7. Refine project descriptions\n\nTry: "Suggest epics for this project" or "Break Epic X into user stories".';
+
+function createDefaultSession(): AiChatSession {
+  return {
+    data: {
+      request: { userInput: '' },
+      response: { success: true, message: DEFAULT_ACTIONS_MESSAGE, error: null, suggestedTasks: [] },
+      tokensUsed: 0,
+    },
+    history: [],
+  };
+}
+
+function createHistoryMessage(entry: {
+  request?: { userInput?: string };
+  response?: { message?: string; suggestedTasks?: TaskExcelItem[] };
+}): ChatMessage[] {
+  const out: ChatMessage[] = [];
+  if (entry.request?.userInput) {
+    out.push({ role: 'user', content: entry.request.userInput });
+  }
+  if (entry.response?.message) {
+    out.push({
+      role: 'assistant',
+      content: entry.response.message,
+      suggestedTasks: entry.response.suggestedTasks || [],
+    });
+  }
+  return out;
+}
 
 const ChatPage = () => {
   const { projectId } = useParams<{ projectId: string }>();
   const [session, setSession] = useState<AiChatSession | null>(null);
+  const [latestSuggestedTasks, setLatestSuggestedTasks] = useState<TaskExcelItem[]>([]);
   const [draft, setDraft] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -20,14 +55,58 @@ const ChatPage = () => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [session, loading]);
 
+  useEffect(() => {
+    if (!projectId) {
+      setSession(createDefaultSession());
+      return;
+    }
+
+    let active = true;
+
+    const loadHistory = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const { success, generation } = await AiAgentService.chatHistory(projectId);
+        if (!active) return;
+
+        if (success && generation) {
+          setSession(generation);
+        } else {
+          setSession(createDefaultSession());
+        }
+      } catch (historyError: any) {
+        if (!active) return;
+        setSession(createDefaultSession());
+        const message =
+          historyError?.response?.data?.error ||
+          historyError?.response?.data?.message ||
+          historyError?.message;
+        if (message) {
+          setError(`Could not load chat history: ${String(message)}`);
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadHistory();
+
+    return () => {
+      active = false;
+    };
+  }, [projectId]);
+
   // Build displayed messages from session history and current data
   const getDisplayedMessages = (): ChatMessage[] => {
     if (!session) return [];
 
     const messages: ChatMessage[] = [];
 
-    // Add initial greeting if no history
-    if (!session.history?.length && !session.data?.request?.userInput) {
+    // Add initial greeting if no history and no existing response
+    if (!session.history?.length && !session.data?.request?.userInput && !session.data?.response?.message) {
       messages.push({
         role: 'assistant',
         content:
@@ -39,18 +118,7 @@ const ChatPage = () => {
     // Add history
     if (session.history && Array.isArray(session.history)) {
       for (const entry of session.history) {
-        if (entry.request?.userInput) {
-          messages.push({
-            role: 'user',
-            content: entry.request.userInput,
-          });
-        }
-        if (entry.response?.message) {
-          messages.push({
-            role: 'assistant',
-            content: entry.response.message,
-          });
-        }
+        messages.push(...createHistoryMessage(entry as any));
       }
     }
 
@@ -65,6 +133,8 @@ const ChatPage = () => {
       messages.push({
         role: 'assistant',
         content: session.data.response.message,
+        suggestedTasks:
+          session.data.response.suggestedTasks || latestSuggestedTasks,
       });
     }
 
@@ -85,14 +155,19 @@ const ChatPage = () => {
     setError(null);
 
     try {
-      const { success, generation } = await AiAgentService.chat(
+      const response = await AiAgentService.chat(
         projectId,
         trimmed,
         session?._id || session?.id,
       );
 
-      if (success && generation) {
-        setSession(generation);
+      if (response.success && response.generation) {
+        setSession(response.generation);
+        setLatestSuggestedTasks(
+          response.generation.data?.response?.suggestedTasks ||
+            response.suggestedTasks ||
+            [],
+        );
       } else {
         setError('Failed to get AI response.');
       }
@@ -139,6 +214,9 @@ const ChatPage = () => {
                 style={{ maxWidth: '80%', whiteSpace: 'pre-wrap' }}
               >
                 {message.content}
+                {message.role === 'assistant' && (message.suggestedTasks?.length || 0) > 0 && (
+                  <TaskExcel tasks={message.suggestedTasks || []} />
+                )}
               </div>
             </div>
           ))}

@@ -7,7 +7,14 @@ import { createChatAgent, convertHistoryToMessages } from '../../services/aiAgen
 
 type ChatHistoryEntry = {
 	request: { userInput: string };
-	response: { success: boolean; message: string };
+	response: {
+		success: boolean;
+		message: string;
+		error?: string | null;
+		suggestedTasksType?: string | null;
+		suggestedTasks?: Array<{ id: string; name: string; description?: string; type?: string }>;
+	};
+	tokensUsed?: number;
 };
 
 export default async function chat(req, res, next) {
@@ -54,7 +61,14 @@ export default async function chat(req, res, next) {
 				createdBy: userId,
 				data: {
 					request: { userInput: '' },
-					response: { success: false, message: '' },
+					response: {
+						success: false,
+						message: '',
+						error: null,
+						suggestedTasksType: null,
+						suggestedTasks: [],
+					},
+					tokensUsed: 0,
 				},
 				history: [],
 			});
@@ -65,22 +79,51 @@ export default async function chat(req, res, next) {
 Description: ${projectDescription || '(no description)'}
 Workspace Context: ${workspaceLearning || '(no workspace context)'}`;
 
+		const forwardedHeaders: Record<string, string> = {};
+		if (typeof req.headers.authorization === 'string') {
+			forwardedHeaders.authorization = req.headers.authorization;
+		}
+		if (typeof req.headers.cookie === 'string') {
+			forwardedHeaders.cookie = req.headers.cookie;
+		}
+
+		const config = getConfig();
+		const internalBaseURL =
+			typeof config.INTERNAL_API_BASE_URL === 'string' && config.INTERNAL_API_BASE_URL.trim()
+				? config.INTERNAL_API_BASE_URL.trim()
+				: null;
+		const fallbackPort = config.PORT || 9080;
+		const baseURL = internalBaseURL || `http://localhost:${fallbackPort}`;
+
+		const effectiveTenantId = String(tenantId || req.currentTenant?.id || '').trim();
+		if (!effectiveTenantId) {
+			return ApiResponseHandler.error(req, res, new Error('tenantId is required'));
+		}
+
 		// Create the LangGraph agent
-		const agent = await createChatAgent(projectContext);
+		const agent = await createChatAgent(projectContext, {
+			baseURL,
+			tenantId: effectiveTenantId,
+			headers: forwardedHeaders,
+			projectId,
+		});
 
 		// Convert history to chat messages
 		const previousMessages = convertHistoryToMessages(session.history || []);
 
 		// Run the agent
 		try {
-			const { response: reply } = await agent.invoke(userInput, previousMessages);
+			const { response: reply, tokensUsed, debugTrace, suggestions } = await agent.invoke(userInput, previousMessages);
+
+			const toolErrorMatch = reply.match(/Tool\s+\w+\s+error:\s*([\s\S]+)/i);
+			const toolError = toolErrorMatch ? toolErrorMatch[1].trim() : null;
 
 			if (!reply) {
 				return ApiResponseHandler.error(req, res, new Error('AI returned an empty response'));
 			}
 
 			// Move current data to history if it exists
-			if (session.data?.request?.userInput && session.data?.response?.message) {
+			if (session.data?.request?.userInput) {
 				session.history = session.history || [];
 				session.history.unshift({
 					request: session.data.request,
@@ -95,7 +138,14 @@ Workspace Context: ${workspaceLearning || '(no workspace context)'}`;
 			// Update current data
 			session.data = {
 				request: { userInput },
-				response: { success: true, message: reply },
+				response: {
+					success: !toolError,
+					message: reply,
+					error: toolError,
+					suggestedTasksType: suggestions?.suggestedTasksType || null,
+					suggestedTasks: suggestions?.suggestedTasks || [],
+				},
+				tokensUsed: Number(tokensUsed || 0),
 			};
 
 			await session.save();
@@ -117,16 +167,71 @@ Workspace Context: ${workspaceLearning || '(no workspace context)'}`;
 					data: session.data,
 					history: session.history || [],
 				},
+				suggestedTasks: session.data?.response?.suggestedTasks || [],
+				suggestedTasksType: session.data?.response?.suggestedTasksType || null,
+				debug: {
+					toolTrace: debugTrace || [],
+				},
 			};
 
 			await ApiResponseHandler.success(req, res, responseData);
 		} catch (agentError) {
 			console.error('LangGraph agent error:', agentError);
-			return ApiResponseHandler.error(
-				req,
-				res,
-				new Error(`Agent error: ${agentError instanceof Error ? agentError.message : String(agentError)}`),
-			);
+
+			const agentErrorMessage = agentError instanceof Error ? agentError.message : String(agentError);
+
+			if (session && userInput) {
+				if (session.data?.request?.userInput) {
+					session.history = session.history || [];
+					session.history.unshift({
+						request: session.data.request,
+						response: session.data.response,
+					});
+					if (session.history.length > 20) {
+						session.history = session.history.slice(0, 20);
+					}
+				}
+
+				session.data = {
+					request: { userInput },
+					response: {
+						success: false,
+						message: 'Agent failed to process the request.',
+						error: agentErrorMessage,
+						suggestedTasksType: null,
+						suggestedTasks: [],
+					},
+					tokensUsed: 0,
+				};
+
+				await session.save();
+
+				return ApiResponseHandler.success(req, res, {
+					success: true,
+					generation: {
+						_id: session._id,
+						id: session._id?.toString(),
+						tenantId: session.tenantId,
+						tenant: session.tenant,
+						eventUri: session.eventUri,
+						userId: session.userId,
+						createdBy: session.createdBy,
+						createdAt: session.createdAt,
+						updatedAt: session.updatedAt,
+						__v: session.__v,
+						data: session.data,
+						history: session.history || [],
+					},
+					suggestedTasks: [],
+					suggestedTasksType: null,
+					debug: {
+						toolTrace: [],
+						agentError: agentErrorMessage,
+					},
+				});
+			}
+
+			return ApiResponseHandler.error(req, res, new Error(`Agent error: ${agentErrorMessage}`));
 		}
 	} catch (error) {
 		if (axios.isAxiosError(error)) {

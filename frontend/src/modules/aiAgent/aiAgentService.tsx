@@ -6,6 +6,24 @@ export type AiChatMessage = {
   content: string;
 };
 
+export type AiSuggestedTask = {
+  id: string;
+  name: string;
+  description?: string;
+  type?: string;
+};
+
+export type AiChatResponse = {
+  success: boolean;
+  generation: AiChatSession;
+  suggestedTasksType?: string | null;
+  suggestedTasks?: AiSuggestedTask[];
+  debug?: {
+    toolTrace?: any[];
+    agentError?: string;
+  };
+};
+
 export type AiChatSession = {
   _id?: string;
   id?: string;
@@ -19,11 +37,25 @@ export type AiChatSession = {
   __v?: number;
   data: {
     request: { userInput: string };
-    response: { success: boolean; message: string };
+    response: {
+      success: boolean;
+      message: string;
+      error?: string | null;
+      suggestedTasksType?: string | null;
+      suggestedTasks?: AiSuggestedTask[];
+    };
+    tokensUsed?: number;
   };
   history: Array<{
     request: { userInput: string };
-    response: { success: boolean; message: string };
+    response: {
+      success: boolean;
+      message: string;
+      error?: string | null;
+      suggestedTasksType?: string | null;
+      suggestedTasks?: AiSuggestedTask[];
+    };
+    tokensUsed?: number;
   }>;
 };
 
@@ -225,7 +257,7 @@ export default class AiAgentService {
     projectId: string,
     message: string,
     sessionId?: string,
-  ): Promise<{ success: boolean; generation: AiChatSession }> {
+  ): Promise<AiChatResponse> {
     const tenantId = AuthCurrentTenant.get();
     const response = await authAxios.post(
       `/tenant/${tenantId}/ai-agent/chat/${projectId}`,
@@ -234,6 +266,16 @@ export default class AiAgentService {
         sessionId,
       },
     );
-    return response.data as { success: boolean; generation: AiChatSession };
+    return response.data as AiChatResponse;
+  }
+
+  static async chatHistory(
+    projectId: string,
+  ): Promise<{ success: boolean; generation: AiChatSession | null }> {
+    const tenantId = AuthCurrentTenant.get();
+    const response = await authAxios.get(
+      `/tenant/${tenantId}/ai-agent/chat-session/${projectId}`,
+    );
+    return response.data as { success: boolean; generation: AiChatSession | null };
   }
 }
