@@ -16,6 +16,7 @@ const models = [
   require('./status').default,
   require('./tag').default,
   require('./scheduledEvent').default,
+  require('./chatSession').default,
 ];
 
 export default function init(database) {

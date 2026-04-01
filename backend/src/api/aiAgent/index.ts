@@ -10,8 +10,10 @@ import plannerSuggestTaskEstimations from './plannerSuggestTaskEstimations';
 import plannerSuggestProjectEstimations from './plannerSuggestProjectEstimations';
 import suggestProjectDescription from './suggestProjectDescription';
 import suggestProjectIntegrations from './suggestProjectIntegrations';
+import chat from './chat';
 
 export default (app) => {
+   app.post('/tenant/:tenantId/ai-agent/chat/:projectId',chat );
   app.get('/tenant/:tenantId/ai-agent/organize-project-tasks/:projectId', organizeTasksInPorject);
   
   app.get('/tenant/:tenantId/ai-agent/suggest-estimations-for-task/:projectId/:taskId', plannerSuggestTaskEstimations);

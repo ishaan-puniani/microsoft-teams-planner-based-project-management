@@ -1,13 +1,39 @@
 import AuthCurrentTenant from 'src/modules/auth/authCurrentTenant';
 import authAxios from 'src/modules/shared/axios/authAxios';
 
-export type PlannerStep = 'epics' | 'user_stories' | 'tasks';
+export type AiChatMessage = {
+  role: 'user' | 'assistant';
+  content: string;
+};
+
+export type AiChatSession = {
+  _id?: string;
+  id?: string;
+  tenantId?: string;
+  tenant?: string;
+  eventUri?: string;
+  userId?: string;
+  createdBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  __v?: number;
+  data: {
+    request: { userInput: string };
+    response: { success: boolean; message: string };
+  };
+  history: Array<{
+    request: { userInput: string };
+    response: { success: boolean; message: string };
+  }>;
+};
 
 /** Optional PDF or image (base64 + MIME) for planner / test-case suggestion APIs. */
 export type AiSuggestionAttachment = {
   attachmentBase64: string;
   attachmentMimeType: string;
 };
+
+export type PlannerStep = 'epics' | 'user_stories' | 'tasks';
 
 function attachmentFields(attachment?: AiSuggestionAttachment | null) {
   if (!attachment?.attachmentBase64?.trim() || !attachment?.attachmentMimeType?.trim()) {
@@ -193,5 +219,21 @@ export default class AiAgentService {
       `/tenant/${tenantId}/ai-agent/suggest-estimations-for-project/${projectId}`,
     );
     return response.data as { processed: number; results: Array<{ taskId: string; title: string; type: string }> };
+  }
+
+  static async chat(
+    projectId: string,
+    message: string,
+    sessionId?: string,
+  ): Promise<{ success: boolean; generation: AiChatSession }> {
+    const tenantId = AuthCurrentTenant.get();
+    const response = await authAxios.post(
+      `/tenant/${tenantId}/ai-agent/chat/${projectId}`,
+      {
+        message,
+        sessionId,
+      },
+    );
+    return response.data as { success: boolean; generation: AiChatSession };
   }
 }

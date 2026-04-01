@@ -4,6 +4,13 @@ import Permissions from 'src/security/permissions';
 const permissions = Permissions.values;
 
 const privateRoutes = [
+   {
+    path: '/chat/:projectId',
+    loader: () =>
+      import('src/view/chat'),
+    permissionRequired: null,
+    exact: true,
+  },
   {
     path: '/',
     loader: () =>
